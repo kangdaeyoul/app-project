@@ -22,3 +22,11 @@ export interface WorkerAvailability { date: string; status: AvailabilityStatus }
 export interface WorkerWork { id: string; siteId: string; date: string; scheduledAmount: number; paidAmount: number }
 export interface WorkerSummary extends Worker { availability: AvailabilityStatus; todaySiteCount: number; monthlyWorkDays: number; monthlyPayable: number; unpaidAmount: number }
 export interface WorkerDetail extends WorkerSummary { sites: Site[]; work: WorkerWork[]; availabilityDates: WorkerAvailability[]; month: string }
+
+export const DAILY_WORK_STATUSES = ['작업예정', '작업중', '작업완료', '관리자확인완료'] as const;
+export type DailyWorkStatus = typeof DAILY_WORK_STATUSES[number];
+export interface DailyWorkInput { workDate: string; siteId: string; managerId: string; participantIds: string[]; startTime: string; endTime: string; content: string; notes: string; status: DailyWorkStatus }
+export interface DailyWorkParticipant { dailyWorkId: string; workerId: string; displayName: string }
+export interface DailyWorkRecord extends Omit<DailyWorkInput, 'participantIds'> { id: string; siteName: string; managerDisplayName: string; materialCount: number; beforePhotoCount: number; afterPhotoCount: number }
+export interface DailyWork extends DailyWorkRecord { participants: DailyWorkParticipant[]; totalMinutes: number | null }
+export function workMinutes(start: string, end: string): number | null { if (!start || !end) return null; const minutes = (time: string) => { const [h,m] = time.split(':').map(Number); return h*60+m; }; return minutes(end)-minutes(start); }

@@ -16,6 +16,7 @@ import {
 } from "@jongno/shared";
 import { WORKERS_REPOSITORY, WorkersRepository } from "./workers.repository";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";
+import { DAILY_WORK_REPOSITORY, DailyWorkRepository } from "./daily-work.repository";
 import { seoulToday, validateMonth } from "./date";
 export function validDate(value: string) {
   return (
@@ -56,6 +57,7 @@ export class WorkersService {
   constructor(
     @Inject(WORKERS_REPOSITORY) private readonly repository: WorkersRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
+    @Inject(DAILY_WORK_REPOSITORY) private readonly daily: DailyWorkRepository,
   ) {}
   find(id: string) {
     const w = this.repository.find(id);
@@ -83,7 +85,7 @@ export class WorkersService {
         .list()
         .filter((s) => s.managerId === w.id && isSiteOnDate(s, today)).length,
       monthlyWorkDays: new Set(
-        monthly.filter((t) => t.date <= today).map((t) => t.date),
+        this.daily.list().filter(t => (t.managerId === w.id || t.participants.some(p => p.workerId === w.id)) && t.workDate.startsWith(month) && t.workDate <= today && ["작업완료", "관리자확인완료"].includes(t.status)).map(t => t.workDate),
       ).size,
       monthlyPayable: monthly.reduce((n, t) => n + t.scheduledAmount, 0),
       unpaidAmount: work.reduce(
@@ -110,7 +112,7 @@ export class WorkersService {
       sites: this.sites
         .list()
         .filter(
-          (s) => s.managerId === id || work.some((t) => t.siteId === s.id),
+          (s) => s.managerId === id || work.some((t) => t.siteId === s.id) || this.daily.list().some(t => t.siteId === s.id && (t.managerId === id || t.participants.some(p => p.workerId === id))),
         ),
       availabilityDates: this.repository.availability(id),
     };

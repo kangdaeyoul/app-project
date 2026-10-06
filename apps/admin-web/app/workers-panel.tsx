@@ -1,4 +1,5 @@
 "use client";
+import DailyWorkPanel from "./daily-work-panel";
 import { useEffect, useState } from "react";
 import {
   AVAILABILITY_STATUSES,
@@ -378,39 +379,7 @@ export default function WorkersPanel() {
                   )}
                 </>
               ) : tab === "작업이력" ? (
-                <>
-                  {detail.work.filter((w) => w.date <= today()).length ? (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>작업일</th>
-                          <th>현장</th>
-                          <th>지급예정액</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detail.work
-                          .filter((w) => w.date <= today())
-                          .map((w) => (
-                            <tr key={w.id}>
-                              <td>{w.date}</td>
-                              <td>
-                                {detail.sites.find((s) => s.id === w.siteId)
-                                  ?.name || w.siteId}
-                              </td>
-                              <td>{money(w.scheduledAmount)}</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <p>작업이력이 없습니다.</p>
-                  )}
-                  <p>
-                    실적은 샘플 작업기록 기준이며 일일작업 입력은 후속
-                    단계입니다.
-                  </p>
-                </>
+                <DailyWorkPanel workerId={detail.id}/>
               ) : tab === "정산" ? (
                 <>
                   <div className="detail-totals">

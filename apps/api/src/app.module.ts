@@ -1,4 +1,6 @@
 import { Body, Controller, Delete, Get, Inject, Module, Param, Post, Put, Query } from '@nestjs/common';
+import { DailyWorkService } from './daily-work.service';
+import { SampleDailyWorkRepository, DAILY_WORK_REPOSITORY } from './daily-work.repository';
 import { WorkersService } from './workers.service';
 import { SampleWorkersRepository, WORKERS_REPOSITORY } from './workers.repository';
 import { DashboardService } from './dashboard.service';
@@ -28,5 +30,15 @@ class WorkersController {
   @Delete(':id') archive(@Param('id') id: string) { return this.workers.archive(id); }
   @Put(':id/availability/:date') availability(@Param('id') id: string, @Param('date') date: string, @Body() body: unknown) { return this.workers.setAvailability(id, date, body); }
 }
-@Module({ controllers: [AppController, SitesController, WorkersController], providers: [DashboardService, SitesService, WorkersService, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Controller('daily-work')
+class DailyWorkController {
+  constructor(@Inject(DailyWorkService) private readonly work: DailyWorkService) {}
+  @Get() list(@Query('siteId') siteId?: string,@Query('workerId') workerId?: string){return this.work.list(siteId,workerId);}
+  @Get(':id') find(@Param('id') id:string){return this.work.find(id);}
+  @Post() create(@Body() body:unknown){return this.work.create(body);}
+  @Put(':id') update(@Param('id') id:string,@Body() body:unknown){return this.work.update(id,body);}
+  @Post(':id/start') start(@Param('id') id:string){return this.work.clock(id,'start');}
+  @Post(':id/finish') finish(@Param('id') id:string){return this.work.clock(id,'finish');}
+}
+@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController], providers: [DashboardService, SitesService, WorkersService, DailyWorkService, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
 export class AppModule {}

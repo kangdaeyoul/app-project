@@ -29,3 +29,12 @@ Worker는 `name`과 `displayName`을 분리하며 `phone`, 업무 `role`, `memo`
 WorkerAvailability는 workerId+date 기준 유일한 상태(근무가능/휴무/오전불가/오후불가)이며 기본 상태보다 우선합니다. WorkerWork 샘플 원장은 id/siteId/date/scheduledAmount/paidAmount로 작업일과 정산을 집계합니다. 현재 별도의 입력 API는 없습니다.
 
 Site의 managerId는 작업진행자를 참조하고 manager는 배정 당시 표시명 스냅샷입니다. Worker 삭제는 soft delete로 구현하고 물리 삭제/연쇄 삭제를 하지 않습니다. 기존 참조와 표시명은 보존하며 활성 선택 목록에서는 제외합니다. 과거 참여는 작업기록의 siteId와 현재 대표 배정을 합쳐 조회합니다.
+
+## 일일작업 관계형 이전 경계
+
+- `daily_work`: id(PK), work_date(DATE), site_id(FK), manager_id(FK), site_name_snapshot, manager_display_name_snapshot, start_time(TIME, nullable), end_time(TIME, nullable), content, notes, status, material_count, before_photo_count, after_photo_count.
+- `daily_work_participants`: daily_work_id(FK), worker_id(FK), display_name_snapshot. (daily_work_id, worker_id) 복합 PK/유일 제약.
+
+메모리 어댑터도 두 컬렉션을 분리합니다. 저장소 save는 기본기록과 참여관계 교체를 한 작업으로 수행하며 PostgreSQL 전환 시 트랜잭션으로 처리해야 합니다. site_id+work_date에는 유일 제약을 걸지 않아 동일 현장의 여러 날짜/여러 기록을 허용합니다. 작업진행자는 soft delete하고 FK를 연쇄 삭제하지 않습니다. 조회용 스냅샷은 명칭 변경 후에도 보존됩니다.
+
+작업시간은 당일 HH:mm 차이의 분 단위 파생 값이며 저장하지 않습니다. 미정은 API에서 빈 문자열/totalMinutes null로 표시합니다. 향후 DB에서는 TIME null로 매핑합니다. 야간 작업은 날짜별로 분리합니다. 사진/자재 건수는 현재 0인 읽기 필드이며 후속 연결 시 첨부·자재사용 테이블로부터 집계할 수 있습니다.
