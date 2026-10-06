@@ -184,8 +184,8 @@ test("정산은 샘플 원장으로 집계하고 잘못된 입력은 거부한�
     const w = rows.find((w: { id: string }) => w.id === "W001");
     assert.equal(w.todaySiteCount, 1);
     assert.equal(w.monthlyWorkDays, 1);
-    assert.equal(w.monthlyPayable, 1800000);
-    assert.equal(w.unpaidAmount, 1800000);
+    assert.equal(w.monthlyPayable, 2337000);
+    assert.equal(w.unpaidAmount, 2337000);
     assert.equal(
       rows.find((w: { id: string }) => w.id === "W002").unpaidAmount,
       650000,

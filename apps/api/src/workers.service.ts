@@ -1,3 +1,4 @@
+import { EXPENSES_REPOSITORY, ExpensesRepository, workerExpenseTotals } from './expenses.repository';
 import {
   BadRequestException,
   ConflictException,
@@ -58,6 +59,7 @@ export class WorkersService {
     @Inject(WORKERS_REPOSITORY) private readonly repository: WorkersRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
     @Inject(DAILY_WORK_REPOSITORY) private readonly daily: DailyWorkRepository,
+    @Inject(EXPENSES_REPOSITORY) private readonly expenses: ExpensesRepository,
   ) {}
   find(id: string) {
     const w = this.repository.find(id);
@@ -76,6 +78,7 @@ export class WorkersService {
     const today = seoulToday();
     const work = this.repository.work(w.id);
     const monthly = work.filter((t) => t.date.startsWith(month));
+    const expenses = this.expenses.list().filter(e => e.workerId === w.id);
     return {
       ...w,
       availability:
@@ -87,11 +90,11 @@ export class WorkersService {
       monthlyWorkDays: new Set(
         this.daily.list().filter(t => (t.managerId === w.id || t.participants.some(p => p.workerId === w.id)) && t.workDate.startsWith(month) && t.workDate <= today && ["작업완료", "관리자확인완료"].includes(t.status)).map(t => t.workDate),
       ).size,
-      monthlyPayable: monthly.reduce((n, t) => n + t.scheduledAmount, 0),
+      monthlyPayable: monthly.reduce((n, t) => n + t.scheduledAmount, 0) + workerExpenseTotals(expenses.filter(e => e.expenseDate.startsWith(month))).totalPayable,
       unpaidAmount: work.reduce(
         (n, t) => n + t.scheduledAmount - t.paidAmount,
         0,
-      ),
+      ) + workerExpenseTotals(expenses).unpaidAmount,
     };
   }
   list(month = seoulToday().slice(0, 7), includeDeleted = false) {
@@ -108,11 +111,12 @@ export class WorkersService {
     return {
       ...this.summary(w, month),
       month,
+      expenseSettlement: workerExpenseTotals(this.expenses.list().filter(e=>e.workerId===id)),
       work,
       sites: this.sites
         .list()
         .filter(
-          (s) => s.managerId === id || work.some((t) => t.siteId === s.id) || this.daily.list().some(t => t.siteId === s.id && (t.managerId === id || t.participants.some(p => p.workerId === id))),
+          (s) => this.expenses.list().some(e=>e.workerId===id&&e.siteId===s.id) || s.managerId === id || work.some((t) => t.siteId === s.id) || this.daily.list().some(t => t.siteId === s.id && (t.managerId === id || t.participants.some(p => p.workerId === id))),
         ),
       availabilityDates: this.repository.availability(id),
     };

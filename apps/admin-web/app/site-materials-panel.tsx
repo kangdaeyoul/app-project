@@ -35,8 +35,7 @@ export default function SiteMaterialsPanel({ siteId }: { siteId: string }) {
     <div>
       <h3>현장 사용자재 내역</h3>
       <p>
-        일일작업에서 등록한 실제 사용량입니다. 구매·원가·경비는 다음 단계에서
-        연결합니다.
+        일일작업에서 등록한 실제 사용량입니다. 구매·지출은 별도 원장이며 구매량과 사용량은 자동 차감하지 않습니다.
       </p>
       <div className="table-scroll">
         <table>

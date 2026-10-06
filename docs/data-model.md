@@ -46,7 +46,7 @@ Site의 managerId는 작업진행자를 참조하고 manager는 배정 당시 �
 
 사용내역의 현장/작업일자는 daily_work.site_id/work_date에서 조인하므로 중복 저장하지 않습니다. 일일작업 수정 시 작업·참여자·사용내역을 한 트랜잭션으로 반영해야 합니다. 사용 행은 독립 ID를 가지며 같은 자재를 같은 작업에 여러 줄 입력할 수도 있습니다. 기록 건수는 행 개수이고 현장 합계는 이름/규격/단위의 합입니다. 자재명은 외부 가격표나 비용과 연결되지 않습니다.
 
-후속 구매는 `material_purchases` 및 구매 항목을 별도 테이블로 설계하고 material_id를 참조합니다. 회사 직접구매/작업진행자 대납, 가격, 영수증, 현장원가 배분은 구매 및 원가 도메인에서 관리합니다. 구매량과 실제 사용량은 별개이며 이번 단계에서 자동 원가 계산이나 구매 차감은 하지 않습니다. 반환/재고 이동은 별도 후속 정책이 필요합니다.
+후속 구매는 `material_purchases` 및 구매 항목을 별도 테이블로 설계하고 material_id를 참조합니다. 회사 직접구매/작업진행자 대납, 가격, 영수증, 현장원가 배분은 구매 및 원가 도메인에서 관리합니다. 구매량과 실제 사용량은 별개이며 지출 원장에 구매금액을 기록하지만 자동 원가 배분이나 구매 차감은 하지 않습니다. 반환/재고 이동은 별도 후속 정책이 필요합니다.
 
 ## 사진 엔터티와 파일 저장소
 
@@ -55,3 +55,18 @@ Site의 managerId는 작업진행자를 참조하고 manager는 배정 당시 �
 순서는 일일작업+사진 구분별로 관리하고 전체 ID 검증 후 교체합니다. 삭제 시 그룹 순서를 다시 번호 매깁니다. PostgreSQL 이전 시 순서 교체와 삭제는 트랜잭션으로 처리하고 FK 및 (daily_work_id, type, sort_order) 인덱스를 고려하세요. 클라우드/NAS 이전 시 파일과 메타데이터 저장 실패 보상도 어댑터에서 처리해야 합니다.
 
 현재 임시 어댑터는 원본 바이트를 그대로 보관하며 삭제하면 제거합니다. 장기 원본 보존 정책은 별도 결정이 필요합니다. 스마트폰 촬영·EXIF는 입력 어댑터, 사진대지 PDF는 정렬/위치/촬영시각/원본을 사용하는 별도 서비스로 확장합니다. 관리자 승인 시 uploaded_by를 인증 사용자 FK로 전환하고 approval_status/reviewer_id/approved_at 등을 추가할 수 있습니다. 필수사진 수는 작업완료 검증 정책으로 추가합니다. 이번 단계에는 승인·자동 검사·PDF 생성이 없습니다.
+
+
+## 구매·지출과 작업진행자 지급 관계
+
+현재 `ExpensesRepository`는 다음 컬렉션을 분리합니다.
+
+- `expenses`: id(PK), expense_date(DATE), site_id(FK 필수), daily_work_id(FK nullable), site_name_snapshot, type, description, vendor, supply_amount, vat, payment_method, evidence_type, purchaser_snapshot, is_worker_advance, settled, settlement_date(DATE nullable), notes, receipt_file_key(nullable), created_at, updated_at.
+- `expense_line_items`: expense_id(PK/FK), quantity(NUMERIC 소수점 3자리), unit. 현재 지출당 한 품목이며 이후 복수 구매 항목으로 확장할 수 있습니다. 구매유형만 `material_purchases` 뷰 또는 테이블로 분리할 수 있고 향후 material_id를 연결할 수 있습니다.
+- `worker_settlements`: expense_id(PK/FK), worker_id(FK), display_name_snapshot. 작업비와 대납 지출의 지급 대상 관계이며 금액/정산 상태는 expense에서 조인합니다. 같은 지급의무를 별도 금액으로 복제하지 않습니다.
+
+합계금액은 supply_amount+vat의 읽기 값입니다. PostgreSQL의 BIGINT/NUMERIC 및 JS 안전 정수 정책을 적용해야 합니다. 현재 수량은 단가 곱셈에 쓰지 않고 전체 공급가액을 입력합니다. 완전 정산만 지원하며 부분지급은 후속 worker_settlement_payments 원장으로 분리하고 중복 지급 방지 정책을 추가해야 합니다.
+
+daily_work_id가 있으면 expenses.site_id와 같은 현장이어야 합니다. 현장 변경 시 기존 지출 연결을 먼저 해제하도록 검증합니다. DB에서는 복합 FK 또는 트랜잭션 검증을 고려하세요. 생성/수정 시 지출·항목·지급 관계를 트랜잭션으로 저장하고 삭제 시 해당 종속 관계만 제거합니다. 작업진행자 FK는 soft delete 후에도 보존하고 신규 배정에서 제외합니다.
+
+사용자재 daily_work_material_usage와 지출/구매는 별도 기록입니다. 구매량=사용량으로 가정하지 않으며 재고 차감/원가 배분을 수행하지 않습니다. receipt_file_key는 향후 영수증 저장소 참조이고 현재 파일을 업로드하거나 연결의 유효성을 검증하지 않습니다. 세금계산서/결제/파일 연동은 별도 어댑터로 추가합니다.

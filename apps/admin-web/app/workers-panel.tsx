@@ -1,4 +1,5 @@
 "use client";
+import ExpensesPanel from "./expenses-panel";
 import DailyWorkPanel from "./daily-work-panel";
 import { useEffect, useState } from "react";
 import {
@@ -392,9 +393,10 @@ export default function WorkersPanel() {
                     </div>
                   </div>
                   <p>
-                    지급예정액은 {detail.month} 기준이며, 미지급액과 아래 내역은
-                    전체 샘플 원장입니다. 지급 등록은 다음 단계에서 제공합니다.
+                    지급예정액은 {detail.month} 기준입니다. 위 합계는 기존 샘플 원장과 새 작업비·대납 기록을 포함합니다. 아래 새 지출 정산은 전체 기간 기준이며 실제 결제는 실행하지 않습니다.
                   </p>
+                  <ExpensesPanel workerId={detail.id}/>
+                  <h3>기존 샘플 정산 원장 (별도)</h3>
                   <div className="table-scroll">
                     <table>
                       <thead>

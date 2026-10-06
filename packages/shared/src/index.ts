@@ -21,7 +21,7 @@ export interface Worker extends WorkerInput { id: string; deletedAt: string | nu
 export interface WorkerAvailability { date: string; status: AvailabilityStatus }
 export interface WorkerWork { id: string; siteId: string; date: string; scheduledAmount: number; paidAmount: number }
 export interface WorkerSummary extends Worker { availability: AvailabilityStatus; todaySiteCount: number; monthlyWorkDays: number; monthlyPayable: number; unpaidAmount: number }
-export interface WorkerDetail extends WorkerSummary { sites: Site[]; work: WorkerWork[]; availabilityDates: WorkerAvailability[]; month: string }
+export interface WorkerDetail extends WorkerSummary { sites: Site[]; work: WorkerWork[]; availabilityDates: WorkerAvailability[]; month: string; expenseSettlement: WorkerExpenseTotals }
 
 export const DAILY_WORK_STATUSES = ['작업예정', '작업중', '작업완료', '관리자확인완료'] as const;
 export type DailyWorkStatus = typeof DAILY_WORK_STATUSES[number];
@@ -43,3 +43,26 @@ export type PhotoType = typeof PHOTO_TYPES[number];
 export interface PhotoRecord { id: string; dailyWorkId: string; type: PhotoType; location: string; description: string; capturedAt: string | null; uploadedBy: string; sortOrder: number; originalFilename: string; storageKey: string; mimeType: string; size: number; createdAt: string; isSample: boolean }
 export interface PhotoView extends PhotoRecord { siteId: string; workDate: string; url: string }
 export interface PhotoMetadata { location: string; description: string; capturedAt: string | null; uploadedBy: string }
+
+
+export const EXPENSE_TYPES = ['회사 직접 자재구매', '작업진행자 대납 자재구매', '작업비', '기타경비'] as const;
+export const PAYMENT_METHODS = ['법인카드', '회사계좌이체', '회사현금', '작업진행자 대납', '기타'] as const;
+export const EVIDENCE_TYPES = ['세금계산서', '카드전표', '현금영수증', '간이영수증', '증빙없음'] as const;
+export type ExpenseType = typeof EXPENSE_TYPES[number];
+export interface ExpenseInput {
+  expenseDate: string; siteId: string; dailyWorkId: string | null; type: ExpenseType;
+  description: string; vendor: string; quantity: number; unit: string;
+  supplyAmount: number; vat: number; paymentMethod: typeof PAYMENT_METHODS[number];
+  evidenceType: typeof EVIDENCE_TYPES[number]; purchaser: string; workerId: string | null;
+  isWorkerAdvance: boolean; settled: boolean; settlementDate: string | null; notes: string;
+  receiptFileKey: string | null;
+}
+export interface ExpenseRecord extends Omit<ExpenseInput, 'quantity' | 'unit' | 'workerId'> {
+  id: string; siteName: string; createdAt: string; updatedAt: string;
+}
+export interface ExpenseLineItem { expenseId: string; quantity: number; unit: string }
+export interface WorkerSettlement { expenseId: string; workerId: string; displayName: string }
+export interface Expense extends ExpenseRecord { quantity: number; unit: string; workerId: string | null; workerDisplayName: string | null; totalAmount: number }
+export interface ExpenseTotals { directMaterials: number; workerAdvances: number; labor: number; other: number; total: number }
+export interface WorkerExpenseTotals { labor: number; advances: number; totalPayable: number; settledAmount: number; unpaidAmount: number }
+export interface ExpenseList { items: Expense[]; totals: ExpenseTotals; workerTotals: WorkerExpenseTotals }

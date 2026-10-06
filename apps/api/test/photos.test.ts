@@ -126,6 +126,14 @@ test("현장과 날짜 필터, 일일작업 현장 변경, 기존 사진 보존"
         .length,
       0,
     );
+    // A linked expense keeps its own site; unlink it before moving this work.
+    const expenses = (await request(http).get("/api/expenses").expect(200)).body
+      .items;
+    for (const expense of expenses)
+      await request(http)
+        .put(`/api/expenses/${expense.id}`)
+        .send({ ...expense, dailyWorkId: null })
+        .expect(200);
     await request(http)
       .put("/api/daily-work/D001")
       .send({

@@ -1,3 +1,4 @@
+import { EXPENSES_REPOSITORY, ExpensesRepository } from './expenses.repository';
 import {
   BadRequestException,
   ConflictException,
@@ -27,6 +28,7 @@ import { seoulToday } from "./date";
 @Injectable()
 export class DailyWorkService {
   constructor(
+    @Inject(EXPENSES_REPOSITORY) private readonly expenses: ExpensesRepository,
     @Inject(DAILY_WORK_REPOSITORY)
     private readonly repository: DailyWorkRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
@@ -125,6 +127,8 @@ export class DailyWorkService {
       throw new BadRequestException(
         "완료 상태에는 시작시간과 종료시간이 필요합니다.",
       );
+    if (existing && existing.siteId !== site.id && this.expenses.list().some(e => e.dailyWorkId === existing.id))
+      throw new ConflictException('연결된 지출 기록이 있습니다. 지출의 일일작업 연결을 해제한 뒤 현장을 변경해 주세요.');
     const materials = this.validateMaterials(raw.materials, existing);
     const id = existing?.id ?? newDailyWorkId();
     const record: DailyWorkRecord = {

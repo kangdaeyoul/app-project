@@ -1,3 +1,5 @@
+import { ExpensesService } from './expenses.service';
+import { EXPENSES_REPOSITORY, SampleExpensesRepository } from './expenses.repository';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { PhotoService, UploadFile } from './photo.service';
 import { PHOTO_REPOSITORY, SamplePhotoRepository } from './photo.repository';
@@ -55,5 +57,14 @@ class PhotoController {
   @Delete(':id') remove(@Param('id') id:string){return this.photos.remove(id);}
   @Get(':id/file') file(@Param('id') id:string,@Res() response:{setHeader:(key:string,value:string)=>void;send:(buffer:Buffer)=>void}){const file=this.photos.file(id);response.setHeader('Content-Type',file.mimeType);response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Cache-Control','no-store');response.send(file.buffer);}
 }
-@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController, PhotoController], providers: [DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Controller('expenses')
+class ExpensesController {
+  constructor(@Inject(ExpensesService) private readonly expenses: ExpensesService) {}
+  @Get() list(@Query('siteId') siteId?: string, @Query('workerId') workerId?: string) {return this.expenses.list(siteId, workerId);}
+  @Get(':id') find(@Param('id') id: string) {return this.expenses.find(id);}
+  @Post() create(@Body() body: unknown) {return this.expenses.create(body);}
+  @Put(':id') update(@Param('id') id: string, @Body() body: unknown) {return this.expenses.update(id, body);}
+  @Delete(':id') remove(@Param('id') id: string) {return this.expenses.remove(id);}
+}
+@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController], providers: [ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
 export class AppModule {}
