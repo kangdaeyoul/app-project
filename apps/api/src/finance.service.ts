@@ -1,3 +1,4 @@
+import { INVOICES_REPOSITORY, InvoicesRepository } from "./invoices.repository";
 import {
   BadRequestException,
   ConflictException,
@@ -56,6 +57,7 @@ export function sum(values: number[]) {
 @Injectable()
 export class FinanceService {
   constructor(
+    @Inject(INVOICES_REPOSITORY) private readonly invoices: InvoicesRepository,
     @Inject(FINANCE_REPOSITORY) private readonly repo: FinanceRepository,
     @Inject(EXPENSES_REPOSITORY) private readonly expenses: ExpensesRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
@@ -90,6 +92,14 @@ export class FinanceService {
       throw new BadRequestException("입금일자를 확인해 주세요.");
     const siteId = text(raw, "siteId", true);
     this.site(siteId);
+    if (
+      existing &&
+      existing.siteId !== siteId &&
+      this.invoices.sale(existing.siteId)?.receiptIds.includes(existing.id)
+    )
+      throw new ConflictException(
+        "계산서에 연결된 수금은 먼저 연결을 해제해야 현장을 변경할 수 있습니다.",
+      );
     const value = amount(raw.amount);
     if (!RECEIPT_METHODS.includes(raw.method as PaymentReceivedInput["method"]))
       throw new BadRequestException("결제방법을 확인해 주세요.");
@@ -116,7 +126,11 @@ export class FinanceService {
     return record;
   }
   removeReceipt(id: string) {
-    this.receipt(id);
+    const receipt = this.receipt(id);
+    if (this.invoices.sale(receipt.siteId)?.receiptIds.includes(id))
+      throw new ConflictException(
+        "매출 계산서에 연결된 수금입니다. 계산서의 수금 연결을 먼저 해제해 주세요.",
+      );
     this.repo.removeReceipt(id);
     return { deleted: true };
   }
@@ -235,6 +249,9 @@ export class FinanceService {
             .sort()
             .at(-1) ?? null,
         items: group,
+        invoiceStatus:
+          this.invoices.worker(first.siteId, first.workerId)?.status ??
+          "미발행",
       };
     });
     const monthly = items.filter((i) => i.expenseDate.startsWith(month));

@@ -13,3 +13,5 @@
 .expense-totals { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:12px; margin:20px 0; } .expense-total { padding:12px; border:1px solid #dce7eb; border-radius:8px; } .expense-total strong,.expense-total small { display:block; margin-top:6px; } .expenses-workspace .tab-list { margin:20px 0; }
 
 .finance-nav { background:white; border-radius:10px; margin-bottom:20px; } .receipt-form { background:#f6f9fb; padding:20px; border:1px solid #dce7eb; border-radius:8px; margin-bottom:20px; }
+
+.tax-summary { margin:20px 0; padding:16px; background:#f6f9fb; border:1px solid #dce7eb; border-radius:8px; } .tax-panel { margin-top:20px; } .tax-panel .tab-list { margin-bottom:16px; } .tax-panel details { padding:12px; border:1px solid #dce7eb; border-radius:6px; } .tax-panel summary { cursor:pointer; margin-bottom:12px; } .tax-warnings { grid-template-columns:repeat(3,minmax(0,1fr)); }

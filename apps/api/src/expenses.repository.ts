@@ -124,7 +124,7 @@ export class SampleExpensesRepository implements ExpensesRepository {
           supplyAmount: seed.supplyAmount,
           vat: seed.vat,
           paymentMethod: seed.paymentMethod,
-          evidenceType: seed.type === "기타경비" ? "간이영수증" : "세금계산서",
+          evidenceType: seed.type === "기타경비" ? "증빙없음" : "세금계산서",
           purchaser: seed.worker ? "김현장 소장" : "회사",
           isWorkerAdvance: seed.type === "작업진행자 대납 자재구매",
           settled: seed.settled,

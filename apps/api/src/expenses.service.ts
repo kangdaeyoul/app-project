@@ -1,3 +1,4 @@
+import { INVOICES_REPOSITORY, InvoicesRepository } from './invoices.repository';
 import { FinanceService, sum } from "./finance.service";
 import {
   BadRequestException,
@@ -32,6 +33,7 @@ import { validDate } from "./workers.service";
 @Injectable()
 export class ExpensesService {
   constructor(
+    @Inject(INVOICES_REPOSITORY) private readonly invoices: InvoicesRepository,
     @Inject(FinanceService) private readonly finance: FinanceService,
     @Inject(EXPENSES_REPOSITORY) private readonly repo: ExpensesRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
@@ -41,8 +43,9 @@ export class ExpensesService {
   find(id: string) {
     const row = this.repo.find(id);
     if (!row) throw new NotFoundException("지출 기록을 찾을 수 없습니다.");
-    return this.finance.expenseView(row);
+    return this.evidenceView(this.finance.expenseView(row));
   }
+  private evidenceView(e:Expense):Expense{return {...e,invoiceReceiptStatus:e.evidenceType==='세금계산서'?this.invoices.purchase(e.id)?.status??'미수취':'해당없음'};}
   list(siteId?: string, workerId?: string): ExpenseList {
     if (siteId !== undefined && !this.sites.find(siteId))
       throw new NotFoundException("현장을 찾을 수 없습니다.");
@@ -50,7 +53,7 @@ export class ExpensesService {
       throw new NotFoundException("작업진행자를 찾을 수 없습니다.");
     const items = this.repo
       .list()
-      .map((e) => this.finance.expenseView(e))
+      .map((e) => this.evidenceView(this.finance.expenseView(e)))
       .filter(
         (e) =>
           (siteId === undefined || e.siteId === siteId) &&
@@ -200,6 +203,8 @@ export class ExpensesService {
           "지급완료 기록의 상태는 지급 원장에서 계산됩니다. 지급내역을 먼저 취소해 주세요.",
         );
     }
+    if(existing&&this.invoices.purchase(existing.id)?.status==='수취완료'&&(site.id!==existing.siteId||raw.evidenceType!==existing.evidenceType||supplyAmount!==existing.supplyAmount||vat!==existing.vat||fields.vendor!==existing.vendor))
+      throw new ConflictException('수취완료 계산서가 연결되어 있습니다. 계산서 상태를 먼저 변경한 뒤 현장/금액/공급업체/증빙유형을 수정해 주세요.');
     const receiptFileKey =
       raw.receiptFileKey === undefined
         ? (existing?.receiptFileKey ?? null)
@@ -249,7 +254,7 @@ export class ExpensesService {
     );
     if (needsWorker && raw.settled)
       this.finance.completeExpense(saved.id, settlementDate as string);
-    return this.finance.expenseView(saved);
+    return this.evidenceView(this.finance.expenseView(saved));
   }
   create(body: unknown) {
     return this.save(body);
@@ -263,6 +268,7 @@ export class ExpensesService {
       throw new ConflictException(
         "지급내역이 있는 지출은 지급내역을 먼저 취소해야 삭제할 수 있습니다.",
       );
+    if(this.invoices.purchase(id)?.status==='수취완료')throw new ConflictException('수취완료 계산서 상태를 먼저 변경해야 지출을 삭제할 수 있습니다.');
     this.repo.remove(id);
     return { deleted: true };
   }

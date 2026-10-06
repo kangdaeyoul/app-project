@@ -1,3 +1,5 @@
+import { InvoicesService } from './invoices.service';
+import { INVOICES_REPOSITORY, SampleInvoicesRepository } from './invoices.repository';
 import { FinanceService } from './finance.service';
 import { FINANCE_REPOSITORY, SampleFinanceRepository } from './finance.repository';
 import { ExpensesService } from './expenses.service';
@@ -80,5 +82,14 @@ class FinanceController {
  @Post('worker-payments') pay(@Body() body:unknown){return this.finance.pay(body);}
  @Delete('worker-payments/:id') removePayment(@Param('id') id:string){return this.finance.removePayment(id);}
 }
-@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController], providers: [FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Controller('invoices')
+class InvoicesController {
+ constructor(@Inject(InvoicesService)private readonly invoices:InvoicesService){}
+ @Get() list(@Query('siteId') siteId?:string,@Query('workerId') workerId?:string){return this.invoices.list(siteId,workerId);}
+ @Get('sales/:siteId') sale(@Param('siteId') siteId:string){return this.invoices.sale(siteId);}
+ @Put('sales/:siteId') saveSale(@Param('siteId') siteId:string,@Body() body:unknown){return this.invoices.saveSale(siteId,body);}
+ @Put('purchases/:expenseId') savePurchase(@Param('expenseId') expenseId:string,@Body() body:unknown){return this.invoices.savePurchase(expenseId,body);}
+ @Put('workers/:siteId/:workerId') saveWorker(@Param('siteId') siteId:string,@Param('workerId') workerId:string,@Body() body:unknown){return this.invoices.saveWorker(siteId,workerId,body);}
+}
+@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [InvoicesService, {provide: INVOICES_REPOSITORY, useClass: SampleInvoicesRepository}, FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
 export class AppModule {}

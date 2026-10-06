@@ -11,6 +11,7 @@ import {
   Site,
   WorkerSummary,
 } from "@jongno/shared";
+import InvoicesPanel from "./invoices-panel";
 import SiteMaterialsPanel from "./site-materials-panel";
 const money = (value: number) => value.toLocaleString("ko-KR") + "원";
 const today = () =>
@@ -236,6 +237,7 @@ export default function ExpensesPanel({
                   "VAT",
                   "합계금액",
                   "결제 / 증빙",
+                  "매입 계산서 수취",
                   "구매자 또는 지출자",
                   "대납",
                   "정산상태 / 정산일",
@@ -271,6 +273,7 @@ export default function ExpensesPanel({
                     {e.paymentMethod}
                     <small>{e.evidenceType}</small>
                   </td>
+                  <td>{e.invoiceReceiptStatus??(e.evidenceType==='세금계산서'?'미수취':'해당없음')}</td>
                   <td>
                     {e.workerDisplayName ?? e.purchaser}
                     <small>{e.workerId ?? ""}</small>
@@ -726,6 +729,7 @@ export default function ExpensesPanel({
       ) : !error ? (
         <p role="status">지출 기록을 불러오는 중입니다…</p>
       ) : null}
+      {siteId&&!form&&<InvoicesPanel siteId={siteId} initialTab="지출 증빙" onChanged={()=>{setRevision(v=>v+1);onChanged?.();}}/>}
     </div>
   );
 }

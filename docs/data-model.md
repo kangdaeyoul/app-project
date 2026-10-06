@@ -84,3 +84,19 @@ daily_work_id가 있으면 expenses.site_id와 같은 현장이어야 합니다.
 지출 수정/삭제도 관련 지급 관계를 같은 트랜잭션에서 검사해야 합니다. 지급이 남은 항목의 현장/작업진행자/유형 변경과 지급액 미만 축소를 막고 지출일은 지급일을 넘을 수 없습니다. 비용을 수정하려면 지급 기록을 먼저 취소합니다. worker_payments의 worker FK는 soft delete 후 보존합니다. 회사 지출의 settled는 기록 상태이고 작업진행자 지출의 settled/paidAmount/payoutStatus는 지급 배분 합계에서 계산합니다.
 
 FinanceService가 현장/대시보드/작업진행자의 공통 집계 경계입니다. 미수=계약−수금, 현장차익=계약−지출, 미지급=지급의무−배분액입니다. 월 발생 지급예정액은 expense_date, 월 지급액은 payment_date 기준이고 월 발생분 잔액은 해당 월 지출의 현재 잔액입니다. 현장차익에는 지급 원장을 비용으로 다시 더하지 않습니다. 세금·보험·고정비 및 회계상 순이익 처리는 별도 회계 도메인입니다.
+
+
+## 세금계산서 관리기록
+
+InvoicesRepository가 매출/매입/작업진행자 계산서 상태를 독립 보관합니다. 초기 단계는 각각 현장, 지출, 현장+작업진행자 키 기준 한 관리기록이며 미저장 상태도 미발행/미수취로 조회해 누락 경고에 포함합니다.
+
+- `sales_invoice_records`: site_id(PK/FK), counterparty, supply_amount, vat, status, issued_date(nullable), approval_number, notes, supplier_business_info, recipient_business_info.
+- `sales_invoice_receipts`: site_id(FK), payment_received_id(FK). 같은 현장의 수금만 선택 연결하며 중복 ID를 거부합니다. 연결 수금 삭제/현장 이동은 연결 해제 후에 허용합니다.
+- `purchase_invoice_records`: expense_id(PK/FK), counterparty, status, received_date(nullable), approval_number, notes, supplier_business_info, recipient_business_info. 현장과 공급가액/VAT는 expenses에서 조회합니다. 현재 메모리 계약은 공급가액/VAT 스냅샷도 저장하지만 조회는 지출 값이고 완료 시 지출 변경을 막습니다.
+- `worker_invoice_records`: site_id(FK), worker_id(FK), status, issued_date(nullable), approval_number, notes. (site_id,worker_id) 유일 제약. 정산 그룹 전체 상태이며 개별 지출 계산서와 지급 원장을 대신하지 않습니다. 발행완료 기록도 외부 수취 검증은 아닙니다.
+
+공급자·공급받는자 사업자정보는 registrationNumber/name/representative/address/businessType/businessItem/email 필드로 분리합니다. 미래 외부 사업자 API와 연동할 때 별도 master FK 및 당시 스냅샷 정책을 결정할 수 있습니다. 승인번호/날짜는 수동 관리값입니다. 외부연동 시 provider/document_id/idempotency_key/전송상태/실제 승인응답/오류 및 수정계산서 원장을 추가해야 합니다.
+
+분할 또는 다건 계산서 단계에서는 독립 invoice_id, direction, 공급가액/VAT, 상태와 invoice_sites/invoice_expenses/invoice_receipts 관계로 확장하세요. 현장 계약·수금과 계산서 액수는 별개여서 이번 단계에서 금융 합계에 계산서 액수를 더하지 않습니다. 매입은 연결 지출 금액과 일치해야 합니다. DB에서는 지출 수정/삭제와 수취완료 기록 검증을 같은 트랜잭션으로 처리합니다. 작업진행자 soft delete 후에도 정산 계산서 기록을 보존합니다.
+
+경고는 매출 관리기록 미발행 / 세금계산서 증빙유형 지출의 미수취 / 증빙없음 지출 / 정산 그룹의 미발행을 각각 셉니다. 후속 명세에서는 계약·분할발행·증빙 예외 정책을 확장해야 합니다. 미수취 지출 필터는 evidence_type=세금계산서 AND receipt_status=미수취이며 다른 증빙을 미수취로 오인하지 않습니다.

@@ -1,4 +1,5 @@
 "use client";
+import InvoicesPanel, { SalesInvoiceSummary } from "./invoices-panel";
 import { useEffect, useState } from "react";
 import {
   PaymentReceived,
@@ -223,6 +224,7 @@ export function ReceiptsPanel({
           ]}
         />
       )}
+      <SalesInvoiceSummary siteId={siteId} onChanged={onChanged} />
       {summary && summary.receivables < 0 && (
         <p>
           계약금액을 초과한 입금액입니다. 미수금은 계산 결과를 음수로
@@ -658,6 +660,7 @@ export function SettlementsPanel({
                     "지급완료액",
                     "미지급액",
                     "지급상태",
+                    "계산서 상태",
                     "지급일",
                     "관리",
                   ].map((h) => (
@@ -688,6 +691,7 @@ export function SettlementsPanel({
                           {r.status}
                         </span>
                       </td>
+                      <td>{r.invoiceStatus}</td>
                       <td>{r.lastPaymentDate ?? "—"}</td>
                       <td>
                         <div className="worker-actions">
@@ -764,6 +768,15 @@ export function SettlementsPanel({
       ) : (
         !error && <p role="status">지급내역을 불러오는 중입니다…</p>
       )}
+      <InvoicesPanel
+        siteId={siteId}
+        workerId={workerId}
+        initialTab="작업진행자 계산서"
+        onChanged={() => {
+          setRevision((v) => v + 1);
+          onChanged?.();
+        }}
+      />
     </section>
   );
 }
@@ -797,17 +810,19 @@ export default function FinancePanel({
         role="tablist"
         aria-label="정산 업무"
       >
-        {["작업진행자 지급", "수금·미수", "현장손익"].map((t) => (
-          <button
-            key={t}
-            role="tab"
-            aria-selected={tab === t}
-            className={tab === t ? "selected" : ""}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
+        {["작업진행자 지급", "수금·미수", "현장손익", "세금계산서·증빙"].map(
+          (t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              className={tab === t ? "selected" : ""}
+              onClick={() => setTab(t)}
+            >
+              {t}
+            </button>
+          ),
+        )}
       </div>
       {error && (
         <div className="error" role="alert">
@@ -815,7 +830,9 @@ export default function FinancePanel({
           <button onClick={() => setRevision((v) => v + 1)}>다시 시도</button>
         </div>
       )}
-      {tab === "작업진행자 지급" ? (
+      {tab === "세금계산서·증빙" ? (
+        <InvoicesPanel onChanged={onChanged} />
+      ) : tab === "작업진행자 지급" ? (
         <SettlementsPanel onChanged={onChanged} />
       ) : (
         <>
