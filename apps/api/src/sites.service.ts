@@ -1,3 +1,4 @@
+import { FinanceService, sum } from './finance.service';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { SITE_STATUSES, SiteInput } from '@jongno/shared';
 import { SitesRepository, SITES_REPOSITORY } from './sites.repository';
@@ -26,11 +27,13 @@ function validateInput(body: unknown): SiteInput {
 }
 @Injectable()
 export class SitesService {
-  constructor(@Inject(SITES_REPOSITORY) private readonly repository: SitesRepository, @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository) {}
-  list(month?: string) { if (month !== undefined) validateMonth(month); return this.repository.list().filter(s => month === undefined || overlapsMonth(s, month)); }
-  find(id: string) { const site = this.repository.find(id); if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.'); return site; }
+  constructor(@Inject(FinanceService) private readonly finance: FinanceService, @Inject(SITES_REPOSITORY) private readonly repository: SitesRepository, @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository) {}
+  list(month?: string) { if (month !== undefined) validateMonth(month); return this.repository.list().filter(s => month === undefined || overlapsMonth(s, month)).map(s=>this.view(s)); }
+  find(id: string) { const site = this.repository.find(id); if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.'); return this.view(site); }
+  private view(site: import('@jongno/shared').Site){const f=this.finance.siteFinance(site.id);return {...site,collectedAmount:f.collectedAmount,unpaidWorkerAmount:f.unpaidWorkerAmount};}
   private linkedInput(body: unknown, existing?: import('@jongno/shared').Site): SiteInput {
     const value = validateInput(body);
+    sum([...this.repository.list().filter(s=>s.id!==existing?.id).map(s=>s.contractAmount),value.contractAmount]);
     const raw = body as Record<string, unknown>;
     // Older records retain their label until explicitly reassigned.
     const id = raw.managerId === undefined ? existing?.managerId ?? null : raw.managerId;
@@ -42,11 +45,11 @@ export class SitesService {
     if (worker.deletedAt) throw new BadRequestException('삭제된 작업진행자는 새로 배정할 수 없습니다.');
     return { ...value, managerId: id, manager: worker.displayName };
   }
-  create(body: unknown) { return this.repository.create(this.linkedInput(body)); }
+  create(body: unknown) { return this.view(this.repository.create(this.linkedInput(body))); }
   update(id: string, body: unknown) {
     const existing = this.find(id);
     const site = this.repository.update(id, this.linkedInput(body, existing));
     if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.');
-    return site;
+    return this.view(site);
   }
 }

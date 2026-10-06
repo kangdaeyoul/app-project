@@ -1,5 +1,5 @@
 "use client";
-import ExpensesPanel from "./expenses-panel";
+import { SettlementsPanel } from "./finance-panels";
 import DailyWorkPanel from "./daily-work-panel";
 import { useEffect, useState } from "react";
 import {
@@ -31,7 +31,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!r.ok) throw Error(b.message || "요청 실패");
   return b;
 }
-export default function WorkersPanel() {
+export default function WorkersPanel({onChanged}:{onChanged?:()=>void}) {
   const [workers, setWorkers] = useState<WorkerSummary[]>([]);
   const [detail, setDetail] = useState<WorkerDetail | null>(null);
   const [form, setForm] = useState<WorkerInput | null>(null);
@@ -382,44 +382,7 @@ export default function WorkersPanel() {
               ) : tab === "작업이력" ? (
                 <DailyWorkPanel workerId={detail.id}/>
               ) : tab === "정산" ? (
-                <>
-                  <div className="detail-totals">
-                    <div>
-                      이번 달 지급예정액
-                      <strong>{money(detail.monthlyPayable)}</strong>
-                    </div>
-                    <div>
-                      미지급액<strong>{money(detail.unpaidAmount)}</strong>
-                    </div>
-                  </div>
-                  <p>
-                    지급예정액은 {detail.month} 기준입니다. 위 합계는 기존 샘플 원장과 새 작업비·대납 기록을 포함합니다. 아래 새 지출 정산은 전체 기간 기준이며 실제 결제는 실행하지 않습니다.
-                  </p>
-                  <ExpensesPanel workerId={detail.id}/>
-                  <h3>기존 샘플 정산 원장 (별도)</h3>
-                  <div className="table-scroll">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>작업일</th>
-                          <th>지급예정액</th>
-                          <th>지급액</th>
-                          <th>미지급액</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detail.work.map((w) => (
-                          <tr key={w.id}>
-                            <td>{w.date}</td>
-                            <td>{money(w.scheduledAmount)}</td>
-                            <td>{money(w.paidAmount)}</td>
-                            <td>{money(w.scheduledAmount - w.paidAmount)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
+                <SettlementsPanel workerId={detail.id} onChanged={()=>{api<WorkerDetail>(`/${detail.id}?month=${month}`).then(setDetail).catch(e=>setError(e.message));setRevision(v=>v+1);onChanged?.();}}/>
               ) : (
                 <>
                   <p>

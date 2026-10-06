@@ -35,7 +35,10 @@ export function expenseTotals(rows: Expense[]): ExpenseTotals {
     total: rows.reduce((n, e) => n + e.totalAmount, 0),
   };
 }
-export function workerExpenseTotals(rows: Expense[]): WorkerExpenseTotals {
+export function workerExpenseTotals(
+  rows: Expense[],
+  paid?: Map<string, number>,
+): WorkerExpenseTotals {
   const payable = rows.filter(
     (e) => e.workerId && (e.isWorkerAdvance || e.type === "작업비"),
   );
@@ -45,8 +48,17 @@ export function workerExpenseTotals(rows: Expense[]): WorkerExpenseTotals {
     labor: sum(payable.filter((e) => e.type === "작업비")),
     advances: sum(payable.filter((e) => e.isWorkerAdvance)),
     totalPayable: sum(payable),
-    settledAmount: sum(payable.filter((e) => e.settled)),
-    unpaidAmount: sum(payable.filter((e) => !e.settled)),
+    settledAmount: payable.reduce(
+      (n, e) => n + (paid?.get(e.id) ?? (e.settled ? e.totalAmount : 0)),
+      0,
+    ),
+    unpaidAmount: payable.reduce(
+      (n, e) =>
+        n +
+        e.totalAmount -
+        (paid?.get(e.id) ?? (e.settled ? e.totalAmount : 0)),
+      0,
+    ),
   };
 }
 export class SampleExpensesRepository implements ExpensesRepository {
@@ -125,6 +137,34 @@ export class SampleExpensesRepository implements ExpensesRepository {
         { expenseId: seed.id, quantity: 1, unit: "건" },
         seed.worker
           ? { expenseId: seed.id, workerId: "W001", displayName: "김현장 소장" }
+          : null,
+      );
+    }
+    for (const [index, amount] of [820000, 310000, 1200000, 120000].entries()) {
+      const template = this.find("E00" + (index + 1))!;
+      const id = "E10" + (index + 1);
+      const {
+        quantity,
+        unit,
+        workerId,
+        workerDisplayName,
+        totalAmount,
+        ...record
+      } = template;
+      this.save(
+        {
+          ...record,
+          id,
+          siteId: "S002",
+          siteName: "혜화 상가 감지기 교체",
+          dailyWorkId: null,
+          supplyAmount: amount,
+          vat: 0,
+          purchaser: workerId ? "이소방 기사" : "회사",
+        },
+        { expenseId: id, quantity, unit },
+        workerId
+          ? { expenseId: id, workerId: "W003", displayName: "이소방 기사" }
           : null,
       );
     }

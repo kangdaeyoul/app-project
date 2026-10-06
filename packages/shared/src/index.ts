@@ -11,7 +11,7 @@ export interface Site extends SiteInput {
   id: string; collectedAmount: number; unpaidWorkerAmount: number;
 }
 export const isSiteOnDate = (site: Site, date: string) => site.startDate <= date && date <= (site.endDate || site.startDate);
-export interface Dashboard { month: string; today: string; sites: Site[]; summary: { todaySites: number; inProgress: number; completed: number; unassigned: number; contractRevenue: number; collected: number; receivables: number; unpaidWorkers: number } }
+export interface Dashboard { month: string; today: string; sites: Site[]; summary: { todaySites: number; inProgress: number; completed: number; unassigned: number; contractRevenue: number; collected: number; receivables: number; unpaidWorkers: number; totalExpenses: number; siteProfit: number } }
 
 export const AVAILABILITY_STATUSES = ['근무가능', '휴무', '오전불가', '오후불가'] as const;
 export type AvailabilityStatus = typeof AVAILABILITY_STATUSES[number];
@@ -62,7 +62,19 @@ export interface ExpenseRecord extends Omit<ExpenseInput, 'quantity' | 'unit' | 
 }
 export interface ExpenseLineItem { expenseId: string; quantity: number; unit: string }
 export interface WorkerSettlement { expenseId: string; workerId: string; displayName: string }
-export interface Expense extends ExpenseRecord { quantity: number; unit: string; workerId: string | null; workerDisplayName: string | null; totalAmount: number }
+export interface Expense extends ExpenseRecord { quantity: number; unit: string; workerId: string | null; workerDisplayName: string | null; totalAmount: number; paidAmount?: number; payoutStatus?: typeof PAYOUT_STATUSES[number] }
 export interface ExpenseTotals { directMaterials: number; workerAdvances: number; labor: number; other: number; total: number }
 export interface WorkerExpenseTotals { labor: number; advances: number; totalPayable: number; settledAmount: number; unpaidAmount: number }
 export interface ExpenseList { items: Expense[]; totals: ExpenseTotals; workerTotals: WorkerExpenseTotals }
+
+export const RECEIPT_METHODS = ['계좌이체', '카드결제', '현금', '기타'] as const;
+export const PAYOUT_STATUSES = ['미지급', '일부지급', '지급완료'] as const;
+export interface PaymentReceivedInput { receivedDate: string; siteId: string; amount: number; method: typeof RECEIPT_METHODS[number]; payer: string; notes: string }
+export interface PaymentReceived extends PaymentReceivedInput { id: string; createdAt: string }
+export interface WorkerPaymentInput { paymentDate: string; siteId: string; workerId: string; amount?: number; fullPayment?: boolean; notes: string }
+export interface WorkerPayment { id: string; paymentDate: string; siteId: string; workerId: string; amount: number; notes: string; createdAt: string }
+export interface WorkerPaymentAllocation { paymentId: string; expenseId: string; amount: number }
+export interface SettlementItem { id: string; siteId: string; workerId: string; workerDisplayName: string; expenseDate: string; description: string; category: '작업비' | '자재대납' | '기타정산'; amount: number; paidAmount: number; unpaidAmount: number }
+export interface SettlementSummary { siteId: string; siteName: string; workerId: string; workerDisplayName: string; labor: number; materialAdvances: number; other: number; totalPayable: number; paidAmount: number; unpaidAmount: number; status: typeof PAYOUT_STATUSES[number]; lastPaymentDate: string | null; items: SettlementItem[] }
+export interface SettlementList { workers: {workerId: string; workerDisplayName: string; deletedAt: string | null; totalPayable: number; paidAmount: number; unpaidAmount: number}[]; rows: SettlementSummary[]; payments: WorkerPayment[]; totals: { totalPayable: number; paidAmount: number; unpaidAmount: number }; monthly: { month: string; totalPayable: number; paidAmount: number; unpaidAmount: number } }
+export interface SiteFinance { siteId: string; contractAmount: number; collectedAmount: number; receivables: number; directMaterials: number; materialAdvances: number; labor: number; other: number; totalExpenses: number; siteProfit: number; unpaidWorkerAmount: number }

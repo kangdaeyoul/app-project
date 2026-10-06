@@ -1,3 +1,7 @@
+import { FinanceService } from '../src/finance.service';
+import { SampleFinanceRepository } from '../src/finance.repository';
+import { SampleExpensesRepository } from '../src/expenses.repository';
+import { SampleWorkersRepository } from '../src/workers.repository';
 import 'reflect-metadata';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,12 +14,14 @@ test('서울 시간은 UTC 날짜 경계를 정확히 처리한다', () => {
   assert.equal(seoulToday(new Date('2026-10-05T15:00:00Z')), '2026-10-06');
 });
 test('월별 합계와 배정 상태는 샘플 현장과 일치한다', () => {
-  const dashboard = new DashboardService(new SampleSitesRepository('2026-10-06')).get('2026-10');
+  const sites=new SampleSitesRepository('2026-10-06');
+  const finance=new FinanceService(new SampleFinanceRepository('2026-10-06'), new SampleExpensesRepository(),sites,new SampleWorkersRepository('2026-10-06'));
+  const dashboard = new DashboardService(finance, sites).get('2026-10');
   assert.equal(dashboard.sites.length, 5);
-  assert.equal(dashboard.summary.contractRevenue, 83000000);
-  assert.equal(dashboard.summary.collected, 36500000);
-  assert.equal(dashboard.summary.receivables, 46500000);
-  assert.equal(dashboard.summary.unpaidWorkers, 4850000);
+  assert.equal(dashboard.summary.contractRevenue, 80000000);
+  assert.equal(dashboard.summary.collected, 38000000);
+  assert.equal(dashboard.summary.receivables, 42000000);
+  assert.equal(dashboard.summary.unpaidWorkers, 2047000);
   assert.equal(dashboard.summary.unassigned, 2);
   assert.equal(dashboard.summary.inProgress, 2);
   assert.equal(dashboard.summary.completed, 1);

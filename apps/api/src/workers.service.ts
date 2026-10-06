@@ -1,4 +1,5 @@
-import { EXPENSES_REPOSITORY, ExpensesRepository, workerExpenseTotals } from './expenses.repository';
+import { FinanceService } from './finance.service';
+import { EXPENSES_REPOSITORY, ExpensesRepository } from './expenses.repository';
 import {
   BadRequestException,
   ConflictException,
@@ -18,15 +19,8 @@ import {
 import { WORKERS_REPOSITORY, WorkersRepository } from "./workers.repository";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";
 import { DAILY_WORK_REPOSITORY, DailyWorkRepository } from "./daily-work.repository";
-import { seoulToday, validateMonth } from "./date";
-export function validDate(value: string) {
-  return (
-    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
-    !value.startsWith("0000") &&
-    Number.isFinite(Date.parse(value)) &&
-    new Date(value).toISOString().slice(0, 10) === value
-  );
-}
+import { seoulToday, validateMonth, validDate } from "./date";
+export { validDate } from './date';
 function object(body: unknown): Record<string, unknown> {
   if (!body || typeof body !== "object" || Array.isArray(body))
     throw new BadRequestException("입력값을 확인해 주세요.");
@@ -56,6 +50,7 @@ function input(body: unknown): WorkerInput {
 @Injectable()
 export class WorkersService {
   constructor(
+    @Inject(FinanceService) private readonly finance: FinanceService,
     @Inject(WORKERS_REPOSITORY) private readonly repository: WorkersRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
     @Inject(DAILY_WORK_REPOSITORY) private readonly daily: DailyWorkRepository,
@@ -76,9 +71,7 @@ export class WorkersService {
   }
   private summary(w: Worker, month: string): WorkerSummary {
     const today = seoulToday();
-    const work = this.repository.work(w.id);
-    const monthly = work.filter((t) => t.date.startsWith(month));
-    const expenses = this.expenses.list().filter(e => e.workerId === w.id);
+    const financial=this.finance.settlements(undefined,w.id,month);
     return {
       ...w,
       availability:
@@ -90,11 +83,8 @@ export class WorkersService {
       monthlyWorkDays: new Set(
         this.daily.list().filter(t => (t.managerId === w.id || t.participants.some(p => p.workerId === w.id)) && t.workDate.startsWith(month) && t.workDate <= today && ["작업완료", "관리자확인완료"].includes(t.status)).map(t => t.workDate),
       ).size,
-      monthlyPayable: monthly.reduce((n, t) => n + t.scheduledAmount, 0) + workerExpenseTotals(expenses.filter(e => e.expenseDate.startsWith(month))).totalPayable,
-      unpaidAmount: work.reduce(
-        (n, t) => n + t.scheduledAmount - t.paidAmount,
-        0,
-      ) + workerExpenseTotals(expenses).unpaidAmount,
+      monthlyPayable: financial.monthly.totalPayable,
+      unpaidAmount: financial.totals.unpaidAmount,
     };
   }
   list(month = seoulToday().slice(0, 7), includeDeleted = false) {
@@ -111,7 +101,7 @@ export class WorkersService {
     return {
       ...this.summary(w, month),
       month,
-      expenseSettlement: workerExpenseTotals(this.expenses.list().filter(e=>e.workerId===id)),
+      expenseSettlement: (()=>{const f=this.finance.settlements(undefined,id,month);return {labor:f.rows.reduce((n,r)=>n+r.labor,0),advances:f.rows.reduce((n,r)=>n+r.materialAdvances+r.other,0),totalPayable:f.totals.totalPayable,settledAmount:f.totals.paidAmount,unpaidAmount:f.totals.unpaidAmount};})(),
       work,
       sites: this.sites
         .list()

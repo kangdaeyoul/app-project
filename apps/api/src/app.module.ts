@@ -1,3 +1,5 @@
+import { FinanceService } from './finance.service';
+import { FINANCE_REPOSITORY, SampleFinanceRepository } from './finance.repository';
 import { ExpensesService } from './expenses.service';
 import { EXPENSES_REPOSITORY, SampleExpensesRepository } from './expenses.repository';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -66,5 +68,17 @@ class ExpensesController {
   @Put(':id') update(@Param('id') id: string, @Body() body: unknown) {return this.expenses.update(id, body);}
   @Delete(':id') remove(@Param('id') id: string) {return this.expenses.remove(id);}
 }
-@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController], providers: [ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Controller()
+class FinanceController {
+ constructor(@Inject(FinanceService) private readonly finance:FinanceService){}
+ @Get('sites/:id/finance') site(@Param('id') id:string){return this.finance.siteFinance(id);}
+ @Get('payments-received') receipts(@Query('siteId') id:string){return this.finance.receipts(id);}
+ @Post('payments-received') createReceipt(@Body() body:unknown){return this.finance.saveReceipt(body);}
+ @Put('payments-received/:id') updateReceipt(@Param('id') id:string,@Body() body:unknown){return this.finance.saveReceipt(body,id);}
+ @Delete('payments-received/:id') removeReceipt(@Param('id') id:string){return this.finance.removeReceipt(id);}
+ @Get('settlements') settlements(@Query('siteId') siteId?:string,@Query('workerId') workerId?:string,@Query('month') month?:string){return this.finance.settlements(siteId,workerId,month);}
+ @Post('worker-payments') pay(@Body() body:unknown){return this.finance.pay(body);}
+ @Delete('worker-payments/:id') removePayment(@Param('id') id:string){return this.finance.removePayment(id);}
+}
+@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController], providers: [FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
 export class AppModule {}

@@ -9,3 +9,7 @@ export function validateMonth(month: string): string {
 export function overlapsMonth(site: { startDate: string; endDate: string }, month: string): boolean {
   return site.startDate.slice(0, 7) <= month && (site.endDate || site.startDate).slice(0, 7) >= month;
 }
+
+export function validDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !value.startsWith('0000') && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
+}

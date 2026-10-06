@@ -46,7 +46,7 @@ test('현장 등록·조회·수정과 대시보드가 같은 저장소를 사�
     await request(http).put('/api/sites/S001').send({ ...existing, name: '기존 현장 수정', collectedAmount: 0 }).expect(200);
     const preserved = (await request(http).get('/api/sites/S001').expect(200)).body;
     assert.equal(preserved.collectedAmount, 12000000);
-    assert.equal(preserved.unpaidWorkerAmount, 1800000);
+    assert.equal(preserved.unpaidWorkerAmount, 537000);
   } finally { await app.close(); }
 });
 

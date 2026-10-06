@@ -280,11 +280,12 @@ export default function ExpensesPanel({
                     <span
                       className={`badge ${e.settled ? "success" : "warning"}`}
                     >
-                      {e.settled
-                        ? "정산완료"
-                        : e.workerId
-                          ? "미지급"
-                          : "미정산"}
+                      {e.payoutStatus ??
+                        (e.settled
+                          ? "정산완료"
+                          : e.workerId
+                            ? "미지급"
+                            : "미정산")}
                     </span>
                     <small>{e.settlementDate ?? "—"}</small>
                   </td>

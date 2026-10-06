@@ -74,8 +74,8 @@ test("지출 등록·수정·삭제, 현장 집계, 사용자재 보존, 작업�
     let worker = (await request(http).get("/api/workers/W002").expect(200))
       .body;
     assert.equal(worker.expenseSettlement.unpaidAmount, 187000);
-    assert.equal(worker.unpaidAmount, 837000);
-    assert.equal(worker.monthlyPayable, 1187000);
+    assert.equal(worker.unpaidAmount, 187000);
+    assert.equal(worker.monthlyPayable, 187000);
     assert.equal(
       (await request(http).get("/api/expenses?siteId=S001").expect(200)).body
         .totals.total,
@@ -95,11 +95,14 @@ test("지출 등록·수정·삭제, 현장 집계, 사용자재 보존, 작업�
     assert.equal(worker.expenseSettlement.totalPayable, 220000);
     assert.equal(worker.expenseSettlement.settledAmount, 220000);
     assert.equal(worker.expenseSettlement.unpaidAmount, 0);
-    assert.equal(worker.unpaidAmount, 650000);
+    assert.equal(worker.unpaidAmount, 0);
     const updated = (
       await request(http).get(`/api/expenses/${expense.id}`).expect(200)
     ).body;
     assert.equal(updated.receiptFileKey, "future-receipt-key");
+    await request(http).delete(`/api/expenses/${expense.id}`).expect(409);
+    const payments=(await request(http).get('/api/settlements?workerId=W002').expect(200)).body.payments;
+    for(const payment of payments)await request(http).delete(`/api/worker-payments/${payment.id}`).expect(200);
     await request(http).delete(`/api/expenses/${expense.id}`).expect(200);
     await request(http).get(`/api/expenses/${expense.id}`).expect(404);
     assert.equal(
@@ -255,8 +258,8 @@ test("잘못된 지출·금액·관계·정산 값은 원장을 변경하지 않
     await request(http).put("/api/expenses/missing").send(input()).expect(404);
     await request(http).delete("/api/expenses/missing").expect(404);
     const initial = (await request(http).get("/api/expenses").expect(200)).body;
-    assert.equal(initial.items.length, 4);
-    assert.equal(initial.totals.total, 669000);
+    assert.equal(initial.items.length, 8);
+    assert.equal(initial.totals.total, 3119000);
     await request(http)
       .post("/api/expenses")
       .send({

@@ -1,5 +1,7 @@
+import { FinanceService, sum } from "./finance.service";
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -30,6 +32,7 @@ import { validDate } from "./workers.service";
 @Injectable()
 export class ExpensesService {
   constructor(
+    @Inject(FinanceService) private readonly finance: FinanceService,
     @Inject(EXPENSES_REPOSITORY) private readonly repo: ExpensesRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
     @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository,
@@ -38,7 +41,7 @@ export class ExpensesService {
   find(id: string) {
     const row = this.repo.find(id);
     if (!row) throw new NotFoundException("지출 기록을 찾을 수 없습니다.");
-    return row;
+    return this.finance.expenseView(row);
   }
   list(siteId?: string, workerId?: string): ExpenseList {
     if (siteId !== undefined && !this.sites.find(siteId))
@@ -47,6 +50,7 @@ export class ExpensesService {
       throw new NotFoundException("작업진행자를 찾을 수 없습니다.");
     const items = this.repo
       .list()
+      .map((e) => this.finance.expenseView(e))
       .filter(
         (e) =>
           (siteId === undefined || e.siteId === siteId) &&
@@ -60,7 +64,10 @@ export class ExpensesService {
     return {
       items,
       totals: expenseTotals(items),
-      workerTotals: workerExpenseTotals(items),
+      workerTotals: workerExpenseTotals(
+        items,
+        new Map(items.map((e) => [e.id, this.finance.paid(e.id)])),
+      ),
     };
   }
   private save(body: unknown, existing?: Expense) {
@@ -132,6 +139,7 @@ export class ExpensesService {
     if (!Number.isSafeInteger(supplyAmount + vat))
       throw new BadRequestException("합계금액이 너무 큽니다.");
     // totalAmount is read-only and always derived from supplyAmount + vat.
+    sum([...this.repo.list().filter(e=>e.id!==existing?.id).map(e=>e.totalAmount),supplyAmount+vat]);
     const isWorkerAdvance =
       raw.type === "작업진행자 대납 자재구매" ||
       raw.paymentMethod === "작업진행자 대납";
@@ -173,6 +181,25 @@ export class ExpensesService {
       throw new BadRequestException(
         "정산완료 기록에는 지출일 이후의 정산일이 필요하며 미정산 기록에는 정산일을 비워주세요.",
       );
+    if (existing && this.finance.paid(existing.id) > 0) {
+      const paid = this.finance.paid(existing.id);
+      if (
+        existing.siteId !== site.id ||
+        existing.workerId !== workerId ||
+        existing.type !== raw.type ||
+        supplyAmount + vat < paid ||
+        this.finance
+          .paymentDates(existing.id)
+          .some((date) => date < fields.expenseDate)
+      )
+        throw new ConflictException(
+          "지급내역이 있는 지출은 현장/작업진행자/유형을 바꾸거나 지급액 미만으로 줄일 수 없습니다. 지급내역을 먼저 취소해 주세요.",
+        );
+      if (!raw.settled && paid >= supplyAmount + vat)
+        throw new ConflictException(
+          "지급완료 기록의 상태는 지급 원장에서 계산됩니다. 지급내역을 먼저 취소해 주세요.",
+        );
+    }
     const receiptFileKey =
       raw.receiptFileKey === undefined
         ? (existing?.receiptFileKey ?? null)
@@ -206,7 +233,7 @@ export class ExpensesService {
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     } as ExpenseRecord;
-    return this.repo.save(
+    const saved = this.repo.save(
       record,
       { expenseId: id, quantity, unit: fields.unit },
       needsWorker
@@ -220,6 +247,9 @@ export class ExpensesService {
           }
         : null,
     );
+    if (needsWorker && raw.settled)
+      this.finance.completeExpense(saved.id, settlementDate as string);
+    return this.finance.expenseView(saved);
   }
   create(body: unknown) {
     return this.save(body);
@@ -229,6 +259,10 @@ export class ExpensesService {
   }
   remove(id: string) {
     this.find(id);
+    if (this.finance.paid(id) > 0)
+      throw new ConflictException(
+        "지급내역이 있는 지출은 지급내역을 먼저 취소해야 삭제할 수 있습니다.",
+      );
     this.repo.remove(id);
     return { deleted: true };
   }
