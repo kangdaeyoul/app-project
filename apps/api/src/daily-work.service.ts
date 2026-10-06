@@ -11,6 +11,8 @@ import {
   DailyWorkInput,
   DailyWorkRecord,
   DailyWorkStatus,
+  MaterialUsageInput,
+  SiteMaterials,
   workMinutes,
 } from "@jongno/shared";
 import {
@@ -123,6 +125,7 @@ export class DailyWorkService {
       throw new BadRequestException(
         "완료 상태에는 시작시간과 종료시간이 필요합니다.",
       );
+    const materials = this.validateMaterials(raw.materials, existing);
     const id = existing?.id ?? newDailyWorkId();
     const record: DailyWorkRecord = {
       ...value,
@@ -133,7 +136,6 @@ export class DailyWorkService {
         existing?.managerId === manager.id
           ? existing.managerDisplayName
           : manager.displayName,
-      materialCount: existing?.materialCount ?? 0,
       beforePhotoCount: existing?.beforePhotoCount ?? 0,
       afterPhotoCount: existing?.afterPhotoCount ?? 0,
     };
@@ -146,7 +148,96 @@ export class DailyWorkService {
           existing?.participants.find((p) => p.workerId === w.id)
             ?.displayName ?? w.displayName,
       })),
+      materials,
     );
+  }
+  private validateMaterials(
+    raw: unknown,
+    existing?: DailyWork,
+  ): MaterialUsageInput[] | undefined {
+    if (raw === undefined) return undefined;
+    if (!Array.isArray(raw) || raw.length > 200)
+      throw new BadRequestException(
+        "사용자재는 최대 200건의 목록으로 입력해 주세요.",
+      );
+    const ids = new Set<string>();
+    return raw.map((row: unknown) => {
+      if (!row || typeof row !== "object" || Array.isArray(row))
+        throw new BadRequestException("사용자재 입력값을 확인해 주세요.");
+      const input = row as Record<string, unknown>;
+      const fields: Record<string, string> = {};
+      for (const key of ["name", "specification", "unit", "notes"]) {
+        const value = input[key] ?? "";
+        if (
+          typeof value !== "string" ||
+          value.length > (key === "notes" ? 5000 : 300)
+        )
+          throw new BadRequestException(
+            "자재명, 규격, 단위, 비고를 확인해 주세요.",
+          );
+        fields[key] = value.trim();
+      }
+      if (!fields.name || !fields.unit)
+        throw new BadRequestException("자재명과 단위는 필수입니다.");
+      const quantity = input.quantity;
+      if (
+        typeof quantity !== "number" ||
+        !Number.isFinite(quantity) ||
+        quantity <= 0 ||
+        quantity > 1000000 ||
+        Number(quantity.toFixed(3)) !== quantity
+      )
+        throw new BadRequestException(
+          "수량은 0보다 크고 1,000,000 이하이며 소수점 3자리까지 입력할 수 있습니다.",
+        );
+      const id = input.id;
+      if (
+        id !== undefined &&
+        (typeof id !== "string" ||
+          ids.has(id) ||
+          !existing?.materials.some((u) => u.id === id))
+      )
+        throw new BadRequestException(
+          "해당 작업에 속하지 않거나 중복된 사용자재 ID입니다.",
+        );
+      if (typeof id === "string") ids.add(id);
+      return {
+        ...fields,
+        quantity,
+        ...(typeof id === "string" ? { id } : {}),
+      } as MaterialUsageInput;
+    });
+  }
+  siteMaterials(siteId: string): SiteMaterials {
+    if (!this.sites.find(siteId))
+      throw new NotFoundException("현장을 찾을 수 없습니다.");
+    const usages = this.list(siteId)
+      .flatMap((work) =>
+        work.materials.map((usage) => ({
+          ...usage,
+          siteId: work.siteId,
+          workDate: work.workDate,
+          dailyWorkContent: work.content,
+          managerDisplayName: work.managerDisplayName,
+        })),
+      )
+      .sort(
+        (a, b) =>
+          a.workDate.localeCompare(b.workDate) || a.name.localeCompare(b.name),
+      );
+    const grouped = new Map<string, SiteMaterials["totals"][number]>();
+    for (const usage of usages) {
+      const key = JSON.stringify([usage.name, usage.specification, usage.unit]);
+      const total = grouped.get(key) ?? {
+        name: usage.name,
+        specification: usage.specification,
+        unit: usage.unit,
+        quantity: 0,
+      };
+      total.quantity = Number((total.quantity + usage.quantity).toFixed(3));
+      grouped.set(key, total);
+    }
+    return { usages, totals: [...grouped.values()] };
   }
   create(body: unknown) {
     return this.save(body);

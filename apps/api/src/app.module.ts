@@ -34,6 +34,7 @@ class WorkersController {
 class DailyWorkController {
   constructor(@Inject(DailyWorkService) private readonly work: DailyWorkService) {}
   @Get() list(@Query('siteId') siteId?: string,@Query('workerId') workerId?: string){return this.work.list(siteId,workerId);}
+  @Get('site-materials/:siteId') materials(@Param('siteId') siteId:string){return this.work.siteMaterials(siteId);}
   @Get(':id') find(@Param('id') id:string){return this.work.find(id);}
   @Post() create(@Body() body:unknown){return this.work.create(body);}
   @Put(':id') update(@Param('id') id:string,@Body() body:unknown){return this.work.update(id,body);}

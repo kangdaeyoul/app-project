@@ -32,9 +32,18 @@ Site의 managerId는 작업진행자를 참조하고 manager는 배정 당시 �
 
 ## 일일작업 관계형 이전 경계
 
-- `daily_work`: id(PK), work_date(DATE), site_id(FK), manager_id(FK), site_name_snapshot, manager_display_name_snapshot, start_time(TIME, nullable), end_time(TIME, nullable), content, notes, status, material_count, before_photo_count, after_photo_count.
+- `daily_work`: id(PK), work_date(DATE), site_id(FK), manager_id(FK), site_name_snapshot, manager_display_name_snapshot, start_time(TIME, nullable), end_time(TIME, nullable), content, notes, status, before_photo_count, after_photo_count. material_count는 사용내역 행 수로 집계하는 조회값입니다.
 - `daily_work_participants`: daily_work_id(FK), worker_id(FK), display_name_snapshot. (daily_work_id, worker_id) 복합 PK/유일 제약.
 
 메모리 어댑터도 두 컬렉션을 분리합니다. 저장소 save는 기본기록과 참여관계 교체를 한 작업으로 수행하며 PostgreSQL 전환 시 트랜잭션으로 처리해야 합니다. site_id+work_date에는 유일 제약을 걸지 않아 동일 현장의 여러 날짜/여러 기록을 허용합니다. 작업진행자는 soft delete하고 FK를 연쇄 삭제하지 않습니다. 조회용 스냅샷은 명칭 변경 후에도 보존됩니다.
 
-작업시간은 당일 HH:mm 차이의 분 단위 파생 값이며 저장하지 않습니다. 미정은 API에서 빈 문자열/totalMinutes null로 표시합니다. 향후 DB에서는 TIME null로 매핑합니다. 야간 작업은 날짜별로 분리합니다. 사진/자재 건수는 현재 0인 읽기 필드이며 후속 연결 시 첨부·자재사용 테이블로부터 집계할 수 있습니다.
+작업시간은 당일 HH:mm 차이의 분 단위 파생 값이며 저장하지 않습니다. 미정은 API에서 빈 문자열/totalMinutes null로 표시합니다. 향후 DB에서는 TIME null로 매핑합니다. 야간 작업은 날짜별로 분리합니다. 사진 건수는 현재 0인 읽기 필드이며 후속 첨부 테이블에서 집계합니다. 사용자재 건수는 현재 연결된 사용내역 행 수로 집계합니다.
+
+## 사용자재와 구매 분리
+
+- `materials`: id, name, specification, unit. 자재명+규격+단위로 현재 카탈로그를 재사용합니다. 가격은 저장하지 않습니다. 이름·규격·단위 변경은 새 카탈로그 항목으로 연결해 기존 항목을 보존합니다.
+- `daily_work_material_usage`: id, daily_work_id(FK), material_id(FK), name_snapshot, specification_snapshot, unit_snapshot, quantity(NUMERIC, 소수점 3자리), notes.
+
+사용내역의 현장/작업일자는 daily_work.site_id/work_date에서 조인하므로 중복 저장하지 않습니다. 일일작업 수정 시 작업·참여자·사용내역을 한 트랜잭션으로 반영해야 합니다. 사용 행은 독립 ID를 가지며 같은 자재를 같은 작업에 여러 줄 입력할 수도 있습니다. 기록 건수는 행 개수이고 현장 합계는 이름/규격/단위의 합입니다. 자재명은 외부 가격표나 비용과 연결되지 않습니다.
+
+후속 구매는 `material_purchases` 및 구매 항목을 별도 테이블로 설계하고 material_id를 참조합니다. 회사 직접구매/작업진행자 대납, 가격, 영수증, 현장원가 배분은 구매 및 원가 도메인에서 관리합니다. 구매량과 실제 사용량은 별개이며 이번 단계에서 자동 원가 계산이나 구매 차감은 하지 않습니다. 반환/재고 이동은 별도 후속 정책이 필요합니다.

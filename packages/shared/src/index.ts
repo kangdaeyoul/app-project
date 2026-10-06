@@ -25,8 +25,15 @@ export interface WorkerDetail extends WorkerSummary { sites: Site[]; work: Worke
 
 export const DAILY_WORK_STATUSES = ['작업예정', '작업중', '작업완료', '관리자확인완료'] as const;
 export type DailyWorkStatus = typeof DAILY_WORK_STATUSES[number];
-export interface DailyWorkInput { workDate: string; siteId: string; managerId: string; participantIds: string[]; startTime: string; endTime: string; content: string; notes: string; status: DailyWorkStatus }
+export interface DailyWorkInput { workDate: string; siteId: string; managerId: string; participantIds: string[]; startTime: string; endTime: string; content: string; notes: string; status: DailyWorkStatus; materials?: MaterialUsageInput[] }
 export interface DailyWorkParticipant { dailyWorkId: string; workerId: string; displayName: string }
-export interface DailyWorkRecord extends Omit<DailyWorkInput, 'participantIds'> { id: string; siteName: string; managerDisplayName: string; materialCount: number; beforePhotoCount: number; afterPhotoCount: number }
-export interface DailyWork extends DailyWorkRecord { participants: DailyWorkParticipant[]; totalMinutes: number | null }
+export interface DailyWorkRecord extends Omit<DailyWorkInput, 'participantIds' | 'materials'> { id: string; siteName: string; managerDisplayName: string; beforePhotoCount: number; afterPhotoCount: number }
+export interface DailyWork extends DailyWorkRecord { materialCount: number; participants: DailyWorkParticipant[]; totalMinutes: number | null; materials: MaterialUsage[] }
 export function workMinutes(start: string, end: string): number | null { if (!start || !end) return null; const minutes = (time: string) => { const [h,m] = time.split(':').map(Number); return h*60+m; }; return minutes(end)-minutes(start); }
+
+export interface Material { id: string; name: string; specification: string; unit: string }
+export interface MaterialUsageInput { id?: string; name: string; specification: string; quantity: number; unit: string; notes: string }
+export interface MaterialUsage extends MaterialUsageInput { id: string; materialId: string; dailyWorkId: string }
+export interface SiteMaterialUsage extends MaterialUsage { workDate: string; siteId: string; dailyWorkContent: string; managerDisplayName: string }
+export interface SiteMaterialTotal { name: string; specification: string; unit: string; quantity: number }
+export interface SiteMaterials { usages: SiteMaterialUsage[]; totals: SiteMaterialTotal[] }

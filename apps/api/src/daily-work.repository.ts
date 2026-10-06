@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
 import {
+  Material,
+  MaterialUsage,
+  MaterialUsageInput,
   DailyWorkRecord,
   DailyWorkParticipant,
   DailyWork,
@@ -13,12 +16,15 @@ export interface DailyWorkRepository {
   save(
     record: DailyWorkRecord,
     participants: DailyWorkParticipant[],
+    materials?: MaterialUsageInput[],
   ): DailyWork;
 }
 // Two normalized collections model daily_work and daily_work_participants.
 export class SampleDailyWorkRepository implements DailyWorkRepository {
   private records: DailyWorkRecord[];
   private participants: DailyWorkParticipant[];
+  private catalog: Material[] = [];
+  private usages: MaterialUsage[] = [];
   constructor(today = seoulToday()) {
     this.records = [
       {
@@ -33,7 +39,6 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
         content: "3층 스프링클러 배관 및 자탐 작업",
         notes: "",
         status: "작업완료",
-        materialCount: 0,
         beforePhotoCount: 0,
         afterPhotoCount: 0,
       },
@@ -46,6 +51,11 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
   private view(record: DailyWorkRecord): DailyWork {
     return {
       ...record,
+      materialCount: this.usages.filter((u) => u.dailyWorkId === record.id)
+        .length,
+      materials: this.usages
+        .filter((u) => u.dailyWorkId === record.id)
+        .map((u) => ({ ...u })),
       participants: this.participants
         .filter((p) => p.dailyWorkId === record.id)
         .map((p) => ({ ...p })),
@@ -59,7 +69,40 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
     const r = this.records.find((r) => r.id === id);
     return r && this.view(r);
   }
-  save(record: DailyWorkRecord, participants: DailyWorkParticipant[]) {
+  save(
+    record: DailyWorkRecord,
+    participants: DailyWorkParticipant[],
+    materials?: MaterialUsageInput[],
+  ) {
+    if (materials !== undefined) {
+      const next = materials.map((input) => {
+        let material = this.catalog.find(
+          (m) =>
+            m.name === input.name &&
+            m.specification === input.specification &&
+            m.unit === input.unit,
+        );
+        if (!material) {
+          material = {
+            id: randomUUID(),
+            name: input.name,
+            specification: input.specification,
+            unit: input.unit,
+          };
+          this.catalog.push(material);
+        }
+        return {
+          ...input,
+          id: input.id ?? randomUUID(),
+          materialId: material.id,
+          dailyWorkId: record.id,
+        };
+      });
+      this.usages = [
+        ...this.usages.filter((u) => u.dailyWorkId !== record.id),
+        ...next,
+      ];
+    }
     const index = this.records.findIndex((r) => r.id === record.id);
     if (index < 0) this.records.push({ ...record });
     else this.records[index] = { ...record };

@@ -1,4 +1,5 @@
 "use client";
+import MaterialRows from "./material-rows";
 import { useEffect, useState } from "react";
 import {
   DAILY_WORK_STATUSES,
@@ -80,6 +81,7 @@ export default function DailyWorkPanel({
             content: work.content,
             notes: work.notes,
             status: work.status,
+            materials: work.materials.map(m=>({...m})),
           }
         : {
             workDate: today(),
@@ -91,6 +93,7 @@ export default function DailyWorkPanel({
             content: "",
             notes: "",
             status: "작업예정",
+            materials: [],
           },
     );
     setError("");
@@ -330,6 +333,7 @@ export default function DailyWorkPanel({
                     ))}
                   </select>
                 </label>
+                <MaterialRows rows={form.materials??[]} onChange={materials=>setForm({...form,materials})}/>
               </div>
               <div className="form-actions">
                 <button
@@ -361,7 +365,7 @@ export default function DailyWorkPanel({
                     ? "참여 일일작업 이력"
                     : "일일작업 목록"}
               </h2>
-              <p>총 {rows.length}건 · 사진·자재 등록은 다음 단계</p>
+              <p>총 {rows.length}건 · 사진 등록은 다음 단계 · 사용자재는 상세·수정에서 관리</p>
             </div>
             <button
               disabled={loading}
