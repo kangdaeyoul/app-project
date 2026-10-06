@@ -241,3 +241,5 @@ PNG/JPEG/WebP를 장당 10MB, 한 번에 최대 20장 지원합니다. 원본 �
 - 저장된 **승인** 견적의 현장 생성 버튼에서 공사기간을 입력하면 새 현장을 생성합니다. 거래처 ID/이름, 현장명, 주소, 공사내용, VAT 포함 최종 총액, 기계/전기 구분과 항목별 세부 공종이 전달됩니다. 기존 현장 연결은 참조용이며 계약전환은 새로운 현장을 생성합니다. 중복 전환은 동일 현장을 반환합니다. 계약전환된 견적은 수정/삭제 대신 복사해 새 견적을 작성합니다.
 - 기계만/전기만/기계+전기 샘플 3건과 별도 거래처 샘플을 포함합니다. 기존과 동일한 메모리 저장 방식이며 재시작하면 초기화됩니다. 실제 종로소방 Excel 양식은 이후 단계에서 적용합니다.
 - API: `GET/POST /api/customers`, `GET/POST /api/quotes`, `GET/PUT/DELETE /api/quotes/:id`, `POST /api/quotes/:id/copy`, `POST /api/quotes/:id/convert`, `GET /api/quotes/:id/customer`, `GET /api/quotes/:id/pdf?mode=전체 상세&preview=true` (inline, 생략하면 다운로드). 목록 검색: search/status/from/to.
+
+실제 종로소방 Excel 견적서 양식 출력은 견적 상세에서 **종로소방 Excel 다운로드**를 선택합니다. 갑지·을지 기계·을지 전기 및 선택한 고객 출력모드가 적용됩니다. 양식 대응과 템플릿 유지보수는 [Excel 견적서 문서](docs/quote-excel-template.md)를 참고하세요.

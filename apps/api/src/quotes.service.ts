@@ -329,6 +329,19 @@ export class QuotesService {
     });
     return site;
   }
+  excelCustomer(id: string, mode = "전체 상세") {
+    const publicQuote = this.customer(id, mode);
+    const record = this.record(id);
+    const client = this.customers.find(record.customerId);
+    return { ...publicQuote, contactName: client?.contactName ?? "", phone: client?.phone ?? "",
+      groups: record.sections.map(section => section.items.map(item => {
+        if (item.priceCategory === "노무비") return 3;
+        if (item.priceCategory === "경비") return 4;
+        if (/전선|케이블|전기배관|전선관|박스|단자|차단기/.test(item.name)) return 2;
+        if (/배관|강관|백관|흑관|엘보|^티$|소켓|레듀샤|플랜지|행거|밸브|니플|유니온/.test(item.name)) return 1;
+        return 0;
+      })) };
+  }
   customer(id: string, mode: string = "전체 상세"): CustomerQuote {
     if (!QUOTE_PRINT_MODES.includes(mode as CustomerQuote["printMode"]))
       throw new BadRequestException("출력모드를 확인해 주세요.");

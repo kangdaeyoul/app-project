@@ -244,13 +244,13 @@ export default function QuotesPanel({
       setBusy(false);
     }
   }
-  async function print(download: boolean) {
+  async function print(download: boolean, excel = false) {
     if (!selected || busy) return;
     setBusy(true);
     setError("");
     try {
       const r = await fetch(
-        `/api/quotes/${selected.id}/pdf?${new URLSearchParams({ mode: printMode, preview: download ? "false" : "true" })}`,
+        `/api/quotes/${selected.id}/${excel ? "excel" : "pdf"}?${new URLSearchParams({ mode: printMode, preview: download ? "false" : "true" })}`,
       );
       if (!r.ok) {
         const b = await r.json();
@@ -269,7 +269,7 @@ export default function QuotesPanel({
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 30000);
-        setNotice("고객용 견적서 PDF를 다운로드했습니다.");
+        setNotice(`고객용 견적서 ${excel ? "Excel" : "PDF"}을 다운로드했습니다.`);
       } else {
         clearPreview();
         previewUrl.current = url;
@@ -1079,7 +1079,7 @@ export default function QuotesPanel({
             <section className="panel">
               <div className="panel-title">
                 <div>
-                  <h3>고객용 견적서 PDF</h3>
+                  <h3>고객용 견적서 출력</h3>
                   <p>저장된 견적을 출력합니다. 변경사항은 먼저 저장하세요.</p>
                 </div>
               </div>
@@ -1116,6 +1116,7 @@ export default function QuotesPanel({
                 >
                   견적서 PDF 다운로드
                 </button>
+                <button type="button" className="primary-button" disabled={busy || dirty} onClick={() => print(true, true)}>종로소방 Excel 다운로드</button>
               </div>
               {preview && (
                 <div className="report-preview">
