@@ -20,4 +20,4 @@
 
 금액은 PostgreSQL BIGINT(원 단위) 또는 NUMERIC으로 저장하고 소수점 반올림 규칙을 명시해야 합니다. API 숫자가 JavaScript 안전 정수 범위를 넘는 경우 문자열 계약으로 전환합니다. 업무일은 DATE, 생성/변경 시각은 TIMESTAMPTZ를 사용하고 서울 시간으로 표시합니다.
 
-현재 API의 `Site`는 대시보드 샘플 조회 DTO입니다. `contractAmount`, `collectedAmount`, `unpaidWorkerAmount`는 미래 원장에서 집계할 읽기 모델이며 위 테이블 전체를 대신하지 않습니다. 로그인/권한 및 파일 접근 정책은 별도 설계가 필요합니다.
+현재 API의 `SiteInput`은 현장 기본정보 입력 계약이며 `Site`는 ID와 샘플 누계가 포함된 조회 계약입니다. `client`, `contactName`, `phone`, `description`, `startDate`, `endDate`를 제공하고 종료예정일 미정은 빈 문자열, 대표 작업진행자 미배정은 null로 표현합니다. `contractAmount`, `collectedAmount`, `unpaidWorkerAmount`는 미래 원장에서 집계할 읽기 모델이며 위 테이블 전체를 대신하지 않습니다. 로그인/권한 및 파일 접근 정책은 별도 설계가 필요합니다.
