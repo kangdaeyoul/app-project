@@ -106,3 +106,11 @@ InvoicesRepository가 매출/매입/작업진행자 계산서 상태를 독립 �
 - 기존 `photo_records → daily_work → site`를 조회해 문서를 생성한다. 작업진행자는 일일작업의 `managerDisplayName` 이력을 사용한다. 비교키는 `[workDate, location.trim()]`이며 빈 위치는 독립 사진으로 취급한다. 출력 렌더링용 변환 결과만 사용하고 원본은 불변이다.
 - 독립 `PhotoReportStorage.put/get` 어댑터가 생성 PDF 버퍼를 보관한다. 현재 프로세스 메모리에서 TTL 30분·20개로 제한한다. 키는 `siteId/05 현장사진/사진대지/reportUUID/filename`이다. NAS 연결 시 어댑터만 교체한다.
 - 향후 `photo_reports(id, site_id, storage_key, filename, options_snapshot, created_at, created_by)`와 `photo_report_photos(report_id, photo_id, ordinal, metadata_snapshot)`로 출력 이력/재생성 및 원본 변경 이후의 문서 이력을 분리할 수 있다. 현재 이력 영속화·관리자 승인은 제공하지 않는다.
+
+## 견적 / 거래처
+- `customers(id,name,address,contact_name,phone)` 별도 저장소. 견적은 `customer_id`로 연결하며 `customer_name` 스냅샷을 보존한다. 기존 현장은 거래처명 텍스트를 계속 지원하고 신규 견적 전환 현장은 선택적 `clientId`를 가진다.
+- `quotes(id,customer_id,customer_name,site_id,site_name,address,work_content,quote_date,valid_until,status,notes,general_fee,support_fee,internal_general_cost,internal_support_cost,rounding,display_unit,converted_site_id,created_at,updated_at)`.
+- `quote_sections(id,quote_id,kind,position)`는 기계/전기 구분이고 `(quote_id,kind)` UNIQUE. `quote_items(id,section_id,position,trade,name,specification,quantity,unit,material_unit_cost,labor_unit_cost,expense_unit_cost,sale_unit_price,price_category,notes)`는 순서별 다건 항목. 현재 메모리 어댑터도 견적/을지/항목을 분리하여 보관하며 조회는 독립 복사본이다. 현재 전체 저장 시 내부 을지/항목 ID를 재생성하고 API 편집은 배열 순서를 사용한다. 외부 항목 연결 도입 시 안정된 ID를 공개하고 차이 기반 갱신으로 전환한다.
+- 수량은 소수 3자리(권장 numeric(12,3)), 원 단가/합계는 정수(bigint 권장)다. 항목별 고객금액 및 내부 원가 성분을 각각 수량×단가로 반올림한다. 판매금액은 고객 price_category별 갑지 합계로 집계한다. 내부 원가나 원가 비율로 고객 갑지를 자동 분배하지 않는다.
+- 최종 고객 총액은 VAT 포함 가격 옵션을 적용한다. 반올림 조정은 공개 갑지에 별도 표시한다. 내부 마진 = 최종 공급가액−총 내부원가다. Public/CustomerQuote DTO는 고객 필드만 명시적으로 선택하며 PDF 렌더러는 이 DTO만 입력받는다. QuoteAdminAccess는 향후 요청별 관리자 권한 정책 포트이며 현재 샘플 어댑터는 인증을 시행하지 않는다.
+- `site_id`는 선택적인 원본 현장 참조, `converted_site_id`는 새 계약 현장 참조다. 승인 견적 전환 시 현장에 clientId, trades(기계/전기), tradeNames(항목별 공종의 중복 없는 목록)을 전달한다. 전환 후 견적은 불변이며 복사본으로 재작성한다. PostgreSQL에서는 견적 행 잠금 + 현장 생성/전환 상태 갱신 트랜잭션, unique converted_site_id, FK 및 삭제 정책으로 중복과 고아 기록을 막는다. 현재 메모리 전환은 동기적으로 실행된다.

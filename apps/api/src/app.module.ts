@@ -1,3 +1,8 @@
+import { QUOTE_ADMIN_ACCESS, SampleQuoteAdminAccess } from './quote-access';
+import { QuotesService } from './quotes.service';
+import { QuotePdfService } from './quote-pdf.service';
+import { QUOTES_REPOSITORY, SampleQuotesRepository } from './quotes.repository';
+import { CUSTOMERS_REPOSITORY, SampleCustomersRepository } from './customers.repository';
 import { PhotoReportService } from './photo-report.service';
 import { PHOTO_REPORT_STORAGE, TemporaryPhotoReportStorage } from './photo-report-storage';
 import { InvoicesService } from './invoices.service';
@@ -18,6 +23,27 @@ import { SampleWorkersRepository, WORKERS_REPOSITORY } from './workers.repositor
 import { DashboardService } from './dashboard.service';
 import { SitesService } from './sites.service';
 import { SampleSitesRepository, SITES_REPOSITORY } from './sites.repository';
+@Controller('customers')
+class CustomersController {
+  constructor(@Inject(QuotesService) private readonly quotes: QuotesService) {}
+  @Get() list(){return this.quotes.customersList();}
+  @Post() create(@Body() body:unknown){return this.quotes.createCustomer(body);}
+}
+@Controller('quotes')
+class QuotesController {
+  constructor(@Inject(QuotesService)private readonly quotes:QuotesService,@Inject(QuotePdfService)private readonly pdf:QuotePdfService){}
+  @Get() list(@Query('search') search?:string,@Query('status') status?:string,@Query('from') from?:string,@Query('to') to?:string){return this.quotes.list(search,status,from,to);}
+  @Get(':id') find(@Param('id') id:string){return this.quotes.find(id);}
+  @Get(':id/customer') customer(@Param('id') id:string,@Query('mode') mode?:string){return this.quotes.customer(id,mode);}
+  @Post() create(@Body() body:unknown){return this.quotes.save(body);}
+  @Put(':id') update(@Param('id') id:string,@Body() body:unknown){return this.quotes.save(body,id);}
+  @Delete(':id') remove(@Param('id') id:string){return this.quotes.remove(id);}
+  @Post(':id/copy') copy(@Param('id') id:string){return this.quotes.copy(id);}
+  @Post(':id/convert') convert(@Param('id') id:string,@Body() body:unknown){return this.quotes.convert(id,body);}
+  @Get(':id/pdf') async print(@Param('id') id:string,@Query('mode') mode:string='전체 상세',@Query('preview') preview:string|undefined,@Res() response:{setHeader:(key:string,value:string)=>void;send:(buffer:Buffer)=>void}){
+    const p=await this.pdf.render(id,mode);response.setHeader('Content-Type','application/pdf');response.setHeader('Content-Disposition',`${preview==='true'?'inline':'attachment'}; filename="quote.pdf"; filename*=UTF-8''${encodeURIComponent(p.filename)}`);response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.send(p.buffer);
+  }
+}
 @Controller()
 class AppController {
   constructor(@Inject(DashboardService) private readonly dashboard: DashboardService) {}
@@ -108,5 +134,5 @@ class InvoicesController {
  @Put('purchases/:expenseId') savePurchase(@Param('expenseId') expenseId:string,@Body() body:unknown){return this.invoices.savePurchase(expenseId,body);}
  @Put('workers/:siteId/:workerId') saveWorker(@Param('siteId') siteId:string,@Param('workerId') workerId:string,@Body() body:unknown){return this.invoices.saveWorker(siteId,workerId,body);}
 }
-@Module({ controllers: [PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [PhotoReportService, {provide: PHOTO_REPORT_STORAGE, useClass: TemporaryPhotoReportStorage}, InvoicesService, {provide: INVOICES_REPOSITORY, useClass: SampleInvoicesRepository}, FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Module({ controllers: [CustomersController, QuotesController, PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [{provide: QUOTE_ADMIN_ACCESS,useClass: SampleQuoteAdminAccess}, QuotesService, QuotePdfService, {provide: QUOTES_REPOSITORY,useClass: SampleQuotesRepository}, {provide: CUSTOMERS_REPOSITORY,useClass: SampleCustomersRepository}, PhotoReportService, {provide: PHOTO_REPORT_STORAGE, useClass: TemporaryPhotoReportStorage}, InvoicesService, {provide: INVOICES_REPOSITORY, useClass: SampleInvoicesRepository}, FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
 export class AppModule {}

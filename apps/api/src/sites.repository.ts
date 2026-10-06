@@ -22,16 +22,16 @@ export class SampleSitesRepository implements SitesRepository {
     ];
     this.sites = entries.map(s => ({ ...s, status: s.status as Site['status'], contactName: '현장 담당자', phone: '02-000-0000', description: s.name }));
   }
-  list() { return this.sites.map(s => ({ ...s })); }
-  find(id: string) { const site = this.sites.find(s => s.id === id); return site && { ...site }; }
+  list() { return this.sites.map(s => structuredClone(s)); }
+  find(id: string) { const site = this.sites.find(s => s.id === id); return site && structuredClone(site); }
   create(input: SiteInput) {
     const site = { ...input, id: randomUUID(), collectedAmount: 0, unpaidWorkerAmount: 0 };
-    this.sites.push(site); return { ...site };
+    this.sites.push(structuredClone(site)); return structuredClone(site);
   }
   update(id: string, input: SiteInput) {
     const index = this.sites.findIndex(s => s.id === id);
     if (index < 0) return undefined;
-    this.sites[index] = { ...this.sites[index], ...input };
-    return { ...this.sites[index] };
+    this.sites[index] = { ...this.sites[index], ...structuredClone(input) };
+    return structuredClone(this.sites[index]);
   }
 }

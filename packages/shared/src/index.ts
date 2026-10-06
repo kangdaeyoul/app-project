@@ -5,7 +5,7 @@ export type SiteStatus = typeof SITE_STATUSES[number];
 export interface SiteInput {
   name: string; client: string; address: string; contactName: string; phone: string;
   description: string; startDate: string; endDate: string; contractAmount: number;
-  manager: string | null; managerId?: string | null; status: SiteStatus;
+  manager: string | null; managerId?: string | null; status: SiteStatus; clientId?: string | null; trades?: ('기계' | '전기')[]; tradeNames?: string[];
 }
 export interface Site extends SiteInput {
   id: string; collectedAmount: number; unpaidWorkerAmount: number;
@@ -110,4 +110,57 @@ export interface PhotoReportOptions {
   showWorker: boolean;
   showNumber: boolean;
   showTime: boolean;
+}
+
+export const QUOTE_STATUSES = ['작성중', '제출완료', '수정요청', '승인', '계약전환', '취소'] as const;
+export const QUOTE_SECTIONS = ['기계', '전기'] as const;
+export const QUOTE_PRINT_MODES = ['전체 상세', '단가 숨김', '금액 숨김', '공종별 묶음', '총액 위주'] as const;
+export const QUOTE_PRICE_CATEGORIES = ['재료비', '노무비', '경비'] as const;
+export interface Customer { id: string; name: string; address: string; contactName: string; phone: string }
+export interface QuoteItemInput {
+  trade: string; name: string; specification: string; quantity: number; unit: string;
+  materialUnitCost: number; laborUnitCost: number; expenseUnitCost: number;
+  saleUnitPrice: number; priceCategory: typeof QUOTE_PRICE_CATEGORIES[number]; notes: string;
+}
+export interface QuoteSectionInput { kind: typeof QUOTE_SECTIONS[number]; items: QuoteItemInput[] }
+export interface QuoteInput {
+  customerId: string; siteId: string | null; siteName: string; address: string; workContent: string;
+  quoteDate: string; validUntil: string; status: typeof QUOTE_STATUSES[number]; notes: string;
+  generalFee: number; supportFee: number; internalGeneralCost: number; internalSupportCost: number;
+  rounding: '천원 반올림' | '반올림 없음'; displayUnit: '만원' | '원'; sections: QuoteSectionInput[];
+}
+export interface Quote extends QuoteInput { id: string; customerName: string; createdAt: string; updatedAt: string; convertedSiteId: string | null }
+export interface QuotePublicTotals { material: number; labor: number; expense: number; generalFee: number; supportFee: number; adjustment: number; supplyAmount: number; vat: number; totalAmount: number; unroundedTotal: number }
+export interface QuoteInternalTotals { material: number; labor: number; expense: number; general: number; support: number; totalCost: number; margin: number; marginRate: number }
+export interface QuoteView extends Quote { totals: QuotePublicTotals; internal: QuoteInternalTotals }
+// Explicit allowlist DTO. Customer export never accepts admin QuoteView.
+export interface CustomerQuote {
+  id: string; customerName: string; siteName: string; address: string; workContent: string;
+  quoteDate: string; validUntil: string; notes: string; displayUnit: QuoteInput['displayUnit'];
+  printMode: typeof QUOTE_PRINT_MODES[number]; totals: QuotePublicTotals;
+  sections: { kind: typeof QUOTE_SECTIONS[number]; items: {trade:string;name:string;specification:string;quantity:number;unit:string;saleUnitPrice:number;amount:number;notes:string}[] }[];
+}
+// Thousandths quantities and integer won arithmetic; validate safe ranges at API boundary.
+export const quoteLineAmount = (quantity: number, unitPrice: number) => {
+  const amount = (BigInt(Math.round(quantity * 1000)) * BigInt(unitPrice) + 500n) / 1000n;
+  if (amount > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError('견적 금액 범위를 초과했습니다.');
+  return Number(amount);
+};
+export function calculateQuote(input: QuoteInput): { totals: QuotePublicTotals; internal: QuoteInternalTotals } {
+  const sum = (values:number[]) => {const v=values.reduce((n,a)=>n+BigInt(a),0n);if(v>BigInt(Number.MAX_SAFE_INTEGER))throw new RangeError('견적 합계 범위를 초과했습니다.');return Number(v);};
+  const items=input.sections.flatMap(s=>s.items);
+  const category=(key:typeof QUOTE_PRICE_CATEGORIES[number])=>sum(items.filter(i=>i.priceCategory===key).map(i=>quoteLineAmount(i.quantity,i.saleUnitPrice)));
+  const material=category('재료비'),labor=category('노무비'),expense=category('경비');
+  const originalSupply=sum([material,labor,expense,input.generalFee,input.supportFee]);
+  const unroundedTotal=sum([originalSupply,Number((BigInt(originalSupply)+5n)/10n)]);
+  const rounded=input.rounding==='천원 반올림' ? ((BigInt(unroundedTotal)+500n)/1000n)*1000n : BigInt(unroundedTotal);
+  if(rounded>BigInt(Number.MAX_SAFE_INTEGER))throw new RangeError('반올림 금액 범위를 초과했습니다.');
+  const totalAmount=Number(rounded);
+  const supplyAmount=input.rounding==='천원 반올림'? Number((rounded*10n+5n)/11n):originalSupply;
+  const totals={material,labor,expense,generalFee:input.generalFee,supportFee:input.supportFee,adjustment:supplyAmount-originalSupply,supplyAmount,vat:totalAmount-supplyAmount,totalAmount,unroundedTotal};
+  const costs=(key:'materialUnitCost'|'laborUnitCost'|'expenseUnitCost')=>sum(items.map(i=>quoteLineAmount(i.quantity,i[key])));
+  const cm=costs('materialUnitCost'),cl=costs('laborUnitCost'),ce=costs('expenseUnitCost');
+  const totalCost=sum([cm,cl,ce,input.internalGeneralCost,input.internalSupportCost]);
+  const margin=supplyAmount-totalCost;
+  return {totals,internal:{material:cm,labor:cl,expense:ce,general:input.internalGeneralCost,support:input.internalSupportCost,totalCost,margin,marginRate:supplyAmount ? margin/supplyAmount*100:0}};
 }

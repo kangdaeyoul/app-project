@@ -1,3 +1,4 @@
+import { CUSTOMERS_REPOSITORY, CustomersRepository } from './customers.repository';
 import { FinanceService, sum } from './finance.service';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { SITE_STATUSES, SiteInput } from '@jongno/shared';
@@ -27,7 +28,7 @@ function validateInput(body: unknown): SiteInput {
 }
 @Injectable()
 export class SitesService {
-  constructor(@Inject(FinanceService) private readonly finance: FinanceService, @Inject(SITES_REPOSITORY) private readonly repository: SitesRepository, @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository) {}
+  constructor(@Inject(FinanceService) private readonly finance: FinanceService, @Inject(SITES_REPOSITORY) private readonly repository: SitesRepository, @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository, @Inject(CUSTOMERS_REPOSITORY) private readonly customers: CustomersRepository) {}
   list(month?: string) { if (month !== undefined) validateMonth(month); return this.repository.list().filter(s => month === undefined || overlapsMonth(s, month)).map(s=>this.view(s)); }
   find(id: string) { const site = this.repository.find(id); if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.'); return this.view(site); }
   private view(site: import('@jongno/shared').Site){const f=this.finance.siteFinance(site.id);return {...site,collectedAmount:f.collectedAmount,unpaidWorkerAmount:f.unpaidWorkerAmount};}
@@ -35,6 +36,15 @@ export class SitesService {
     const value = validateInput(body);
     sum([...this.repository.list().filter(s=>s.id!==existing?.id).map(s=>s.contractAmount),value.contractAmount]);
     const raw = body as Record<string, unknown>;
+    const clientId = raw.clientId === undefined ? (existing?.client === value.client ? existing?.clientId ?? null : null) : raw.clientId;
+    if (clientId !== null && (typeof clientId !== 'string' || !this.customers.find(clientId))) throw new BadRequestException('거래처 연결을 확인해 주세요.');
+    value.clientId = clientId as string | null;
+    const trades = raw.trades === undefined ? existing?.trades ?? [] : raw.trades;
+    if (!Array.isArray(trades) || trades.some(t=>!['기계','전기'].includes(t)) || new Set(trades).size!==trades.length) throw new BadRequestException('공종을 확인해 주세요.');
+    value.trades = [...trades] as ('기계'|'전기')[];
+    const tradeNames = raw.tradeNames === undefined ? existing?.tradeNames ?? [] : raw.tradeNames;
+    if (!Array.isArray(tradeNames) || tradeNames.length>200 || tradeNames.some(t=>typeof t!=='string'||!t.trim()||t.length>100) || new Set(tradeNames).size!==tradeNames.length) throw new BadRequestException('세부 공종을 확인해 주세요.');
+    value.tradeNames = [...tradeNames];
     // Older records retain their label until explicitly reassigned.
     const id = raw.managerId === undefined ? existing?.managerId ?? null : raw.managerId;
     if (id !== null && typeof id !== 'string') throw new BadRequestException('대표 작업진행자 ID를 확인해 주세요.');
