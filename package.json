@@ -1,0 +1,22 @@
+{
+  "name": "jongno-fire-management",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run build -w @jongno/shared && concurrently -k -n API,WEB \"npm run dev -w @jongno/api\" \"npm run dev -w @jongno/admin-web\"",
+    "build": "npm run build -w @jongno/shared && npm run build -w @jongno/api && npm run build -w @jongno/admin-web",
+    "test": "npm run build -w @jongno/shared && npm run test -w @jongno/api",
+    "typecheck": "npm run build -w @jongno/shared && npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3",
+    "@types/node": "^22.19.0"
+  }
+}

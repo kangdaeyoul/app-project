@@ -1,0 +1,37 @@
+import 'reflect-metadata';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { NestFactory } from '@nestjs/core';
+import request from 'supertest';
+import { AppModule } from '../src/app.module';
+import { DashboardService, seoulToday } from '../src/dashboard.service';
+import { SampleSitesRepository } from '../src/sites.repository';
+test('서울 시간은 UTC 날짜 경계를 정확히 처리한다', () => {
+  assert.equal(seoulToday(new Date('2026-10-05T15:00:00Z')), '2026-10-06');
+});
+test('월별 합계와 배정 상태는 샘플 현장과 일치한다', () => {
+  const dashboard = new DashboardService(new SampleSitesRepository()).get('2026-10');
+  assert.equal(dashboard.sites.length, 5);
+  assert.equal(dashboard.summary.contractRevenue, 83000000);
+  assert.equal(dashboard.summary.collected, 36500000);
+  assert.equal(dashboard.summary.receivables, 46500000);
+  assert.equal(dashboard.summary.unpaidWorkers, 4850000);
+  assert.equal(dashboard.summary.unassigned, 2);
+  assert.equal(dashboard.summary.inProgress, 2);
+  assert.equal(dashboard.summary.completed, 1);
+  assert.ok(dashboard.sites.every(s => s.date.startsWith('2026-10')));
+});
+test('HTTP API는 상태, 월 조회, 잘못된 월의 400 응답을 제공한다', async () => {
+  const app = await NestFactory.create(AppModule, { logger: false });
+  app.setGlobalPrefix('api'); await app.init();
+  try {
+    await request(app.getHttpServer()).get('/api/health').expect(200).expect({status:'ok',mode:'sample'});
+    const res = await request(app.getHttpServer()).get('/api/dashboard?month=2026-02').expect(200);
+    assert.equal(res.body.month, '2026-02');
+    assert.equal(res.body.sites.length, 5);
+    await request(app.getHttpServer()).get('/api/dashboard?month=2026-13').expect(400);
+    await request(app.getHttpServer()).get('/api/dashboard?month=invalid').expect(400);
+    const sites = await request(app.getHttpServer()).get('/api/sites?month=2026-02').expect(200);
+    assert.equal(sites.body.length, 5);
+  } finally { await app.close(); }
+});
