@@ -1,3 +1,5 @@
+import { Inject } from "@nestjs/common";
+import { PHOTO_REPOSITORY, PhotoRepository } from "./photo.repository";
 import { randomUUID } from "node:crypto";
 import {
   Material,
@@ -25,7 +27,8 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
   private participants: DailyWorkParticipant[];
   private catalog: Material[] = [];
   private usages: MaterialUsage[] = [];
-  constructor(today = seoulToday()) {
+  constructor(@Inject(PHOTO_REPOSITORY) private readonly photos: PhotoRepository) {
+    const today = seoulToday();
     this.records = [
       {
         id: "D001",
@@ -39,8 +42,6 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
         content: "3층 스프링클러 배관 및 자탐 작업",
         notes: "",
         status: "작업완료",
-        beforePhotoCount: 0,
-        afterPhotoCount: 0,
       },
     ];
     this.participants = [
@@ -51,6 +52,8 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
   private view(record: DailyWorkRecord): DailyWork {
     return {
       ...record,
+      beforePhotoCount: this.photos.list().filter(p=>p.dailyWorkId===record.id&&p.type==="작업 전").length,
+      afterPhotoCount: this.photos.list().filter(p=>p.dailyWorkId===record.id&&p.type==="작업 후").length,
       materialCount: this.usages.filter((u) => u.dailyWorkId === record.id)
         .length,
       materials: this.usages

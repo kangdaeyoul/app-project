@@ -136,8 +136,6 @@ export class DailyWorkService {
         existing?.managerId === manager.id
           ? existing.managerDisplayName
           : manager.displayName,
-      beforePhotoCount: existing?.beforePhotoCount ?? 0,
-      afterPhotoCount: existing?.afterPhotoCount ?? 0,
     };
     return this.repository.save(
       record,

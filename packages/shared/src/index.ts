@@ -27,8 +27,8 @@ export const DAILY_WORK_STATUSES = ['작업예정', '작업중', '작업완료',
 export type DailyWorkStatus = typeof DAILY_WORK_STATUSES[number];
 export interface DailyWorkInput { workDate: string; siteId: string; managerId: string; participantIds: string[]; startTime: string; endTime: string; content: string; notes: string; status: DailyWorkStatus; materials?: MaterialUsageInput[] }
 export interface DailyWorkParticipant { dailyWorkId: string; workerId: string; displayName: string }
-export interface DailyWorkRecord extends Omit<DailyWorkInput, 'participantIds' | 'materials'> { id: string; siteName: string; managerDisplayName: string; beforePhotoCount: number; afterPhotoCount: number }
-export interface DailyWork extends DailyWorkRecord { materialCount: number; participants: DailyWorkParticipant[]; totalMinutes: number | null; materials: MaterialUsage[] }
+export interface DailyWorkRecord extends Omit<DailyWorkInput, 'participantIds' | 'materials'> { id: string; siteName: string; managerDisplayName: string; }
+export interface DailyWork extends DailyWorkRecord { beforePhotoCount: number; afterPhotoCount: number; materialCount: number; participants: DailyWorkParticipant[]; totalMinutes: number | null; materials: MaterialUsage[] }
 export function workMinutes(start: string, end: string): number | null { if (!start || !end) return null; const minutes = (time: string) => { const [h,m] = time.split(':').map(Number); return h*60+m; }; return minutes(end)-minutes(start); }
 
 export interface Material { id: string; name: string; specification: string; unit: string }
@@ -37,3 +37,9 @@ export interface MaterialUsage extends MaterialUsageInput { id: string; material
 export interface SiteMaterialUsage extends MaterialUsage { workDate: string; siteId: string; dailyWorkContent: string; managerDisplayName: string }
 export interface SiteMaterialTotal { name: string; specification: string; unit: string; quantity: number }
 export interface SiteMaterials { usages: SiteMaterialUsage[]; totals: SiteMaterialTotal[] }
+
+export const PHOTO_TYPES = ['작업 전', '작업 후'] as const;
+export type PhotoType = typeof PHOTO_TYPES[number];
+export interface PhotoRecord { id: string; dailyWorkId: string; type: PhotoType; location: string; description: string; capturedAt: string | null; uploadedBy: string; sortOrder: number; originalFilename: string; storageKey: string; mimeType: string; size: number; createdAt: string; isSample: boolean }
+export interface PhotoView extends PhotoRecord { siteId: string; workDate: string; url: string }
+export interface PhotoMetadata { location: string; description: string; capturedAt: string | null; uploadedBy: string }

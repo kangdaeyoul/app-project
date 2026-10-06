@@ -1,4 +1,5 @@
 "use client";
+import PhotosPanel from "./photos-panel";
 import MaterialRows from "./material-rows";
 import { useEffect, useState } from "react";
 import {
@@ -333,6 +334,7 @@ export default function DailyWorkPanel({
                     ))}
                   </select>
                 </label>
+                {selected ? <div className="full-width"><PhotosPanel dailyWorkId={selected.id} onChanged={()=>setRevision(v=>v+1)}/><p>사진은 즉시 저장됩니다. 작업정보 저장/취소와 별도로 반영됩니다.</p></div> : <p className="full-width">일일작업을 먼저 저장한 뒤 상세·수정에서 사진을 추가할 수 있습니다.</p>}
                 <MaterialRows rows={form.materials??[]} onChange={materials=>setForm({...form,materials})}/>
               </div>
               <div className="form-actions">
@@ -365,7 +367,7 @@ export default function DailyWorkPanel({
                     ? "참여 일일작업 이력"
                     : "일일작업 목록"}
               </h2>
-              <p>총 {rows.length}건 · 사진 등록은 다음 단계 · 사용자재는 상세·수정에서 관리</p>
+              <p>총 {rows.length}건 · 사진·사용자재는 상세·수정에서 관리</p>
             </div>
             <button
               disabled={loading}

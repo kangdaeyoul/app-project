@@ -32,12 +32,12 @@ Site의 managerId는 작업진행자를 참조하고 manager는 배정 당시 �
 
 ## 일일작업 관계형 이전 경계
 
-- `daily_work`: id(PK), work_date(DATE), site_id(FK), manager_id(FK), site_name_snapshot, manager_display_name_snapshot, start_time(TIME, nullable), end_time(TIME, nullable), content, notes, status, before_photo_count, after_photo_count. material_count는 사용내역 행 수로 집계하는 조회값입니다.
+- `daily_work`: id(PK), work_date(DATE), site_id(FK), manager_id(FK), site_name_snapshot, manager_display_name_snapshot, start_time(TIME, nullable), end_time(TIME, nullable), content, notes, status. before_photo_count/after_photo_count는 photo_records에서 집계합니다. material_count는 사용내역 행 수로 집계하는 조회값입니다.
 - `daily_work_participants`: daily_work_id(FK), worker_id(FK), display_name_snapshot. (daily_work_id, worker_id) 복합 PK/유일 제약.
 
 메모리 어댑터도 두 컬렉션을 분리합니다. 저장소 save는 기본기록과 참여관계 교체를 한 작업으로 수행하며 PostgreSQL 전환 시 트랜잭션으로 처리해야 합니다. site_id+work_date에는 유일 제약을 걸지 않아 동일 현장의 여러 날짜/여러 기록을 허용합니다. 작업진행자는 soft delete하고 FK를 연쇄 삭제하지 않습니다. 조회용 스냅샷은 명칭 변경 후에도 보존됩니다.
 
-작업시간은 당일 HH:mm 차이의 분 단위 파생 값이며 저장하지 않습니다. 미정은 API에서 빈 문자열/totalMinutes null로 표시합니다. 향후 DB에서는 TIME null로 매핑합니다. 야간 작업은 날짜별로 분리합니다. 사진 건수는 현재 0인 읽기 필드이며 후속 첨부 테이블에서 집계합니다. 사용자재 건수는 현재 연결된 사용내역 행 수로 집계합니다.
+작업시간은 당일 HH:mm 차이의 분 단위 파생 값이며 저장하지 않습니다. 미정은 API에서 빈 문자열/totalMinutes null로 표시합니다. 향후 DB에서는 TIME null로 매핑합니다. 야간 작업은 날짜별로 분리합니다. 사진 건수는 photo_records에서 집계하는 읽기 필드입니다. 사용자재 건수는 현재 연결된 사용내역 행 수로 집계합니다.
 
 ## 사용자재와 구매 분리
 
@@ -47,3 +47,11 @@ Site의 managerId는 작업진행자를 참조하고 manager는 배정 당시 �
 사용내역의 현장/작업일자는 daily_work.site_id/work_date에서 조인하므로 중복 저장하지 않습니다. 일일작업 수정 시 작업·참여자·사용내역을 한 트랜잭션으로 반영해야 합니다. 사용 행은 독립 ID를 가지며 같은 자재를 같은 작업에 여러 줄 입력할 수도 있습니다. 기록 건수는 행 개수이고 현장 합계는 이름/규격/단위의 합입니다. 자재명은 외부 가격표나 비용과 연결되지 않습니다.
 
 후속 구매는 `material_purchases` 및 구매 항목을 별도 테이블로 설계하고 material_id를 참조합니다. 회사 직접구매/작업진행자 대납, 가격, 영수증, 현장원가 배분은 구매 및 원가 도메인에서 관리합니다. 구매량과 실제 사용량은 별개이며 이번 단계에서 자동 원가 계산이나 구매 차감은 하지 않습니다. 반환/재고 이동은 별도 후속 정책이 필요합니다.
+
+## 사진 엔터티와 파일 저장소
+
+`photo_records`: id(PK), daily_work_id(FK), type(작업 전/작업 후), location, description, captured_at(TIMESTAMPTZ nullable), uploaded_by, sort_order, original_filename, storage_key, mime_type, size, created_at, is_sample. 현장 ID와 작업일자는 daily_work에서 조인합니다. 조회 계약 PhotoView는 siteId/workDate/url을 포함합니다. 원본 파일은 독립 FileStorage 어댑터에서 storage_key로 조회하며 DB에 원본 바이트를 저장하지 않습니다.
+
+순서는 일일작업+사진 구분별로 관리하고 전체 ID 검증 후 교체합니다. 삭제 시 그룹 순서를 다시 번호 매깁니다. PostgreSQL 이전 시 순서 교체와 삭제는 트랜잭션으로 처리하고 FK 및 (daily_work_id, type, sort_order) 인덱스를 고려하세요. 클라우드/NAS 이전 시 파일과 메타데이터 저장 실패 보상도 어댑터에서 처리해야 합니다.
+
+현재 임시 어댑터는 원본 바이트를 그대로 보관하며 삭제하면 제거합니다. 장기 원본 보존 정책은 별도 결정이 필요합니다. 스마트폰 촬영·EXIF는 입력 어댑터, 사진대지 PDF는 정렬/위치/촬영시각/원본을 사용하는 별도 서비스로 확장합니다. 관리자 승인 시 uploaded_by를 인증 사용자 FK로 전환하고 approval_status/reviewer_id/approved_at 등을 추가할 수 있습니다. 필수사진 수는 작업완료 검증 정책으로 추가합니다. 이번 단계에는 승인·자동 검사·PDF 생성이 없습니다.
