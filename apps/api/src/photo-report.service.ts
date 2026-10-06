@@ -1,3 +1,4 @@
+import { CompanyContext } from './company-context';
 import {
   BadRequestException,
   Inject,
@@ -59,6 +60,7 @@ export class PhotoReportService {
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
     @Inject(DAILY_WORK_REPOSITORY) private readonly work: DailyWorkRepository,
     @Inject(PHOTO_REPORT_STORAGE) private readonly storage: PhotoReportStorage,
+    @Inject(CompanyContext) private readonly company: CompanyContext,
   ) {}
   private prepare(siteId: string, body: unknown) {
     const site = this.sites.find(siteId);
@@ -133,8 +135,8 @@ export class PhotoReportService {
       createdDate,
       periodStart,
       periodEnd,
-      title: text("title", "공사 사진대지", 100),
-      companyName: text("companyName", "주식회사 종로소방", 100),
+      title: text("title", this.company.settings().output.photoReportTitle, 100),
+      companyName: text("companyName", this.company.settings().name, 100),
       workContent: text("workContent", site.description, 5000),
       showWorker: bool("showWorker", false),
       showNumber: bool("showNumber", true),
@@ -329,7 +331,7 @@ export class PhotoReportService {
       .slice(0, 100);
     const filename = `${safeName}_공사사진대지_${o.createdDate}.pdf`;
     const id = randomUUID();
-    const storageKey = `${siteId}/05 현장사진/사진대지/${id}/${filename}`;
+    const storageKey = `companies/${this.company.companyId}/${siteId}/05 현장사진/사진대지/${id}/${filename}`;
     if (save) this.storage.put(storageKey, buffer);
     return { buffer, filename, storageKey };
   }

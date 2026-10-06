@@ -27,7 +27,8 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
   private participants: DailyWorkParticipant[];
   private catalog: Material[] = [];
   private usages: MaterialUsage[] = [];
-  constructor(@Inject(PHOTO_REPOSITORY) private readonly photos: PhotoRepository) {
+  constructor(@Inject(PHOTO_REPOSITORY) private readonly photos: PhotoRepository, seed = true) {
+    if (!seed) { this.records = []; this.participants = []; return; }
     const today = seoulToday();
     this.records = [
       {

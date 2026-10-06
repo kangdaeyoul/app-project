@@ -243,3 +243,5 @@ PNG/JPEG/WebP를 장당 10MB, 한 번에 최대 20장 지원합니다. 원본 �
 - API: `GET/POST /api/customers`, `GET/POST /api/quotes`, `GET/PUT/DELETE /api/quotes/:id`, `POST /api/quotes/:id/copy`, `POST /api/quotes/:id/convert`, `GET /api/quotes/:id/customer`, `GET /api/quotes/:id/pdf?mode=전체 상세&preview=true` (inline, 생략하면 다운로드). 목록 검색: search/status/from/to.
 
 실제 종로소방 Excel 견적서 양식 출력은 견적 상세에서 **종로소방 Excel 다운로드**를 선택합니다. 갑지·을지 기계·을지 전기 및 선택한 고객 출력모드가 적용됩니다. 양식 대응과 템플릿 유지보수는 [Excel 견적서 문서](docs/quote-excel-template.md)를 참고하세요.
+
+다중 회사 확장을 위한 내부 회사 문맥과 저장소 분리 구조는 [회사 단위 확장 문서](docs/multi-company.md)에 정리했습니다. 현재 실행은 기존 종로소방 샘플 관리자이며 회원가입·요금제·결제 및 회사 전환 화면은 포함하지 않습니다.

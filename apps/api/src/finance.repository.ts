@@ -21,7 +21,8 @@ export class SampleFinanceRepository implements FinanceRepository {
   private received: PaymentReceived[] = [];
   private paid: WorkerPayment[] = [];
   private allocated: WorkerPaymentAllocation[] = [];
-  constructor(today = seoulToday()) {
+  constructor(today = seoulToday(), seed = true) {
+    if (!seed) {  return; }
     for (const [i, siteId, amount] of [
       [1, "S001", 7000000],
       [2, "S001", 5000000],

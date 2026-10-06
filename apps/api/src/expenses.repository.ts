@@ -65,7 +65,8 @@ export class SampleExpensesRepository implements ExpensesRepository {
   private records: ExpenseRecord[] = [];
   private lineItems: ExpenseLineItem[] = [];
   private settlements: WorkerSettlement[] = [];
-  constructor() {
+  constructor(seed = true) {
+    if (!seed) return;
     const date = seoulToday();
     const seeds = [
       {

@@ -13,7 +13,8 @@ export interface FileStorage {
 // Temporary process-local adapter. Original uploaded bytes are never recompressed.
 export class TemporaryFileStorage implements FileStorage {
   private files = new Map<string, StoredFile>();
-  constructor() {
+  constructor(seed = true) {
+    if (!seed) return;
     for (const n of [1, 2, 3])
       this.put(`sample-${n}.png`, {
         buffer: readFileSync(

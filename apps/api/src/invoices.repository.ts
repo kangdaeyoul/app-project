@@ -27,7 +27,8 @@ export class SampleInvoicesRepository implements InvoicesRepository {
   private sales = new Map<string, SalesInvoice>();
   private purchases = new Map<string, PurchaseInvoice>();
   private workers = new Map<string, WorkerInvoice>();
-  constructor() {
+  constructor(seed = true) {
+    if (!seed) return;
     this.saveSale({
       siteId: "S003",
       counterparty: "광화문 빌딩",

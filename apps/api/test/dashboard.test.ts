@@ -1,3 +1,4 @@
+import { CompanyContext } from '../src/company-context';
 import { InvoicesService } from '../src/invoices.service';
 import { SampleInvoicesRepository } from '../src/invoices.repository';
 import { FinanceService } from '../src/finance.service';
@@ -19,7 +20,7 @@ test('월별 합계와 배정 상태는 샘플 현장과 일치한다', () => {
   const sites=new SampleSitesRepository('2026-10-06');
   const invoices=new SampleInvoicesRepository();const expenses=new SampleExpensesRepository();const workers=new SampleWorkersRepository('2026-10-06');
   const finance=new FinanceService(invoices, new SampleFinanceRepository('2026-10-06'), expenses,sites,workers);
-  const tax=new InvoicesService(invoices,sites,expenses,workers,finance);
+  const tax=new InvoicesService(invoices,sites,expenses,workers,finance,new CompanyContext());
   const dashboard = new DashboardService(tax, finance, sites).get('2026-10');
   assert.equal(dashboard.sites.length, 5);
   assert.equal(dashboard.summary.contractRevenue, 80000000);

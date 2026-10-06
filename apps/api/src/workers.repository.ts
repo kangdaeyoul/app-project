@@ -52,7 +52,8 @@ export class SampleWorkersRepository implements WorkersRepository {
   ];
   private overrides = new Map<string, WorkerAvailability[]>();
   private records: Record<string, WorkerWork[]>;
-  constructor(today = seoulToday()) {
+  constructor(today = seoulToday(), seed = true) {
+    if (!seed) { this.workers = []; this.records = {}; return; }
     const month = today.slice(0, 7);
     this.records = {
       W001: [

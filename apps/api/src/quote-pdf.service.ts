@@ -1,3 +1,4 @@
+import { CompanyContext } from './company-context';
 import { Inject, Injectable } from "@nestjs/common";
 import PDFDocument from "pdfkit";
 import { join } from "node:path";
@@ -5,7 +6,7 @@ import { CustomerQuote, quoteLineAmount } from "@jongno/shared";
 import { QuotesService } from "./quotes.service";
 @Injectable()
 export class QuotePdfService {
-  constructor(@Inject(QuotesService) private readonly quotes: QuotesService) {}
+  constructor(@Inject(QuotesService) private readonly quotes: QuotesService, @Inject(CompanyContext) private readonly company: CompanyContext) {}
   // PDF renderer's only input is the explicit customer projection, never admin data.
   async render(id: string, mode: string) {
     return this.document(this.quotes.customer(id, mode));
@@ -16,7 +17,7 @@ export class QuotePdfService {
       margin: 36,
       autoFirstPage: false,
       bufferPages: true,
-      info: { Title: "견적서", Author: "주식회사 종로소방" },
+      info: { Title: "견적서", Author: this.company.settings().name },
     });
     const chunks: Buffer[] = [];
     const result = new Promise<Buffer>((resolve, reject) => {
@@ -39,7 +40,7 @@ export class QuotePdfService {
       doc.fontSize(20).text("견적서", 36, 30, { width: 523, align: "center" });
       doc
         .fontSize(10)
-        .text("주식회사 종로소방", 36, 61, { width: 523, align: "right" });
+        .text(this.company.settings().name, 36, 61, { width: 523, align: "right" });
       doc
         .fontSize(10)
         .text(`거래처: ${norm(q.customerName)}`, 36, 84, { width: 523 });
@@ -89,7 +90,7 @@ export class QuotePdfService {
     doc
       .fontSize(9)
       .text(`공사내용: ${q.workContent || "—"}`, 36, y + 8, { width: 523 });
-    doc.text(`비고: ${q.notes || "—"}`, 36, doc.y + 10, { width: 523 });
+    doc.text(`비고: ${[q.notes,this.company.settings().output.quoteNotes].filter(Boolean).join(" / ") || "—"}`, 36, doc.y + 10, { width: 523 });
     if (q.printMode !== "총액 위주")
       for (const s of q.sections) {
         if (!s.items.length) continue;

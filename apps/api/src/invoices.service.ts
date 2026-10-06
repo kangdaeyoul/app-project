@@ -1,3 +1,4 @@
+import { CompanyContext } from './company-context';
 import {
   BadRequestException,
   ConflictException,
@@ -84,6 +85,7 @@ export class InvoicesService {
     @Inject(EXPENSES_REPOSITORY) private readonly expenses: ExpensesRepository,
     @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository,
     @Inject(FinanceService) private readonly finance: FinanceService,
+    @Inject(CompanyContext) private readonly company: CompanyContext,
   ) {}
   private site(id: string) {
     const s = this.sites.find(id);
@@ -102,7 +104,7 @@ export class InvoicesService {
       date: null,
       approvalNumber: "",
       notes: "",
-      supplier: emptyParty(),
+      supplier: this.company.settings().business,
       recipient: emptyParty(),
       receiptIds: [],
     };
@@ -131,7 +133,7 @@ export class InvoicesService {
       approvalNumber: "",
       notes: "",
       supplier: emptyParty(),
-      recipient: emptyParty(),
+      recipient: this.company.settings().business,
     };
     return {
       ...r,

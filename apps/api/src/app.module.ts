@@ -1,29 +1,24 @@
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { COMPANY_IDENTITY, SampleCompanyIdentityProvider, CompanyIdentityInterceptor } from './company-identity';
+import { CompanyTemplateResolver } from './company-template';
+import { CompanyContext } from './company-context';
+import { COMPANY_DATA_PROVIDERS } from './company.providers';
+import { CompanyController } from './company.controller';
 import { QuoteExcelService } from './quote-excel.service';
 import { QUOTE_ADMIN_ACCESS, SampleQuoteAdminAccess } from './quote-access';
 import { QuotesService } from './quotes.service';
 import { QuotePdfService } from './quote-pdf.service';
-import { QUOTES_REPOSITORY, SampleQuotesRepository } from './quotes.repository';
-import { CUSTOMERS_REPOSITORY, SampleCustomersRepository } from './customers.repository';
 import { PhotoReportService } from './photo-report.service';
-import { PHOTO_REPORT_STORAGE, TemporaryPhotoReportStorage } from './photo-report-storage';
 import { InvoicesService } from './invoices.service';
-import { INVOICES_REPOSITORY, SampleInvoicesRepository } from './invoices.repository';
 import { FinanceService } from './finance.service';
-import { FINANCE_REPOSITORY, SampleFinanceRepository } from './finance.repository';
 import { ExpensesService } from './expenses.service';
-import { EXPENSES_REPOSITORY, SampleExpensesRepository } from './expenses.repository';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { PhotoService, UploadFile } from './photo.service';
-import { PHOTO_REPOSITORY, SamplePhotoRepository } from './photo.repository';
-import { FILE_STORAGE, TemporaryFileStorage } from './file-storage';
 import { Body, Controller, Delete, Get, Inject, Module, Param, Post, Put, Query, Res, UploadedFiles, UseInterceptors } from '@nestjs/common';
 import { DailyWorkService } from './daily-work.service';
-import { SampleDailyWorkRepository, DAILY_WORK_REPOSITORY } from './daily-work.repository';
 import { WorkersService } from './workers.service';
-import { SampleWorkersRepository, WORKERS_REPOSITORY } from './workers.repository';
 import { DashboardService } from './dashboard.service';
 import { SitesService } from './sites.service';
-import { SampleSitesRepository, SITES_REPOSITORY } from './sites.repository';
 @Controller('customers')
 class CustomersController {
   constructor(@Inject(QuotesService) private readonly quotes: QuotesService) {}
@@ -141,5 +136,5 @@ class InvoicesController {
  @Put('purchases/:expenseId') savePurchase(@Param('expenseId') expenseId:string,@Body() body:unknown){return this.invoices.savePurchase(expenseId,body);}
  @Put('workers/:siteId/:workerId') saveWorker(@Param('siteId') siteId:string,@Param('workerId') workerId:string,@Body() body:unknown){return this.invoices.saveWorker(siteId,workerId,body);}
 }
-@Module({ controllers: [CustomersController, QuotesController, PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [{provide: QUOTE_ADMIN_ACCESS,useClass: SampleQuoteAdminAccess}, QuotesService, QuotePdfService, QuoteExcelService, {provide: QUOTES_REPOSITORY,useClass: SampleQuotesRepository}, {provide: CUSTOMERS_REPOSITORY,useClass: SampleCustomersRepository}, PhotoReportService, {provide: PHOTO_REPORT_STORAGE, useClass: TemporaryPhotoReportStorage}, InvoicesService, {provide: INVOICES_REPOSITORY, useClass: SampleInvoicesRepository}, FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Module({ controllers: [CompanyController, CustomersController, QuotesController, PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [{provide: COMPANY_IDENTITY,useClass:SampleCompanyIdentityProvider},{provide:APP_INTERCEPTOR,useClass:CompanyIdentityInterceptor}, CompanyTemplateResolver, CompanyContext, {provide: QUOTE_ADMIN_ACCESS,inject:[CompanyContext],useFactory:(context:CompanyContext)=>new SampleQuoteAdminAccess(context)}, QuotesService, QuotePdfService, QuoteExcelService, ...COMPANY_DATA_PROVIDERS, PhotoReportService, InvoicesService, FinanceService, ExpensesService, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, ] })
 export class AppModule {}

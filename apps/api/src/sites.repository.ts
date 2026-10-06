@@ -11,7 +11,8 @@ export interface SitesRepository {
 // Process-local adapter: restart restores samples. Replace via DI for PostgreSQL.
 export class SampleSitesRepository implements SitesRepository {
   private readonly sites: Site[];
-  constructor(today = seoulToday()) {
+  constructor(today = seoulToday(), seed = true) {
+    if (!seed) { this.sites = []; return; }
     const month = today.slice(0, 7);
     const entries = [
       { id: 'S001', name: '종로 오피스 소방시설 개선', client: '종로 오피스', address: '종로구 종로 33', startDate: today, endDate: today, status: '진행중', manager: '김현장 소장', managerId: 'W001', contractAmount: 24000000, collectedAmount: 0, unpaidWorkerAmount: 0 },

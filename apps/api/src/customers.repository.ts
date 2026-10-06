@@ -20,6 +20,7 @@ export class SampleCustomersRepository implements CustomersRepository {
     contactName: "현장 담당자",
     phone: "02-000-0000",
   }));
+  constructor(seed = true) { if (!seed) { this.records=[]; } }
   list() {
     return structuredClone(this.records);
   }

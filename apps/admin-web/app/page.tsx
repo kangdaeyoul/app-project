@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { APP_NAME, MENU_ITEMS, Dashboard, isSiteOnDate } from '@jongno/shared';
+import { Company, DEFAULT_COMPANY, MENU_ITEMS, Dashboard, isSiteOnDate } from '@jongno/shared';
 import QuotesPanel from './quotes-panel';
 import FinancePanel from './finance-panels';
 import ExpensesPanel from './expenses-panel';
@@ -10,6 +10,9 @@ import SitesPanel from './sites-panel';
 const money = (amount: number) => new Intl.NumberFormat('ko-KR').format(amount) + '원';
 const initialMonth = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7);
 export default function Home() {
+  const [company, setCompany] = useState<Company>(DEFAULT_COMPANY);
+  useEffect(() => { const controller = new AbortController(); fetch('/api/company/current', {signal: controller.signal}).then(r => {if(!r.ok)throw Error();return r.json();}).then(v=>setCompany(v.company)).catch(()=>{}); return ()=>controller.abort(); }, []);
+  const companyAppName = `${company.displayName} 통합 현장관리`;
   const [menu, setMenu] = useState<string>('홈');
   const [siteNavigation, setSiteNavigation] = useState(0);
   const [siteId, setSiteId] = useState<string | undefined>();
@@ -33,8 +36,8 @@ export default function Home() {
   const days = new Date(year, m, 0).getDate();
   const cells = Math.ceil((first + days) / 7) * 7;
   return <div className="shell">
-    <aside><div className="brand"><span className="brand-icon">J</span><div>종로소방<small>통합 현장관리</small></div></div><div className="nav-label">WORKSPACE</div><nav aria-label="주 메뉴">{MENU_ITEMS.map((item, i) => <button key={item} onClick={() => { setSiteId(undefined); setSiteNavigation(v => v + 1); setMenu(item); }} aria-current={menu === item ? 'page' : undefined} className={menu === item ? 'active' : ''}><span className="nav-icon">{['▦','▤','▧','♙','☷','▣','₩','↗','▥'][i]}</span>{item}{menu === item && <span className="nav-dot"/>}</button>)}</nav><div className="aside-bottom"><span className="online"/> 샘플 환경<small>관리자 웹 · v0.1</small></div></aside>
-    <div className="workspace"><header><span>{APP_NAME}</span><div><span className="sample-tag">SAMPLE DATA</span><span className="avatar">관</span> 관리자</div></header>
+    <aside><div className="brand"><span className="brand-icon">{company.logoUrl ? <img src={company.logoUrl} alt={`${company.displayName} 로고`} style={{maxWidth:32,maxHeight:32}}/> : company.displayName === DEFAULT_COMPANY.displayName ? "J" : company.displayName.slice(0,1)}</span><div>{company.displayName}<small>통합 현장관리</small></div></div><div className="nav-label">WORKSPACE</div><nav aria-label="주 메뉴">{MENU_ITEMS.map((item, i) => <button key={item} onClick={() => { setSiteId(undefined); setSiteNavigation(v => v + 1); setMenu(item); }} aria-current={menu === item ? 'page' : undefined} className={menu === item ? 'active' : ''}><span className="nav-icon">{['▦','▤','▧','♙','☷','▣','₩','↗','▥'][i]}</span>{item}{menu === item && <span className="nav-dot"/>}</button>)}</nav><div className="aside-bottom"><span className="online"/> 샘플 환경<small>관리자 웹 · v0.1</small></div></aside>
+    <div className="workspace"><header><span>{companyAppName}</span><div><span className="sample-tag">SAMPLE DATA</span><span className="avatar">관</span> 관리자</div></header>
     <main><div className="page-heading"><div><div className="eyebrow">OVERVIEW / {menu}</div><h1>{menu === '홈' ? '현장의 흐름을 한눈에' : menu}</h1><p>{menu === '홈' ? '현장 일정부터 계약과 정산까지, 이번 달의 업무 현황입니다.' : menu === '견적' ? '고객 견적과 내부 원가, 승인 후 계약전환을 관리하세요.' : menu === '현장' ? '현장 정보와 공사 진행 현황을 관리하세요.' : menu === '작업진행자' ? '작업진행자 정보와 일정, 근무 상태를 관리하세요.' : menu === '자재·경비' ? '현장별 구매·지출과 작업진행자 대납을 관리하세요.' : menu === '정산' ? '현장별 수금·미수와 작업진행자 지급, 현장손익을 관리하세요.' : menu === '일일작업' ? '현장별 일일작업, 사용자재와 전후사진을 관리하세요.' : '다음 단계에서 상세 업무 기능을 연결할 예정입니다.'}</p></div><span className="date-pill">기준일 {data?.today ?? '—'} · 서울</span></div>
     <div className="notice"><span>ⓘ</span> 샘플 데이터는 API 서버가 실행되는 동안 유지됩니다. 서버 재시작 시 초기화됩니다.</div>
     {menu === '견적' ? <QuotesPanel key={siteNavigation} onChanged={()=>setRetry(v=>v+1)} onOpenSite={openSite}/> : menu === '정산' ? <FinancePanel key={siteNavigation} onChanged={()=>setRetry(v=>v+1)}/> : menu === '자재·경비' ? <ExpensesPanel key={siteNavigation} onChanged={()=>setRetry(v=>v+1)}/> : menu === '일일작업' ? <DailyWorkPanel key={siteNavigation}/> : menu === '작업진행자' ? <WorkersPanel key={siteNavigation} onChanged={()=>setRetry(v=>v+1)}/> : menu === '현장' ? <SitesPanel key={`${siteId ?? 'list'}-${siteNavigation}`} initialSiteId={siteId} onChanged={() => setRetry(v => v + 1)}/> : error ? <div className="error" role="alert">{error} <button onClick={() => setRetry(v => v + 1)}>다시 시도</button></div> : !data ? <p role="status">현장 데이터를 불러오는 중입니다…</p> : menu !== '홈' && menu !== '현장' ? <section className="panel placeholder"><h2>{menu} 관리</h2><p>이 메뉴의 등록·수정·검색 기능은 아직 구현되지 않았습니다.</p><button onClick={() => setMenu('홈')}>대시보드로 돌아가기</button></section> : <>
@@ -46,5 +49,5 @@ export default function Home() {
     <section className="panel today-panel"><div className="panel-title"><div><h2>오늘 현장 <span className="count">{data.summary.todaySites}</span></h2><p>{data.today}</p></div></div>{data.sites.filter(s => isSiteOnDate(s, data.today)).map(site => <article className="today-site" key={site.id}><span className={`badge ${site.status === '미배정' ? 'warning' : ''}`}>{site.status}</span><h3><button className="text-button" onClick={() => openSite(site.id)}>{site.name}</button></h3><p>{site.address}</p><div>작업진행자 <strong>{site.manager ?? '배정 대기'}</strong></div></article>)}{!data.summary.todaySites && <p className="empty">오늘 예정된 현장이 없습니다.</p>}<div className="today-footer">현장명을 누르면 상세정보를 확인할 수 있습니다.</div></section></div></>}
     <section className="panel site-list"><div className="panel-title"><div><h2>이번 달 현장</h2><p>총 {data.sites.length}개 현장 · 샘플 데이터</p></div></div><div className="table-scroll"><table><thead><tr><th>현장명</th><th>작업일</th><th>작업진행자</th><th>상태</th><th>계약금액</th></tr></thead><tbody>{data.sites.map(s => <tr key={s.id}><td><button className="text-button" onClick={() => openSite(s.id)}>{s.name}</button><small>{s.address}</small></td><td>{s.startDate}</td><td>{s.manager ?? '미배정'}</td><td><span className={`badge ${s.status === '미배정' ? 'warning' : s.status === '완료' ? 'success' : ''}`}>{s.status}</span></td><td>{money(s.contractAmount)}</td></tr>)}</tbody></table></div></section>
     </>}
-    <footer>종로소방 통합 현장관리 <span>안전한 현장, 체계적인 관리</span></footer></main></div></div>;
+    <footer>{companyAppName} <span>{company.output.footer}</span></footer></main></div></div>;
 }

@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { CompanyTemplateResolver } from './company-template';
+import { Inject, Injectable } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import { CustomerQuote } from '@jongno/shared';
@@ -9,8 +9,9 @@ const parse = (xml: string) => new DOMParser().parseFromString(xml, 'application
 const xml = (d: ReturnType<typeof parse>) => strToU8(new XMLSerializer().serializeToString(d));
 @Injectable()
 export class QuoteExcelService {
+  constructor(@Inject(CompanyTemplateResolver) private readonly templates: CompanyTemplateResolver) {}
   generate(q: ExcelQuote): Buffer {
-    const files = unzipSync(readFileSync(join(__dirname, '../fixtures/quotes/jongno-2026.xlsx')));
+    const files = unzipSync(readFileSync(this.templates.quotePath()));
     const wb = parse(strFromU8(files['xl/workbook.xml']));
     const rels = parse(strFromU8(files['xl/_rels/workbook.xml.rels']));
     const content = parse(strFromU8(files['[Content_Types].xml']));
@@ -35,9 +36,13 @@ export class QuoteExcelService {
       if (typeof value === 'number') { const v=d.createElement('v');v.appendChild(d.createTextNode(String(value)));cell.appendChild(v); }
       else {cell.setAttribute('t','inlineStr');const is=d.createElement('is'),t=d.createElement('t');t.setAttribute('xml:space','preserve');t.appendChild(d.createTextNode(value));is.appendChild(t);cell.appendChild(is);}
     };
+    const company=this.templates.settings();
+    set(cover,'I6',`(주) ${company.displayName.split('').join(' ')}`);set(cover,'I7',`대 표 : ${company.business.representative}   (인)`);
+    set(cover,'I8',`사업자등록번호 ${company.business.registrationNumber} / 법인번호 ${company.business.corporationNumber}`);
+    set(cover,'I9',`본사 : ${company.address}`);set(cover,'I10',`지사 : ${company.branchAddress}`);set(cover,'I11',`Tel : ${company.phone} , Fax : ${company.fax}`);set(cover,'I12',`e-mail : ${company.email}`);set(cover,'I13',`homepage : ${company.website}`);
     set(cover,'C1',`No. ${q.id}`);set(cover,'E6',q.quoteDate);set(cover,'E7',q.siteName);set(cover,'E8',q.address);
     set(cover,'B9','거 래 처');set(cover,'E9',q.customerName);set(cover,'E10',q.phone);
-    set(cover,'B32',`공사내용: ${q.workContent}\n견적 유효기간: ${q.validUntil}\n담당자: ${q.contactName}\n금액 단위: 원 / 상단 합계는 공급가액, 총액은 VAT 포함\n${q.notes}`);
+    set(cover,'B32',`공사내용: ${q.workContent}\n견적 유효기간: ${q.validUntil}\n담당자: ${q.contactName}\n금액 단위: 원 / 상단 합계는 공급가액, 총액은 VAT 포함\n${[q.notes,company.output.quoteNotes].filter(Boolean).join("\n")}`);
     const groupedTotals=[0,0,0,0,0];
     q.sections.forEach((s,si)=>s.items.forEach((i,ii)=>groupedTotals[q.groups[si][ii]]+=i.amount));
     const values=[...groupedTotals,q.totals.generalFee,q.totals.supportFee,q.totals.adjustment];

@@ -1,3 +1,4 @@
+import { CompanyContext } from './company-context';
 import {
   BadRequestException,
   Inject,
@@ -31,6 +32,7 @@ export class PhotoService {
     @Inject(PHOTO_REPOSITORY) private readonly photos: PhotoRepository,
     @Inject(FILE_STORAGE) private readonly storage: FileStorage,
     @Inject(DAILY_WORK_REPOSITORY) private readonly work: DailyWorkRepository,
+    @Inject(CompanyContext) private readonly company: CompanyContext,
   ) {}
   private record(id: string) {
     const p = this.photos.find(id);
@@ -167,7 +169,7 @@ export class PhotoService {
     let order = Math.max(-1, ...existing.map((p) => p.sortOrder)) + 1;
     return validated.map(({ file, mime }) => {
       const id = randomUUID();
-      const key = `photos/${id}`;
+      const key = `companies/${this.company.companyId}/photos/${id}`;
       this.storage.put(key, { buffer: file.buffer, mimeType: mime });
       const p: PhotoRecord = {
         ...meta,

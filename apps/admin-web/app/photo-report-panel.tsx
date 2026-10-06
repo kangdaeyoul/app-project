@@ -2,6 +2,7 @@
 import PdfPreview from "./pdf-preview";
 import { useEffect, useRef, useState } from "react";
 import {
+  DEFAULT_COMPANY,
   PHOTO_REPORT_LAYOUTS,
   PhotoReportOptions,
   PhotoView,
@@ -18,6 +19,7 @@ export default function PhotoReportPanel({
   siteId: string;
   revision: number;
 }) {
+  useEffect(() => { const controller=new AbortController(); fetch("/api/company/current",{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(v=>setOptions(o=>({...o,companyName:v.company.name,title:v.company.output.photoReportTitle}))).catch(()=>{}); return ()=>controller.abort(); }, []);
   const [photos, setPhotos] = useState<PhotoView[]>([]);
   const [options, setOptions] = useState<PhotoReportOptions>({
     layout: PHOTO_REPORT_LAYOUTS[0],
@@ -25,8 +27,8 @@ export default function PhotoReportPanel({
     type: "",
     selection: "전체 사진",
     photoIds: [],
-    title: "공사 사진대지",
-    companyName: "주식회사 종로소방",
+    title: DEFAULT_COMPANY.output.photoReportTitle,
+    companyName: DEFAULT_COMPANY.name,
     workContent: "",
     periodStart: today(),
     periodEnd: today(),

@@ -25,6 +25,7 @@ export class SamplePhotoRepository implements PhotoRepository {
     createdAt: new Date().toISOString(),
     isSample: true,
   }));
+  constructor(seed = true) { if (!seed) { this.records=[]; } }
   list() {
     return this.records.map((p) => ({ ...p }));
   }

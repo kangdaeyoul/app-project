@@ -1,4 +1,4 @@
-export const APP_NAME = '종로소방 통합 현장관리';
+export const APP_NAME = '현장관리'; // Provisional shared app brand; company branding is configured separately.
 export const MENU_ITEMS = ['홈', '현장', '견적', '작업진행자', '일일작업', '자재·경비', '정산', '실적', '출력'] as const;
 export const SITE_STATUSES = ['미배정', '진행중', '완료'] as const;
 export type SiteStatus = typeof SITE_STATUSES[number];
@@ -163,4 +163,39 @@ export function calculateQuote(input: QuoteInput): { totals: QuotePublicTotals; 
   const totalCost=sum([cm,cl,ce,input.internalGeneralCost,input.internalSupportCost]);
   const margin=supplyAmount-totalCost;
   return {totals,internal:{material:cm,labor:cl,expense:ce,general:input.internalGeneralCost,support:input.internalSupportCost,totalCost,margin,marginRate:supplyAmount ? margin/supplyAmount*100:0}};
+}
+
+// Application identity is separate from company branding and system memberships.
+export const APP_BRAND = { name: '현장관리', provisional: true } as const;
+export interface CompanyMembership { companyId: string; userId: string; role: 'admin' | 'member' | 'viewer' }
+export interface CompanyUser { id: string; name: string; memberships: CompanyMembership[] }
+export type CompanyOwned<T> = T & { companyId: string };
+export interface Company {
+  id: string; name: string; displayName: string; logoUrl: string | null; sealKey: string | null;
+  phone: string; fax: string; email: string; address: string; branchAddress: string; website: string;
+  business: BusinessParty & { corporationNumber: string };
+  quoteTemplate: { id: string; storageKey: string; kind: 'jongno-2026' | 'custom' } | null;
+  output: { photoReportTitle: string; footer: string; quoteNotes: string };
+}
+export const DEFAULT_COMPANY: Company = {
+  id: 'jongno', name: '주식회사 종로소방', displayName: '종로소방', logoUrl: null, sealKey: 'companies/jongno/assets/seal',
+  phone: '02-861-4119', fax: '02-2679-2006', email: 'jongro5119@naver.com', address: '서울시 영등포구 영신로 14-1', branchAddress: '경기도 고양시 덕양구 청초로 10, B-1108', website: 'www.jrsobang.com',
+  business: { registrationNumber: '647-86-00929', corporationNumber: '110111-6738847', name: '주식회사 종로소방', representative: '강기현', address: '서울시 영등포구 영신로 14-1', businessType: '', businessItem: '', email: 'jongro5119@naver.com' },
+  quoteTemplate: { id: 'jongno-2026', kind: 'jongno-2026', storageKey: 'companies/jongno/templates/jongno-2026.xlsx' },
+  output: { photoReportTitle: '공사 사진대지', footer: '안전한 현장, 체계적인 관리', quoteNotes: '' },
+};
+export interface CompanyFileReference { companyId: string; storageKey: string; originalFilename: string; kind: 'photo' | 'receipt' | 'report' | 'logo' | 'seal' | 'quote-template' }
+// Persistence contract: public DTOs stay compatible; company ownership is mandatory in stored models.
+export interface CompanyDataModel {
+  users: CompanyOwned<{userId:string; role:CompanyMembership['role']}>;
+  customers: CompanyOwned<Customer>; sites: CompanyOwned<Site>; quotes: CompanyOwned<Quote>;
+  quoteSections: CompanyOwned<QuoteSectionInput & {id:string; quoteId:string; position:number}>;
+  quoteItems: CompanyOwned<QuoteItemInput & {id:string; sectionId:string; position:number}>;
+  workers: CompanyOwned<Worker>; availability: CompanyOwned<WorkerAvailability & {workerId:string}>;
+  dailyWork: CompanyOwned<DailyWorkRecord>; participants: CompanyOwned<DailyWorkParticipant>;
+  photos: CompanyOwned<PhotoRecord>; materials: CompanyOwned<Material>; materialUsage: CompanyOwned<MaterialUsage>;
+  expenses: CompanyOwned<ExpenseRecord>; materialPurchases: CompanyOwned<ExpenseLineItem>; settlementItems: CompanyOwned<WorkerSettlement>;
+  receipts: CompanyOwned<PaymentReceived>; workerPayments: CompanyOwned<WorkerPayment>; allocations: CompanyOwned<WorkerPaymentAllocation>;
+  salesInvoices: CompanyOwned<SalesInvoice>; purchaseInvoices: CompanyOwned<PurchaseInvoice>; workerInvoices: CompanyOwned<WorkerInvoice>;
+  files: CompanyFileReference; quoteTemplates: CompanyOwned<NonNullable<Company['quoteTemplate']>>;
 }

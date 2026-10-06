@@ -29,7 +29,8 @@ export class SampleQuotesRepository implements QuotesRepository {
   private quotes = new Map<string, QuoteRecord>();
   private sections: SectionRecord[] = [];
   private items: ItemRecord[] = [];
-  constructor() {
+  constructor(seed = true) {
+    if (!seed) return;
     const today = seoulToday(),
       validUntil = new Date(Date.parse(today) + 30 * 86400000)
         .toISOString()

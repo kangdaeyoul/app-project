@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import {
+  DEFAULT_COMPANY,
   Customer,
   QuoteInput,
   QuoteItemInput,
@@ -74,6 +75,8 @@ export default function QuotesPanel({
   onChanged: () => void;
   onOpenSite: (id: string) => void;
 }) {
+  const [companyName,setCompanyName] = useState(DEFAULT_COMPANY.displayName);
+  useEffect(()=>{const controller=new AbortController();fetch("/api/company/current",{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(v=>setCompanyName(v.company.displayName)).catch(()=>{});return()=>controller.abort();},[]);
   const [quotes, setQuotes] = useState<QuoteView[]>([]),
     [customers, setCustomers] = useState<Customer[]>([]),
     [sites, setSites] = useState<Site[]>([]);
@@ -1116,7 +1119,7 @@ export default function QuotesPanel({
                 >
                   견적서 PDF 다운로드
                 </button>
-                <button type="button" className="primary-button" disabled={busy || dirty} onClick={() => print(true, true)}>종로소방 Excel 다운로드</button>
+                <button type="button" className="primary-button" disabled={busy || dirty} onClick={() => print(true, true)}>{companyName} Excel 다운로드</button>
               </div>
               {preview && (
                 <div className="report-preview">
