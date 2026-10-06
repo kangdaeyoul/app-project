@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { SITE_STATUSES, SiteInput } from '@jongno/shared';
 import { SitesRepository, SITES_REPOSITORY } from './sites.repository';
+import { WorkersRepository, WORKERS_REPOSITORY } from './workers.repository';
 import { overlapsMonth, validateMonth } from './date';
 const textFields = ['name', 'client', 'address', 'contactName', 'phone', 'description', 'startDate', 'endDate'] as const;
 function validDate(value: string) {
@@ -25,13 +26,26 @@ function validateInput(body: unknown): SiteInput {
 }
 @Injectable()
 export class SitesService {
-  constructor(@Inject(SITES_REPOSITORY) private readonly repository: SitesRepository) {}
+  constructor(@Inject(SITES_REPOSITORY) private readonly repository: SitesRepository, @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository) {}
   list(month?: string) { if (month !== undefined) validateMonth(month); return this.repository.list().filter(s => month === undefined || overlapsMonth(s, month)); }
   find(id: string) { const site = this.repository.find(id); if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.'); return site; }
-  create(body: unknown) { return this.repository.create(validateInput(body)); }
+  private linkedInput(body: unknown, existing?: import('@jongno/shared').Site): SiteInput {
+    const value = validateInput(body);
+    const raw = body as Record<string, unknown>;
+    // Older records retain their label until explicitly reassigned.
+    const id = raw.managerId === undefined ? existing?.managerId ?? null : raw.managerId;
+    if (id !== null && typeof id !== 'string') throw new BadRequestException('대표 작업진행자 ID를 확인해 주세요.');
+    if (!id) return { ...value, managerId: null, manager: existing && raw.managerId === undefined ? existing.manager : null };
+    const worker = this.workers.find(id);
+    if (!worker) throw new BadRequestException('작업진행자를 찾을 수 없습니다.');
+    if (existing?.managerId === id) return { ...value, managerId: id, manager: existing.manager };
+    if (worker.deletedAt) throw new BadRequestException('삭제된 작업진행자는 새로 배정할 수 없습니다.');
+    return { ...value, managerId: id, manager: worker.displayName };
+  }
+  create(body: unknown) { return this.repository.create(this.linkedInput(body)); }
   update(id: string, body: unknown) {
-    this.find(id);
-    const site = this.repository.update(id, validateInput(body));
+    const existing = this.find(id);
+    const site = this.repository.update(id, this.linkedInput(body, existing));
     if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.');
     return site;
   }

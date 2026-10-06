@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SITE_STATUSES, Site, SiteInput } from '@jongno/shared';
+import { SITE_STATUSES, Site, SiteInput, WorkerSummary } from '@jongno/shared';
 
 const money = (value: number) => new Intl.NumberFormat('ko-KR').format(value) + '원';
 const tabs = ['개요', '일정', '일일작업', '사진', '자재·경비', '수금', '작업진행자 정산', '파일'] as const;
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
-const emptyInput = (): SiteInput => ({ name: '', client: '', address: '', contactName: '', phone: '', description: '', startDate: today(), endDate: '', contractAmount: 0, manager: null, status: '미배정' });
+const emptyInput = (): SiteInput => ({ name: '', client: '', address: '', contactName: '', phone: '', description: '', startDate: today(), endDate: '', contractAmount: 0, manager: null, managerId: null, status: '미배정' });
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/sites${path}`, init);
   const body = await response.json();
@@ -17,6 +17,8 @@ function Badge({ status }: { status: Site['status'] }) {
   return <span className={`badge ${status === '미배정' ? 'warning' : status === '완료' ? 'success' : ''}`}>{status}</span>;
 }
 export default function SitesPanel({ onChanged, initialSiteId }: { onChanged: () => void; initialSiteId?: string }) {
+  const [workers, setWorkers] = useState<WorkerSummary[]>([]);
+  const [workersReady, setWorkersReady] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [selected, setSelected] = useState<Site | null>(null);
   const [form, setForm] = useState<SiteInput | null>(null);
@@ -29,6 +31,11 @@ export default function SitesPanel({ onChanged, initialSiteId }: { onChanged: ()
   const [status, setStatus] = useState('');
   const [revision, setRevision] = useState(0);
   const [message, setMessage] = useState('');
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/workers', {signal:controller.signal}).then(r=>{if(!r.ok)throw Error('작업진행자 목록을 불러오지 못했습니다.');return r.json();}).then(w=>{setWorkers(w);setWorkersReady(true);}).catch(e=>{if(e.name!=='AbortError')setError(e.message);});
+    return ()=>controller.abort();
+  }, [revision]);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true); setError('');
@@ -49,7 +56,7 @@ export default function SitesPanel({ onChanged, initialSiteId }: { onChanged: ()
   }
   function edit(site?: Site) {
     setEditingId(site?.id ?? null);
-    setForm(site ? { name: site.name, client: site.client, address: site.address, contactName: site.contactName, phone: site.phone, description: site.description, startDate: site.startDate, endDate: site.endDate, contractAmount: site.contractAmount, manager: site.manager, status: site.status } : emptyInput());
+    setForm(site ? { name: site.name, client: site.client, address: site.address, contactName: site.contactName, phone: site.phone, description: site.description, startDate: site.startDate, endDate: site.endDate, contractAmount: site.contractAmount, manager: site.manager, managerId: site.managerId ?? null, status: site.status } : emptyInput());
     setError(''); setMessage('');
   }
   async function save(event: React.FormEvent<HTMLFormElement>) {
@@ -73,7 +80,7 @@ export default function SitesPanel({ onChanged, initialSiteId }: { onChanged: ()
       <label className="full-width">공사내용<textarea value={form.description} maxLength={5000} rows={3} onChange={e => setForm({ ...form, description: e.target.value })}/></label>
       {textField('startDate', '시작일', 'date', true)}{textField('endDate', '종료예정일', 'date')}
       <label>VAT 포함 공사금액<input type="number" min="0" max={Number.MAX_SAFE_INTEGER} step="1" value={form.contractAmount} onChange={e => setForm({ ...form, contractAmount: Number(e.target.value) })}/><small>원 단위 · 미정인 경우 0원</small></label>
-      <label>대표 작업진행자<input value={form.manager ?? ''} maxLength={300} placeholder="미정인 경우 비워두세요" onChange={e => setForm({ ...form, manager: e.target.value || null })}/></label>
+      <label>대표 작업진행자<select aria-label="대표 작업진행자" disabled={!workersReady} value={form.managerId ?? ''} onChange={e => setForm({ ...form, managerId: e.target.value || null, manager: workers.find(w=>w.id===e.target.value)?.displayName ?? null })}><option value="">미배정</option>{form.managerId && !workers.some(w=>w.id===form.managerId) && <option value={form.managerId}>{form.manager} (삭제됨 · 기존 배정 유지)</option>}{workers.map(w=><option value={w.id} key={w.id}>{w.displayName} · {w.role || '역할 미입력'}</option>)}</select>{!workersReady&&<small>작업진행자 목록을 불러오는 중입니다.</small>}</label>
       <label>진행상태<select aria-label="진행상태" value={form.status} onChange={e => setForm({ ...form, status: e.target.value as Site['status'] })}>{SITE_STATUSES.map(s => <option key={s}>{s}</option>)}</select></label>
     </div><div className="form-actions"><button type="button" className="secondary-button" onClick={() => { setForm(null); setError(''); }}>취소</button><button className="primary-button" type="submit">{saving ? '저장 중…' : '저장'}</button></div></fieldset></form></section> : selected ? <>
       <div className="site-toolbar"><button className="secondary-button" onClick={() => { setSelected(null); setMessage(''); setError(''); }}>← 현장 목록</button><button className="primary-button" onClick={() => edit(selected)}>현장 수정</button></div>

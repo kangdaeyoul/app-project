@@ -21,3 +21,11 @@
 금액은 PostgreSQL BIGINT(원 단위) 또는 NUMERIC으로 저장하고 소수점 반올림 규칙을 명시해야 합니다. API 숫자가 JavaScript 안전 정수 범위를 넘는 경우 문자열 계약으로 전환합니다. 업무일은 DATE, 생성/변경 시각은 TIMESTAMPTZ를 사용하고 서울 시간으로 표시합니다.
 
 현재 API의 `SiteInput`은 현장 기본정보 입력 계약이며 `Site`는 ID와 샘플 누계가 포함된 조회 계약입니다. `client`, `contactName`, `phone`, `description`, `startDate`, `endDate`를 제공하고 종료예정일 미정은 빈 문자열, 대표 작업진행자 미배정은 null로 표현합니다. `contractAmount`, `collectedAmount`, `unpaidWorkerAmount`는 미래 원장에서 집계할 읽기 모델이며 위 테이블 전체를 대신하지 않습니다. 로그인/권한 및 파일 접근 정책은 별도 설계가 필요합니다.
+
+## 작업진행자 초기 계약
+
+Worker는 `name`과 `displayName`을 분리하며 `phone`, 업무 `role`, `memo`, `defaultAvailability`, `deletedAt`을 보관합니다. 시스템 권한은 Worker의 role/displayName으로 판단하지 않고 이후 User/Role 모델로 관리합니다.
+
+WorkerAvailability는 workerId+date 기준 유일한 상태(근무가능/휴무/오전불가/오후불가)이며 기본 상태보다 우선합니다. WorkerWork 샘플 원장은 id/siteId/date/scheduledAmount/paidAmount로 작업일과 정산을 집계합니다. 현재 별도의 입력 API는 없습니다.
+
+Site의 managerId는 작업진행자를 참조하고 manager는 배정 당시 표시명 스냅샷입니다. Worker 삭제는 soft delete로 구현하고 물리 삭제/연쇄 삭제를 하지 않습니다. 기존 참조와 표시명은 보존하며 활성 선택 목록에서는 제외합니다. 과거 참여는 작업기록의 siteId와 현재 대표 배정을 합쳐 조회합니다.

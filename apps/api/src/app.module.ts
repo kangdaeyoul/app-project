@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Inject, Module, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Module, Param, Post, Put, Query } from '@nestjs/common';
+import { WorkersService } from './workers.service';
+import { SampleWorkersRepository, WORKERS_REPOSITORY } from './workers.repository';
 import { DashboardService } from './dashboard.service';
 import { SitesService } from './sites.service';
 import { SampleSitesRepository, SITES_REPOSITORY } from './sites.repository';
@@ -16,5 +18,15 @@ class SitesController {
   @Post() create(@Body() body: unknown) { return this.sites.create(body); }
   @Put(':id') update(@Param('id') id: string, @Body() body: unknown) { return this.sites.update(id, body); }
 }
-@Module({ controllers: [AppController, SitesController], providers: [DashboardService, SitesService, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Controller('workers')
+class WorkersController {
+  constructor(@Inject(WorkersService) private readonly workers: WorkersService) {}
+  @Get() list(@Query('month') month?: string, @Query('includeDeleted') includeDeleted?: string) { return this.workers.list(month, includeDeleted === 'true'); }
+  @Get(':id') detail(@Param('id') id: string, @Query('month') month?: string) { return this.workers.detail(id, month); }
+  @Post() create(@Body() body: unknown) { return this.workers.create(body); }
+  @Put(':id') update(@Param('id') id: string, @Body() body: unknown) { return this.workers.update(id, body); }
+  @Delete(':id') archive(@Param('id') id: string) { return this.workers.archive(id); }
+  @Put(':id/availability/:date') availability(@Param('id') id: string, @Param('date') date: string, @Body() body: unknown) { return this.workers.setAvailability(id, date, body); }
+}
+@Module({ controllers: [AppController, SitesController, WorkersController], providers: [DashboardService, SitesService, WorkersService, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
 export class AppModule {}
