@@ -1,3 +1,4 @@
+import { CompanyContext } from './company-context';
 import { CUSTOMERS_REPOSITORY, CustomersRepository } from './customers.repository';
 import { FinanceService, sum } from './finance.service';
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
@@ -28,9 +29,9 @@ function validateInput(body: unknown): SiteInput {
 }
 @Injectable()
 export class SitesService {
-  constructor(@Inject(FinanceService) private readonly finance: FinanceService, @Inject(SITES_REPOSITORY) private readonly repository: SitesRepository, @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository, @Inject(CUSTOMERS_REPOSITORY) private readonly customers: CustomersRepository) {}
-  list(month?: string) { if (month !== undefined) validateMonth(month); return this.repository.list().filter(s => month === undefined || overlapsMonth(s, month)).map(s=>this.view(s)); }
-  find(id: string) { const site = this.repository.find(id); if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.'); return this.view(site); }
+  constructor(@Inject(FinanceService) private readonly finance: FinanceService, @Inject(SITES_REPOSITORY) private readonly repository: SitesRepository, @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository, @Inject(CUSTOMERS_REPOSITORY) private readonly customers: CustomersRepository, @Inject(CompanyContext) private readonly company:CompanyContext) {}
+  list(month?: string) { if (month !== undefined) validateMonth(month); return this.repository.list().filter(s => !s.deletedAt && (month === undefined || overlapsMonth(s, month))).map(s=>this.view(s)); }
+  find(id: string) { const site = this.repository.find(id); if (!site || site.deletedAt) throw new NotFoundException('현장을 찾을 수 없습니다.'); return this.view(site); }
   private view(site: import('@jongno/shared').Site){const f=this.finance.siteFinance(site.id);return {...site,collectedAmount:f.collectedAmount,unpaidWorkerAmount:f.unpaidWorkerAmount};}
   private linkedInput(body: unknown, existing?: import('@jongno/shared').Site): SiteInput {
     const value = validateInput(body);
@@ -62,4 +63,9 @@ export class SitesService {
     if (!site) throw new NotFoundException('현장을 찾을 수 없습니다.');
     return this.view(site);
   }
+  archive(id:string) {
+    this.company.assertMember(true);this.find(id);
+    this.repository.archive(id);return {deleted:true};
+  }
+
 }

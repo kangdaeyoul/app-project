@@ -4,6 +4,7 @@ export const FILE_STORAGE = Symbol("FILE_STORAGE");
 export interface StoredFile {
   buffer: Buffer;
   mimeType: string;
+  originalFilename?: string;
 }
 export interface FileStorage {
   put(key: string, file: StoredFile): void;
@@ -27,12 +28,21 @@ export class TemporaryFileStorage implements FileStorage {
     this.files.set(key, {
       buffer: Buffer.from(file.buffer),
       mimeType: file.mimeType,
+      ...(file.originalFilename
+        ? { originalFilename: file.originalFilename }
+        : {}),
     });
   }
   get(key: string) {
     const file = this.files.get(key);
     return (
-      file && { buffer: Buffer.from(file.buffer), mimeType: file.mimeType }
+      file && {
+        buffer: Buffer.from(file.buffer),
+        mimeType: file.mimeType,
+        ...(file.originalFilename
+          ? { originalFilename: file.originalFilename }
+          : {}),
+      }
     );
   }
   remove(key: string) {

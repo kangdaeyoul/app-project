@@ -18,3 +18,16 @@
 .report-panel{margin-bottom:28px;padding:22px;background:#f7faf9;border:1px solid var(--border);border-radius:12px}.report-options{border:0;padding:0;min-width:0}.report-checks{display:flex;gap:22px;flex-wrap:wrap;margin:18px 0}.report-checks label,.report-selection label{display:flex;gap:9px;align-items:center}.report-checks input,.report-selection input{width:auto}.report-selection{display:grid;gap:12px;max-height:360px;overflow:auto}.report-selection img{width:90px;height:65px;object-fit:contain}.report-preview{margin-top:20px}.report-preview iframe{width:100%;height:720px;border:1px solid #cad7d8;border-radius:8px}
 .pdf-canvas-preview{background:#e1e7e8;padding:16px;border-radius:8px}.pdf-canvas-preview canvas{display:block;width:100%;height:auto;max-width:804px;margin:12px auto;background:white;box-shadow:0 2px 12px #0002}.report-page-controls{display:flex;align-items:center;justify-content:center;gap:20px}
 .quotes-workspace>.panel,.quotes-workspace form>.panel{margin-bottom:20px}.quote-fieldset{border:0;padding:0;min-width:0}.quote-details{padding:0 22px 22px}.quote-summary{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:22px 0}.quote-internal{background:#f0f4f7;border:1px dashed #b5c6d1;border-radius:10px;padding:18px;margin:16px 0}.quote-internal p{color:#6b7e88}.quote-item{border:1px solid var(--border);padding:20px;border-radius:10px;margin-top:18px}.quote-line-total{display:flex;flex-direction:column;justify-content:center;gap:8px}.quote-line-total strong{font-size:20px;color:#159f95}.quote-customer{margin:20px 0}.quote-customer summary{cursor:pointer;margin-bottom:15px}@media(max-width:1000px){.quote-summary{grid-template-columns:1fr}}
+
+.audit-filters { flex-wrap: wrap; gap: 12px; }
+.audit-filters label { min-width: 140px; flex: 1; }
+.audit-id { overflow-wrap: anywhere; max-width: 240px; }
+.audit-panel td { vertical-align: top; }
+.audit-panel summary { cursor: pointer; color: #25656b; font-weight: 600; }
+.audit-snapshots { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 12px; margin: 12px 0; }
+.audit-snapshots pre { max-height: 320px; min-width: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #f5f8f8; border-radius: 8px; padding: 12px; font-size: 12px; }
+.audit-pagination { display: flex; gap: 16px; align-items: center; justify-content: flex-end; margin-top: 16px; }
+@media (max-width: 800px) { .audit-snapshots { grid-template-columns: 1fr; } }
+
+.audit-filters input, .audit-filters select { width: 100%; min-width: 0; }
+.audit-id { white-space: normal; }

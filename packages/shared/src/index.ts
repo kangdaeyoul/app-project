@@ -8,7 +8,7 @@ export interface SiteInput {
   manager: string | null; managerId?: string | null; status: SiteStatus; clientId?: string | null; trades?: ('기계' | '전기')[]; tradeNames?: string[];
 }
 export interface Site extends SiteInput {
-  id: string; collectedAmount: number; unpaidWorkerAmount: number;
+  id: string; collectedAmount: number; unpaidWorkerAmount: number; deletedAt?: string | null;
 }
 export const isSiteOnDate = (site: Site, date: string) => site.startDate <= date && date <= (site.endDate || site.startDate);
 export interface Dashboard { month: string; today: string; sites: Site[]; summary: { todaySites: number; inProgress: number; completed: number; unassigned: number; contractRevenue: number; collected: number; receivables: number; unpaidWorkers: number; totalExpenses: number; siteProfit: number; taxWarnings: TaxWarnings } }
@@ -197,5 +197,22 @@ export interface CompanyDataModel {
   expenses: CompanyOwned<ExpenseRecord>; materialPurchases: CompanyOwned<ExpenseLineItem>; settlementItems: CompanyOwned<WorkerSettlement>;
   receipts: CompanyOwned<PaymentReceived>; workerPayments: CompanyOwned<WorkerPayment>; allocations: CompanyOwned<WorkerPaymentAllocation>;
   salesInvoices: CompanyOwned<SalesInvoice>; purchaseInvoices: CompanyOwned<PurchaseInvoice>; workerInvoices: CompanyOwned<WorkerInvoice>;
+  auditLogs: AuditLog;
   files: CompanyFileReference; quoteTemplates: CompanyOwned<NonNullable<Company['quoteTemplate']>>;
+}
+
+export const AUDIT_ACTIONS = ['생성', '수정', '삭제', '복사', '계약전환', '비활성화', '상태변경', '추가', '순서변경', '등록', '지급취소', '다운로드'] as const;
+export const AUDIT_TARGETS = ['현장', '견적', '작업진행자', '일일작업', '사용자재', '사진', '자재구매', '경비', '수금', '작업진행자 지급', '세금계산서', '증빙', '파일'] as const;
+export type AuditAction = typeof AUDIT_ACTIONS[number];
+export type AuditTarget = typeof AUDIT_TARGETS[number];
+export type AuditValue = null | boolean | number | string | AuditValue[] | {[key:string]:AuditValue};
+export interface AuditLog {
+  id: string; companyId: string; userId: string; userDisplayName: string;
+  targetType: AuditTarget; targetId: string; action: AuditAction;
+  before: AuditValue; after: AuditValue; changedAt: string; sequence: number; reason: string;
+  siteIds: string[]; sites: {id:string;name:string}[];
+}
+export interface AuditPage {
+  items: AuditLog[]; total: number; page: number; pageSize: number;
+  users: {id:string;name:string}[]; sites: {id:string;name:string}[];
 }

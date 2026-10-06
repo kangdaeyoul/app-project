@@ -1,3 +1,4 @@
+import { AuditRecorder } from './audit-recorder';
 import { CompanyContext } from './company-context';
 import {
   BadRequestException,
@@ -33,6 +34,7 @@ export class PhotoService {
     @Inject(FILE_STORAGE) private readonly storage: FileStorage,
     @Inject(DAILY_WORK_REPOSITORY) private readonly work: DailyWorkRepository,
     @Inject(CompanyContext) private readonly company: CompanyContext,
+    @Inject(AuditRecorder) private readonly audit: AuditRecorder,
   ) {}
   private record(id: string) {
     const p = this.photos.find(id);
@@ -170,7 +172,7 @@ export class PhotoService {
     return validated.map(({ file, mime }) => {
       const id = randomUUID();
       const key = `companies/${this.company.companyId}/photos/${id}`;
-      this.storage.put(key, { buffer: file.buffer, mimeType: mime });
+      this.audit.withOperation({siteIds:[this.work.find(dailyWorkId)!.siteId]},()=>this.storage.put(key, { buffer: file.buffer, mimeType: mime,originalFilename:this.originalFilename(file.originalname) }));
       const p: PhotoRecord = {
         ...meta,
         id,
@@ -196,7 +198,7 @@ export class PhotoService {
   remove(id: string) {
     const p = this.record(id);
     this.photos.remove(id);
-    this.storage.remove(p.storageKey);
+    this.audit.withOperation({siteIds:[this.work.find(p.dailyWorkId)!.siteId]},()=>this.storage.remove(p.storageKey));
     this.photos.reorder(
       this.photos
         .list()

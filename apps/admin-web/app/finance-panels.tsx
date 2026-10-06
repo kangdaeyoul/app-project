@@ -1,4 +1,5 @@
 "use client";
+import AuditPanel from "./audit-panel";
 import InvoicesPanel, { SalesInvoiceSummary } from "./invoices-panel";
 import { useEffect, useState } from "react";
 import {
@@ -786,6 +787,8 @@ export default function FinancePanel({
   onChanged?: () => void;
 }) {
   const [tab, setTab] = useState("작업진행자 지급");
+  const [canAudit,setCanAudit] = useState(false);
+  useEffect(()=>{const c=new AbortController();fetch('/api/company/current',{signal:c.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(v=>setCanAudit(v.user?.membership?.role==='admin')).catch(()=>{});return()=>c.abort();},[]);
   const [sites, setSites] = useState<Site[]>([]);
   const [site, setSite] = useState("");
   const [error, setError] = useState("");
@@ -810,7 +813,7 @@ export default function FinancePanel({
         role="tablist"
         aria-label="정산 업무"
       >
-        {["작업진행자 지급", "수금·미수", "현장손익", "세금계산서·증빙"].map(
+        {["작업진행자 지급", "수금·미수", "현장손익", "세금계산서·증빙", ...(canAudit?["감사로그"]:[])].map(
           (t) => (
             <button
               key={t}
@@ -830,7 +833,7 @@ export default function FinancePanel({
           <button onClick={() => setRevision((v) => v + 1)}>다시 시도</button>
         </div>
       )}
-      {tab === "세금계산서·증빙" ? (
+      {tab === "감사로그" ? <AuditPanel/> : tab === "세금계산서·증빙" ? (
         <InvoicesPanel onChanged={onChanged} />
       ) : tab === "작업진행자 지급" ? (
         <SettlementsPanel onChanged={onChanged} />

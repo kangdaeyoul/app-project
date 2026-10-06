@@ -1,3 +1,5 @@
+import { AuditRecorder } from "./audit-recorder";
+import { BadRequestException } from "@nestjs/common";
 import {
   CallHandler,
   ExecutionContext,
@@ -28,6 +30,7 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
     @Inject(CompanyContext) private readonly context: CompanyContext,
     @Inject(COMPANY_IDENTITY)
     private readonly identities: CompanyIdentityProvider,
+    @Inject(AuditRecorder) private readonly audit: AuditRecorder,
   ) {}
   intercept(execution: ExecutionContext, next: CallHandler) {
     const request = execution.switchToHttp().getRequest();
@@ -49,8 +52,19 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
       }
     };
     check(request.body);
+    const reason = request.body?.auditReason ?? "";
+    if (
+      typeof reason !== "string" ||
+      reason.length > 500 ||
+      /[\u0000-\u0008\u000b-\u001f]/.test(reason)
+    )
+      throw new BadRequestException("변경 사유를 확인해 주세요.");
     return new Observable((subscriber) =>
-      this.context.run(identity, () => next.handle().subscribe(subscriber)),
+      this.context.run(identity, () =>
+        this.audit.withOperation({ reason: reason.trim() }, () =>
+          next.handle().subscribe(subscriber),
+        ),
+      ),
     );
   }
 }

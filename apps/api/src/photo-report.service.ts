@@ -1,3 +1,4 @@
+import { AuditRecorder } from './audit-recorder';
 import { CompanyContext } from './company-context';
 import {
   BadRequestException,
@@ -61,6 +62,7 @@ export class PhotoReportService {
     @Inject(DAILY_WORK_REPOSITORY) private readonly work: DailyWorkRepository,
     @Inject(PHOTO_REPORT_STORAGE) private readonly storage: PhotoReportStorage,
     @Inject(CompanyContext) private readonly company: CompanyContext,
+    @Inject(AuditRecorder) private readonly audit: AuditRecorder,
   ) {}
   private prepare(siteId: string, body: unknown) {
     const site = this.sites.find(siteId);
@@ -332,7 +334,7 @@ export class PhotoReportService {
     const filename = `${safeName}_공사사진대지_${o.createdDate}.pdf`;
     const id = randomUUID();
     const storageKey = `companies/${this.company.companyId}/${siteId}/05 현장사진/사진대지/${id}/${filename}`;
-    if (save) this.storage.put(storageKey, buffer);
+    if (save) this.audit.withOperation({siteIds:[siteId]},()=>this.storage.put(storageKey, buffer));
     return { buffer, filename, storageKey };
   }
 }

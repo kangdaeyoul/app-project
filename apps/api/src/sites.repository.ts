@@ -7,6 +7,7 @@ export interface SitesRepository {
   find(id: string): Site | undefined;
   create(input: SiteInput): Site;
   update(id: string, input: SiteInput): Site | undefined;
+  archive(id:string): Site | undefined;
 }
 // Process-local adapter: restart restores samples. Replace via DI for PostgreSQL.
 export class SampleSitesRepository implements SitesRepository {
@@ -35,4 +36,9 @@ export class SampleSitesRepository implements SitesRepository {
     this.sites[index] = { ...this.sites[index], ...structuredClone(input) };
     return structuredClone(this.sites[index]);
   }
+  archive(id:string) {
+    const site=this.sites.find(s=>s.id===id);if(!site)return undefined;
+    site.deletedAt ??= new Date().toISOString();return structuredClone(site);
+  }
+
 }

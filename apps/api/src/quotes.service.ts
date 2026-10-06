@@ -1,3 +1,4 @@
+import { AuditRecorder } from './audit-recorder';
 import { QUOTE_ADMIN_ACCESS, QuoteAdminAccess } from "./quote-access";
 import {
   BadRequestException,
@@ -63,6 +64,7 @@ export class QuotesService {
     private readonly customers: CustomersRepository,
     @Inject(SitesService) private readonly sites: SitesService,
     @Inject(QUOTE_ADMIN_ACCESS) private readonly access: QuoteAdminAccess,
+    @Inject(AuditRecorder) private readonly audit: AuditRecorder,
   ) {}
   customersList() {
     return this.customers.list();
@@ -275,7 +277,7 @@ export class QuotesService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    this.repository.save(copy);
+    this.audit.withOperation({action:"복사", reason:`${this.audit.reason ? this.audit.reason+" / " : ""}원본 견적 ${source.id} 복사`},()=>this.repository.save(copy));
     return this.find(copy.id);
   }
   remove(id: string) {

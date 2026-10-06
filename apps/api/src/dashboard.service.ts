@@ -11,7 +11,7 @@ export class DashboardService {
   get(month?: string): Dashboard {
     const today = seoulToday();
     const selected = validateMonth(month ?? today.slice(0, 7));
-    const rawSites = this.repository.list().filter(s => overlapsMonth(s, selected));
+    const rawSites = this.repository.list().filter(s => !s.deletedAt && overlapsMonth(s, selected));
     const financials=rawSites.map(s=>this.finance.siteFinance(s.id));
     const sites=rawSites.map((s,i)=>({...s,collectedAmount:financials[i].collectedAmount,unpaidWorkerAmount:financials[i].unpaidWorkerAmount}));
     const sum = (key: 'contractAmount' | 'collectedAmount' | 'unpaidWorkerAmount') => sumMoney(sites.map(site=>site[key]));

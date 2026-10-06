@@ -4,11 +4,14 @@ import { Company, CompanyMembership, DEFAULT_COMPANY } from "@jongno/shared";
 export interface CompanyIdentity {
   companyId: string;
   userId: string;
+  userDisplayName?: string;
+  accessibleSiteIds?: string[];
   memberships: CompanyMembership[];
 }
 export const SAMPLE_IDENTITY: CompanyIdentity = {
   companyId: DEFAULT_COMPANY.id,
   userId: "sample-admin",
+  userDisplayName: "샘플 관리자",
   memberships: [
     { companyId: DEFAULT_COMPANY.id, userId: "sample-admin", role: "admin" },
   ],

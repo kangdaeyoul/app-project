@@ -1,3 +1,9 @@
+import { AuditFilesInterceptor } from './audit-files.interceptor';
+import { AuditController } from './audit.controller';
+import { AuditService } from './audit.service';
+import { AuditRecorder } from './audit-recorder';
+import { AUDIT_REPOSITORY, MemoryAuditRepository } from './audit.repository';
+import { AUDIT_ACCESS, CompanyAuditAccess } from './audit-access';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { COMPANY_IDENTITY, SampleCompanyIdentityProvider, CompanyIdentityInterceptor } from './company-identity';
 import { CompanyTemplateResolver } from './company-template';
@@ -59,6 +65,7 @@ class SitesController {
   @Get(':id') find(@Param('id') id: string) { return this.sites.find(id); }
   @Post() create(@Body() body: unknown) { return this.sites.create(body); }
   @Put(':id') update(@Param('id') id: string, @Body() body: unknown) { return this.sites.update(id, body); }
+  @Delete(':id') archive(@Param('id') id:string) { return this.sites.archive(id); }
 }
 @Controller('workers')
 class WorkersController {
@@ -136,5 +143,5 @@ class InvoicesController {
  @Put('purchases/:expenseId') savePurchase(@Param('expenseId') expenseId:string,@Body() body:unknown){return this.invoices.savePurchase(expenseId,body);}
  @Put('workers/:siteId/:workerId') saveWorker(@Param('siteId') siteId:string,@Param('workerId') workerId:string,@Body() body:unknown){return this.invoices.saveWorker(siteId,workerId,body);}
 }
-@Module({ controllers: [CompanyController, CustomersController, QuotesController, PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [{provide: COMPANY_IDENTITY,useClass:SampleCompanyIdentityProvider},{provide:APP_INTERCEPTOR,useClass:CompanyIdentityInterceptor}, CompanyTemplateResolver, CompanyContext, {provide: QUOTE_ADMIN_ACCESS,inject:[CompanyContext],useFactory:(context:CompanyContext)=>new SampleQuoteAdminAccess(context)}, QuotesService, QuotePdfService, QuoteExcelService, ...COMPANY_DATA_PROVIDERS, PhotoReportService, InvoicesService, FinanceService, ExpensesService, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, ] })
+@Module({ controllers: [AuditController, CompanyController, CustomersController, QuotesController, PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [AuditService, AuditRecorder, {provide:AUDIT_REPOSITORY,useClass:MemoryAuditRepository},{provide:AUDIT_ACCESS,useClass:CompanyAuditAccess},{provide: COMPANY_IDENTITY,useClass:SampleCompanyIdentityProvider},{provide:APP_INTERCEPTOR,useClass:CompanyIdentityInterceptor},{provide:APP_INTERCEPTOR,useClass:AuditFilesInterceptor}, CompanyTemplateResolver, CompanyContext, {provide: QUOTE_ADMIN_ACCESS,inject:[CompanyContext],useFactory:(context:CompanyContext)=>new SampleQuoteAdminAccess(context)}, QuotesService, QuotePdfService, QuoteExcelService, ...COMPANY_DATA_PROVIDERS, PhotoReportService, InvoicesService, FinanceService, ExpensesService, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, ] })
 export class AppModule {}
