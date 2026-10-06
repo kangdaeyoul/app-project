@@ -31,3 +31,5 @@
 
 .audit-filters input, .audit-filters select { width: 100%; min-width: 0; }
 .audit-id { white-space: normal; }
+
+.inspection-item{margin:20px 0;padding:16px;border:1px solid #dbe4e6;border-radius:10px;background:#fff}.inspection-item .panel-title{gap:12px;flex-wrap:wrap}.inspection-item .report-selection{max-height:340px;overflow:auto}.inspection-item .report-selection label{flex-shrink:0}

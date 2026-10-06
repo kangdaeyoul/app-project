@@ -1,7 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-export default function PdfPreview({ url }: { url: string }) {
+export default function PdfPreview({
+  url,
+  label = "사진대지 PDF",
+}: {
+  url: string;
+  label?: string;
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(1);
@@ -97,11 +103,7 @@ export default function PdfPreview({ url }: { url: string }) {
           다음 페이지
         </button>
       </div>
-      <canvas
-        ref={canvas}
-        aria-label={`사진대지 PDF ${page}페이지`}
-        role="img"
-      />
+      <canvas ref={canvas} aria-label={`${label} ${page}페이지`} role="img" />
     </div>
   );
 }

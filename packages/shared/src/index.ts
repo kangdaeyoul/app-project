@@ -198,11 +198,12 @@ export interface CompanyDataModel {
   receipts: CompanyOwned<PaymentReceived>; workerPayments: CompanyOwned<WorkerPayment>; allocations: CompanyOwned<WorkerPaymentAllocation>;
   salesInvoices: CompanyOwned<SalesInvoice>; purchaseInvoices: CompanyOwned<PurchaseInvoice>; workerInvoices: CompanyOwned<WorkerInvoice>;
   auditLogs: AuditLog;
+  inspectionReports: InspectionReportRecord; inspectionItems: InspectionItemRecord; inspectionPhotoLinks: InspectionPhotoLink;
   files: CompanyFileReference; quoteTemplates: CompanyOwned<NonNullable<Company['quoteTemplate']>>;
 }
 
 export const AUDIT_ACTIONS = ['생성', '수정', '삭제', '복사', '계약전환', '비활성화', '상태변경', '추가', '순서변경', '등록', '지급취소', '다운로드'] as const;
-export const AUDIT_TARGETS = ['현장', '견적', '작업진행자', '일일작업', '사용자재', '사진', '자재구매', '경비', '수금', '작업진행자 지급', '세금계산서', '증빙', '파일'] as const;
+export const AUDIT_TARGETS = ['현장', '견적', '작업진행자', '일일작업', '사용자재', '사진', '자재구매', '경비', '수금', '작업진행자 지급', '세금계산서', '증빙', '파일', '점검지적사항 보고서'] as const;
 export type AuditAction = typeof AUDIT_ACTIONS[number];
 export type AuditTarget = typeof AUDIT_TARGETS[number];
 export type AuditValue = null | boolean | number | string | AuditValue[] | {[key:string]:AuditValue};
@@ -231,3 +232,12 @@ export interface CompletionReportSource {
   site: Site; defaults: CompletionReportInput; materials: SiteMaterialTotal[];
   workers: {id: string; displayName: string}[]; photos: PhotoView[];
 }
+
+export const INSPECTION_REPORT_TITLE = '점검지적사항 보수결과보고서';
+export interface InspectionItemInput { id?: string; number: string; inspection: string; result: string; beforePhotoIds: string[]; afterPhotoIds: string[] }
+export interface InspectionReportInput { workDate: string; createdDate: string; originalDocumentName: string; layout: 6 | 8; items: InspectionItemInput[] }
+export interface InspectionReportRecord extends Omit<InspectionReportInput, 'items'> { id: string; companyId: string; siteId: string; createdAt: string; updatedAt: string }
+export interface InspectionItemRecord extends Omit<InspectionItemInput,'id'|'beforePhotoIds'|'afterPhotoIds'> { id: string; companyId: string; reportId: string; position: number }
+export interface InspectionPhotoLink { companyId: string; itemId: string; photoId: string; stage: '작업 전' | '작업 후'; position: number }
+export interface InspectionReport extends InspectionReportRecord { items: (InspectionItemInput & {id:string})[] }
+export interface InspectionReportSource { site: Site; companyName: string; photos: PhotoView[]; defaults: InspectionReportInput; reports: InspectionReport[] }

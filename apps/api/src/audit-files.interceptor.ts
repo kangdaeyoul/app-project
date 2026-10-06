@@ -31,7 +31,7 @@ export class AuditFilesInterceptor implements NestInterceptor {
     const report =
       request.method === "POST"
         ? route.match(
-            /\/sites\/([^/]+)\/(?:photo-reports|completion-reports)\/(preview|generate)$/,
+            /\/sites\/([^/]+)\/(?:photo-reports|completion-reports|inspection-reports)\/(preview|generate)$/,
           )
         : null;
     if (!photo && !quote && !report) return next.handle();
@@ -101,9 +101,11 @@ export class AuditFilesInterceptor implements NestInterceptor {
               siteIds,
               reason: quote
                 ? "견적서 임시 출력 파일 생성"
-                : route.includes("/completion-reports/")
-                  ? "완료보고서 임시 미리보기 생성"
-                  : "사진대지 임시 미리보기 생성",
+                : route.includes("/inspection-reports/")
+                  ? "점검지적사항 보고서 임시 미리보기 생성"
+                  : route.includes("/completion-reports/")
+                    ? "완료보고서 임시 미리보기 생성"
+                    : "사진대지 임시 미리보기 생성",
             });
           this.audit.record({
             targetType: "파일",

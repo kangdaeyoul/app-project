@@ -1,4 +1,12 @@
 import {
+  INSPECTION_REPORT_REPOSITORY,
+  MemoryInspectionReportRepository,
+} from "./inspection-report.repository";
+import {
+  INSPECTION_REPORT_STORAGE,
+  TemporaryInspectionReportStorage,
+} from "./inspection-report-storage";
+import {
   COMPLETION_REPORT_STORAGE,
   TemporaryCompletionReportStorage,
 } from "./completion-report-storage";
@@ -45,6 +53,28 @@ import {
 import { SITES_REPOSITORY, SampleSitesRepository } from "./sites.repository";
 
 export const COMPANY_DATA_PROVIDERS: Provider[] = [
+  {
+    provide: INSPECTION_REPORT_REPOSITORY,
+    inject: [CompanyContext],
+    useFactory: (context: CompanyContext) =>
+      companyRepository(
+        context,
+        (seed) => new MemoryInspectionReportRepository(seed),
+      ),
+  },
+  {
+    provide: INSPECTION_REPORT_STORAGE,
+    inject: [CompanyContext, AuditRecorder],
+    useFactory: (context: CompanyContext, audit: AuditRecorder) =>
+      auditedRepository(
+        companyRepository(
+          context,
+          () => new TemporaryInspectionReportStorage(),
+        ),
+        "file",
+        audit,
+      ),
+  },
   {
     provide: COMPLETION_REPORT_STORAGE,
     inject: [CompanyContext, AuditRecorder],
