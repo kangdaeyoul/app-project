@@ -216,3 +216,18 @@ export interface AuditPage {
   items: AuditLog[]; total: number; page: number; pageSize: number;
   users: {id:string;name:string}[]; sites: {id:string;name:string}[];
 }
+
+export const COMPLETION_REPORT_TYPES = ['공사 완료보고서', '보수 완료보고서'] as const;
+export interface CompletionDay { dailyWorkId: string; date: string; content: string }
+export interface CompletionReportInput {
+  documentType: typeof COMPLETION_REPORT_TYPES[number]; title: string; purpose: string;
+  summary: string; periodStart: string; periodEnd: string; createdDate: string;
+  managerId: string; participantIds: string[]; days: CompletionDay[];
+  notes: string; opinion: string; followUp: string;
+  photoType: '' | '작업 전' | '작업 후'; photoSelection: '전체 사진' | '선택한 사진만';
+  photoIds: string[]; photoLayout: '사진 목록' | '사진대지';
+}
+export interface CompletionReportSource {
+  site: Site; defaults: CompletionReportInput; materials: SiteMaterialTotal[];
+  workers: {id: string; displayName: string}[]; photos: PhotoView[];
+}

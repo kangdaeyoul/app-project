@@ -1,3 +1,7 @@
+import {
+  COMPLETION_REPORT_STORAGE,
+  TemporaryCompletionReportStorage,
+} from "./completion-report-storage";
 import { auditedRepository } from "./audited-repository";
 import { AuditRecorder } from "./audit-recorder";
 import { Provider } from "@nestjs/common";
@@ -41,6 +45,19 @@ import {
 import { SITES_REPOSITORY, SampleSitesRepository } from "./sites.repository";
 
 export const COMPANY_DATA_PROVIDERS: Provider[] = [
+  {
+    provide: COMPLETION_REPORT_STORAGE,
+    inject: [CompanyContext, AuditRecorder],
+    useFactory: (context: CompanyContext, audit: AuditRecorder) =>
+      auditedRepository(
+        companyRepository(
+          context,
+          () => new TemporaryCompletionReportStorage(),
+        ),
+        "file",
+        audit,
+      ),
+  },
   {
     provide: QUOTES_REPOSITORY,
     inject: [CompanyContext, AuditRecorder],
