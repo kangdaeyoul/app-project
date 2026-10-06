@@ -100,3 +100,9 @@ InvoicesRepository가 매출/매입/작업진행자 계산서 상태를 독립 �
 분할 또는 다건 계산서 단계에서는 독립 invoice_id, direction, 공급가액/VAT, 상태와 invoice_sites/invoice_expenses/invoice_receipts 관계로 확장하세요. 현장 계약·수금과 계산서 액수는 별개여서 이번 단계에서 금융 합계에 계산서 액수를 더하지 않습니다. 매입은 연결 지출 금액과 일치해야 합니다. DB에서는 지출 수정/삭제와 수취완료 기록 검증을 같은 트랜잭션으로 처리합니다. 작업진행자 soft delete 후에도 정산 계산서 기록을 보존합니다.
 
 경고는 매출 관리기록 미발행 / 세금계산서 증빙유형 지출의 미수취 / 증빙없음 지출 / 정산 그룹의 미발행을 각각 셉니다. 후속 명세에서는 계약·분할발행·증빙 예외 정책을 확장해야 합니다. 미수취 지출 필터는 evidence_type=세금계산서 AND receipt_status=미수취이며 다른 증빙을 미수취로 오인하지 않습니다.
+
+## 사진대지 생성 문서
+- `PhotoReportOptions`: layout, 작업일자/사진구분 필터, selection + photoIds, title, companyName, workContent, periodStart/periodEnd, createdDate, showWorker/showNumber/showTime. 현장 ID는 API 경로에서 결정하고 선택 사진은 반드시 해당 현장 및 필터 범위에 속해야 한다.
+- 기존 `photo_records → daily_work → site`를 조회해 문서를 생성한다. 작업진행자는 일일작업의 `managerDisplayName` 이력을 사용한다. 비교키는 `[workDate, location.trim()]`이며 빈 위치는 독립 사진으로 취급한다. 출력 렌더링용 변환 결과만 사용하고 원본은 불변이다.
+- 독립 `PhotoReportStorage.put/get` 어댑터가 생성 PDF 버퍼를 보관한다. 현재 프로세스 메모리에서 TTL 30분·20개로 제한한다. 키는 `siteId/05 현장사진/사진대지/reportUUID/filename`이다. NAS 연결 시 어댑터만 교체한다.
+- 향후 `photo_reports(id, site_id, storage_key, filename, options_snapshot, created_at, created_by)`와 `photo_report_photos(report_id, photo_id, ordinal, metadata_snapshot)`로 출력 이력/재생성 및 원본 변경 이후의 문서 이력을 분리할 수 있다. 현재 이력 영속화·관리자 승인은 제공하지 않는다.

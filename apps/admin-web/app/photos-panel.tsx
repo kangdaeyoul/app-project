@@ -1,4 +1,5 @@
 "use client";
+import PhotoReportPanel from "./photo-report-panel";
 import { useEffect, useRef, useState } from "react";
 import {
   PHOTO_TYPES,
@@ -168,6 +169,7 @@ export default function PhotosPanel({
   const groups = [...new Set(photos.map((p) => `${p.workDate}|${p.type}`))];
   return (
     <section className="photo-panel">
+      {siteId && !dailyWorkId && <PhotoReportPanel siteId={siteId} revision={revision} />}
       <div className="panel-title">
         <div>
           <h3>작업 전·후 사진</h3>

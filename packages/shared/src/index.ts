@@ -93,3 +93,21 @@ export interface WorkerInvoiceView extends WorkerInvoice { siteName: string; wor
 export interface EvidenceExpense { id: string; siteId: string; siteName: string; description: string; evidenceType: typeof EVIDENCE_TYPES[number]; receiptStatus: typeof PURCHASE_INVOICE_STATUSES[number]; totalAmount: number; workerId: string | null }
 export interface TaxWarnings { salesUnissued: number; purchasesUnreceived: number; noEvidence: number; workerUnreceived: number }
 export interface InvoiceList { sales: SalesInvoiceView[]; purchases: PurchaseInvoiceView[]; workers: WorkerInvoiceView[]; expenses: EvidenceExpense[]; warnings: TaxWarnings }
+
+export const PHOTO_REPORT_LAYOUTS = ['작업 전/후 비교형', '페이지당 4장', '페이지당 6장'] as const;
+export interface PhotoReportOptions {
+  layout: typeof PHOTO_REPORT_LAYOUTS[number];
+  workDate: string;
+  type: '' | PhotoType;
+  selection: '전체 사진' | '선택한 사진만';
+  photoIds: string[];
+  title: string;
+  companyName: string;
+  workContent: string;
+  periodStart: string;
+  periodEnd: string;
+  createdDate: string;
+  showWorker: boolean;
+  showNumber: boolean;
+  showTime: boolean;
+}

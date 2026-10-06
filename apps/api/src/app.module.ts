@@ -1,3 +1,5 @@
+import { PhotoReportService } from './photo-report.service';
+import { PHOTO_REPORT_STORAGE, TemporaryPhotoReportStorage } from './photo-report-storage';
 import { InvoicesService } from './invoices.service';
 import { INVOICES_REPOSITORY, SampleInvoicesRepository } from './invoices.repository';
 import { FinanceService } from './finance.service';
@@ -61,6 +63,21 @@ class PhotoController {
   @Delete(':id') remove(@Param('id') id:string){return this.photos.remove(id);}
   @Get(':id/file') file(@Param('id') id:string,@Res() response:{setHeader:(key:string,value:string)=>void;send:(buffer:Buffer)=>void}){const file=this.photos.file(id);response.setHeader('Content-Type',file.mimeType);response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Cache-Control','no-store');response.send(file.buffer);}
 }
+@Controller('sites/:siteId/photo-reports')
+class PhotoReportController {
+  constructor(@Inject(PhotoReportService) private readonly reports: PhotoReportService) {}
+  private async send(siteId: string, body: unknown, save: boolean, response: {setHeader:(key:string,value:string)=>void;send:(buffer:Buffer)=>void}) {
+    const report = await this.reports.render(siteId, body, save);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `${save ? 'attachment' : 'inline'}; filename="photo-report.pdf"; filename*=UTF-8''${encodeURIComponent(report.filename)}`);
+    response.setHeader('Cache-Control', 'no-store');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    if (save) response.setHeader('X-Report-Storage-Key', encodeURIComponent(report.storageKey));
+    response.send(report.buffer);
+  }
+  @Post('preview') preview(@Param('siteId') id:string,@Body() body:unknown,@Res() response: Parameters<PhotoReportController['send']>[3]) {return this.send(id, body, false, response);}
+  @Post('generate') generate(@Param('siteId') id:string,@Body() body:unknown,@Res() response: Parameters<PhotoReportController['send']>[3]) {return this.send(id, body, true, response);}
+}
 @Controller('expenses')
 class ExpensesController {
   constructor(@Inject(ExpensesService) private readonly expenses: ExpensesService) {}
@@ -91,5 +108,5 @@ class InvoicesController {
  @Put('purchases/:expenseId') savePurchase(@Param('expenseId') expenseId:string,@Body() body:unknown){return this.invoices.savePurchase(expenseId,body);}
  @Put('workers/:siteId/:workerId') saveWorker(@Param('siteId') siteId:string,@Param('workerId') workerId:string,@Body() body:unknown){return this.invoices.saveWorker(siteId,workerId,body);}
 }
-@Module({ controllers: [AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [InvoicesService, {provide: INVOICES_REPOSITORY, useClass: SampleInvoicesRepository}, FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
+@Module({ controllers: [PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [PhotoReportService, {provide: PHOTO_REPORT_STORAGE, useClass: TemporaryPhotoReportStorage}, InvoicesService, {provide: INVOICES_REPOSITORY, useClass: SampleInvoicesRepository}, FinanceService, {provide: FINANCE_REPOSITORY, useClass: SampleFinanceRepository}, ExpensesService, { provide: EXPENSES_REPOSITORY, useClass: SampleExpensesRepository }, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, { provide: PHOTO_REPOSITORY, useClass: SamplePhotoRepository }, { provide: FILE_STORAGE, useClass: TemporaryFileStorage }, { provide: DAILY_WORK_REPOSITORY, useClass: SampleDailyWorkRepository }, { provide: WORKERS_REPOSITORY, useClass: SampleWorkersRepository }, { provide: SITES_REPOSITORY, useClass: SampleSitesRepository }] })
 export class AppModule {}
