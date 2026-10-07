@@ -129,6 +129,21 @@ export class QuotesService {
     this.access.assertAdmin();
     return this.view(this.record(id));
   }
+  private standardSource(value: unknown): QuoteItemInput['standardSource'] {
+    if(value===undefined)return undefined;
+    const v=object(value);if(!Number.isSafeInteger(v.version)||(v.version as number)<1)throw new BadRequestException('템플릿 버전을 확인해 주세요.');
+    return {templateId:text(v,'templateId',100,true),componentId:text(v,'componentId',100,true),version:v.version as number};
+  }
+  private customerItems(q:QuoteView, items:QuoteItemInput[]) {
+    if(!q.groupComponents)return items;
+    const result:QuoteItemInput[]=[];
+    for(const i of items){if(!i.customerGroup){result.push(i);continue;}
+      const existing=result.find(j=>j.customerGroup===i.customerGroup&&j.trade===i.trade&&j.priceCategory===i.priceCategory);
+      const amount=importAmount(i.quantity,i.saleUnitPrice);
+      if(existing)existing.saleUnitPrice+=amount;
+      else result.push({...i,name:i.customerGroup,specification:'',quantity:1,unit:'식',saleUnitPrice:amount,notes:''});
+    }return result;
+  }
   private input(body: unknown): QuoteInput {
     const r = object(body),
       customerId = text(r, "customerId", 300, true);
@@ -194,6 +209,8 @@ export class QuotesService {
           )
             throw new BadRequestException("고객금액 분류를 확인해 주세요.");
           return {
+            customerGroup: text(i, "customerGroup", 100),
+            standardSource: this.standardSource(i.standardSource),
             trade: text(i, "trade", 100, true),
             name: text(i, "name", 300, true),
             specification: text(i, "specification"),
@@ -216,7 +233,9 @@ export class QuotesService {
       throw new BadRequestException(
         "을지 중복 없이 견적항목을 1건 이상 입력해 주세요.",
       );
+    if (r.groupComponents !== undefined && typeof r.groupComponents !== "boolean") throw new BadRequestException("구성품 출력 옵션을 확인해 주세요.");
     const input: QuoteInput = {
+      groupComponents: r.groupComponents === true,
       customerId,
       siteId: siteId || null,
       siteName: text(r, "siteName", 300, true),
@@ -336,7 +355,7 @@ export class QuotesService {
     const record = this.record(id);
     const client = this.customers.find(record.customerId);
     return { ...publicQuote, contactName: client?.contactName ?? "", phone: client?.phone ?? "",
-      groups: record.sections.map(section => section.items.map(item => {
+      groups: record.sections.map(section => this.customerItems(this.view(record), section.items).map(item => {
         if (item.priceCategory === "노무비") return 3;
         if (item.priceCategory === "경비") return 4;
         if (/전선|케이블|전기배관|전선관|박스|단자|차단기/.test(item.name)) return 2;
@@ -362,7 +381,7 @@ export class QuotesService {
       totals: { ...q.totals },
       sections: q.sections.map((s) => ({
         kind: s.kind,
-        items: s.items.map((i) => ({
+        items: this.customerItems(q,s.items).map((i) => ({
           trade: i.trade,
           name: i.name,
           specification: i.specification,

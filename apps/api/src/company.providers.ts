@@ -1,3 +1,4 @@
+import { STANDARD_WORK_REPOSITORY, MemoryStandardWorkRepository } from './standard-work.repository';
 import {
   INSPECTION_REPORT_REPOSITORY,
   MemoryInspectionReportRepository,
@@ -53,6 +54,7 @@ import {
 import { SITES_REPOSITORY, SampleSitesRepository } from "./sites.repository";
 
 export const COMPANY_DATA_PROVIDERS: Provider[] = [
+ {provide:STANDARD_WORK_REPOSITORY,inject:[CompanyContext],useFactory:(context:CompanyContext)=>companyRepository(context,seed=>new MemoryStandardWorkRepository(seed))},
   {
     provide: INSPECTION_REPORT_REPOSITORY,
     inject: [CompanyContext],

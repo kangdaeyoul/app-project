@@ -14,6 +14,7 @@ import {
   calculateQuote,
   quoteLineAmount,
 } from "@jongno/shared";
+import StandardWorkPanel from "./standard-work-panel";
 import PdfPreview from "./pdf-preview";
 const today = () =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(
@@ -305,6 +306,15 @@ export default function QuotesPanel({
     : [];
   return (
     <div className="quotes-workspace">
+      <StandardWorkPanel onAdd={form ? (kind,items)=>{
+        const sections=form.sections.map(s=>({...s,items:s.items.filter(i=>i.name.trim())}));
+        const existing=sections.find(s=>s.kind===kind);
+        if(existing)existing.items.push(...items);else sections.push({kind,items});
+        change({sections:sections.filter(s=>s.items.length)});setTab(`을지: ${kind}`);
+      } : undefined}/>
+
+      {form && <label><input type="checkbox" checked={form.groupComponents??false} onChange={e=>change({groupComponents:e.target.checked})}/>고객 출력: 부속류·잡자재·배관 묶음 표시 (내부 구성품 유지)</label>}
+
       {error && (
         <p className="error" role="alert">
           {error}{" "}

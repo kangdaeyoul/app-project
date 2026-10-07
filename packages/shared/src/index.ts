@@ -118,12 +118,15 @@ export const QUOTE_PRINT_MODES = ['전체 상세', '단가 숨김', '금액 숨�
 export const QUOTE_PRICE_CATEGORIES = ['재료비', '노무비', '경비'] as const;
 export interface Customer { id: string; name: string; address: string; contactName: string; phone: string }
 export interface QuoteItemInput {
+  customerGroup?: string;
+  standardSource?: { templateId: string; version: number; componentId: string };
   trade: string; name: string; specification: string; quantity: number; unit: string;
   materialUnitCost: number; laborUnitCost: number; expenseUnitCost: number;
   saleUnitPrice: number; priceCategory: typeof QUOTE_PRICE_CATEGORIES[number]; notes: string;
 }
 export interface QuoteSectionInput { kind: typeof QUOTE_SECTIONS[number]; items: QuoteItemInput[] }
 export interface QuoteInput {
+  groupComponents?: boolean;
   customerId: string; siteId: string | null; siteName: string; address: string; workContent: string;
   quoteDate: string; validUntil: string; status: typeof QUOTE_STATUSES[number]; notes: string;
   generalFee: number; supportFee: number; internalGeneralCost: number; internalSupportCost: number;
@@ -243,3 +246,11 @@ export interface InspectionItemRecord extends Omit<InspectionItemInput,'id'|'bef
 export interface InspectionPhotoLink { companyId: string; itemId: string; photoId: string; stage: '작업 전' | '작업 후'; position: number }
 export interface InspectionReport extends InspectionReportRecord { items: (InspectionItemInput & {id:string})[] }
 export interface InspectionReportSource { site: Site; companyName: string; photos: PhotoView[]; defaults: InspectionReportInput; reports: InspectionReport[] }
+
+export const WORK_COMPONENT_ROLES = ['주자재','부속자재','배선','배관','잡자재','철거노무','설치노무','결선노무','시험/시운전','기타'] as const;
+export const WORK_QUANTITY_MODES = ['작업수량에 비례','고정수량','길이기준','1식','관리자 직접입력'] as const;
+export const WORK_REUSE_FLAGS = ['기존 감지기 재사용','기존 발신기 재사용','기존 간선 활용','기존 배관 활용'] as const;
+export interface WorkPrice { id: string; companyId: string; name: string; specification: string; unit: string; category: '재료비'|'노무비'|'경비'; cost: number; salePrice: number }
+export interface WorkComponent { id: string; priceId: string; role: typeof WORK_COMPONENT_ROLES[number]; mode: typeof WORK_QUANTITY_MODES[number]; factor: number; lengthKey: '배선'|'배관'; omitWhen: typeof WORK_REUSE_FLAGS[number][]; customerGroup: string }
+export interface StandardWork { priceSnapshot?: WorkPrice[]; id: string; companyId: string; name: string; section: '기계'|'전기'; version: number; components: WorkComponent[]; updatedAt: string; updatedBy: string; reason: string }
+export interface StandardWorkRequest { quantity: number; lengths: { 배선: number; 배관: number }; reuse: typeof WORK_REUSE_FLAGS[number][]; overrides: Record<string, number> }
