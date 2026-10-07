@@ -39,6 +39,8 @@ export function companyRepository<T extends object>(
         const reads = new Set([
           "list",
           "favorites",
+          "priceHistory",
+          "getImport",
           "find",
           "receipts",
           "payments",

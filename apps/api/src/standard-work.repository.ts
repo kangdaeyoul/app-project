@@ -1,4 +1,4 @@
-import { WorkPrice, StandardWork, WorkComponent } from "@jongno/shared";
+import { WorkPrice, StandardWork, WorkComponent, MaterialPriceHistory, MaterialImportJob } from "@jongno/shared";
 export const STANDARD_WORK_REPOSITORY = Symbol("STANDARD_WORK_REPOSITORY");
 export interface StandardWorkRepository {
   list(): { prices: WorkPrice[]; templates: StandardWork[] };
@@ -6,10 +6,20 @@ export interface StandardWorkRepository {
   get(id: string): StandardWork[];
   save(template: StandardWork): void;
   savePrice(price: WorkPrice): void;
+ priceHistory(id:string):MaterialPriceHistory[];
+ getImport(id:string):MaterialImportJob|undefined;
+ saveImport(job:MaterialImportJob):void;
+ commitPrices(prices:WorkPrice[],histories:MaterialPriceHistory[]):void;
   favorites(): string[];
   saveFavorites(ids: string[]): void;
 }
 export class MemoryStandardWorkRepository implements StandardWorkRepository {
+  private histories:MaterialPriceHistory[]=[];
+  private jobs=new Map<string,MaterialImportJob>();
+  priceHistory(id:string){return structuredClone(this.histories.filter(h=>h.materialId===id));}
+  getImport(id:string){return structuredClone(this.jobs.get(id));}
+  saveImport(job:MaterialImportJob){this.jobs.set(job.id,structuredClone(job));}
+  commitPrices(prices:WorkPrice[],histories:MaterialPriceHistory[]){for(const p of prices)this.savePrice(p);this.histories.push(...structuredClone(histories));}
   private favoriteIds: string[] = [];
   favorites() {
     return [...this.favoriteIds];

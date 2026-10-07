@@ -39,3 +39,5 @@
 .favorite-items{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}.favorite-items>div{padding:8px;background:#f0f7f8;border:1px solid #dae8ec;border-radius:7px}.favorite-items small{color:#718793}.quote-entry-options{display:flex;gap:24px;flex-wrap:wrap;padding:16px 0}.quote-entry-options input{accent-color:#169b8f}
 
 .standard-work-panel .form-grid input[type=checkbox]{width:auto;align-self:flex-start}
+
+.material-management .material-import-preview>.table-scroll{max-height:500px}.material-management .table-scroll td{white-space:nowrap}.material-management h2{margin-bottom:16px}

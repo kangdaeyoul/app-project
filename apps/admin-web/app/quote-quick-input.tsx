@@ -80,8 +80,8 @@ export default function QuoteQuickInput({
       setBusy(false);
     }
   }
-  function add(p: WorkPrice, source: "catalog" | "favorite") {
-    onAdd([priceToQuoteItem(p, autoPrice, source)], section);
+  async function add(p: WorkPrice, source: "catalog" | "favorite") {
+    setError('');try{const data=await api<{prices:WorkPrice[]}>('/standard-work');const latest=data.prices.find(v=>v.id===p.id);if(!latest)throw Error('품목을 다시 조회하세요.');setPrices(data.prices);onAdd([priceToQuoteItem(latest,autoPrice,source)],section);}catch(e){setError((e as Error).message);}
   }
   return (
     <section className="panel standard-work-panel">

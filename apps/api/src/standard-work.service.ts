@@ -1,3 +1,5 @@
+import {priceChange} from "./material-price";
+import {validDate} from "./date";
 import {
   BadRequestException,
   ConflictException,
@@ -34,10 +36,10 @@ function number(v: unknown, max = 1000000) {
     bad();
   return v as number;
 }
-function text(v: unknown, required = false) {
+function text(v: unknown, required = false, max=300) {
   if (
     typeof v !== "string" ||
-    v.length > 300 ||
+    v.length > max ||
     (required && !v.trim()) ||
     /[\u0000-\u001f]/.test(v)
   )
@@ -73,9 +75,11 @@ export class StandardWorkService {
     const current = this.repository.list().prices;
     if (id && !current.some((p) => p.id === id)) throw new NotFoundException();
     if (!["재료비", "노무비", "경비"].includes(raw.category)) bad();
+    const old=current.find(p=>p.id===id);
     const p: WorkPrice = {
       id: id ?? randomUUID(),
       companyId: this.context.companyId,
+      trade:text(raw.trade??old?.trade??''),manufacturer:text(raw.manufacturer??old?.manufacturer??''),supplier:text(raw.supplier??old?.supplier??''),purchasePrice:number(raw.purchasePrice??old?.purchasePrice??0,1000000000),vatIncluded:raw.vatIncluded??old?.vatIncluded??false,effectiveDate:text(raw.effectiveDate??old?.effectiveDate??''),notes:text(raw.notes??old?.notes??'',false,1000),
       name: text(raw.name, true),
       specification: text(raw.specification),
       unit: text(raw.unit, true),
@@ -85,7 +89,9 @@ export class StandardWorkService {
     };
     if (!Number.isSafeInteger(p.cost) || !Number.isSafeInteger(p.salePrice))
       bad();
-    this.repository.savePrice(p);
+    if(!Number.isSafeInteger(p.purchasePrice)||typeof p.vatIncluded!=='boolean'||(p.effectiveDate&&!validDate(p.effectiveDate)))bad();
+    const history=priceChange(p,old,'수동',this.context.identity.userId);
+    this.repository.commitPrices([p],history?[history]:[]);
     return p;
   }
   save(id: string, raw: StandardWork) {
