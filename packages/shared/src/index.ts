@@ -118,6 +118,7 @@ export const QUOTE_PRINT_MODES = ['전체 상세', '단가 숨김', '금액 숨�
 export const QUOTE_PRICE_CATEGORIES = ['재료비', '노무비', '경비'] as const;
 export interface Customer { id: string; name: string; address: string; contactName: string; phone: string }
 export interface QuoteItemInput {
+  pricePending?:boolean;
   materialCode?: string;
   entrySources?: ("manual"|"catalog"|"favorite"|"standard")[];
   standardSources?: {templateId:string;version:number;componentId:string}[];
@@ -254,14 +255,14 @@ export interface InspectionPhotoLink { companyId: string; itemId: string; photoI
 export interface InspectionReport extends InspectionReportRecord { items: (InspectionItemInput & {id:string})[] }
 export interface InspectionReportSource { site: Site; companyName: string; photos: PhotoView[]; defaults: InspectionReportInput; reports: InspectionReport[] }
 
-export const WORK_COMPONENT_ROLES = ['주자재','부속자재','배선','배관','잡자재','철거노무','설치노무','결선노무','시험/시운전','기타'] as const;
+export const WORK_COMPONENT_ROLES = ['주자재','부속자재','배선','전선','전선관','배관','배관부속','잡자재','철거노무','설치노무','결선노무','시험/시운전','기타'] as const;
 export const WORK_QUANTITY_MODES = ['작업수량에 비례','고정수량','길이기준','1식','관리자 직접입력'] as const;
 export const WORK_REUSE_FLAGS = ['기존 감지기 재사용','기존 발신기 재사용','기존 간선 활용','기존 배관 활용'] as const;
 export interface WorkPrice {
  trade?:string; manufacturer?:string; supplier?:string; purchasePrice?:number; vatIncluded?:boolean; effectiveDate?:string; notes?:string; id: string; companyId: string; name: string; specification: string; unit: string; category: '재료비'|'노무비'|'경비'; cost: number; salePrice: number }
-export interface WorkComponent { id: string; priceId: string; role: typeof WORK_COMPONENT_ROLES[number]; mode: typeof WORK_QUANTITY_MODES[number]; factor: number; lengthKey: '배선'|'배관'; omitWhen: typeof WORK_REUSE_FLAGS[number][]; customerGroup: string }
-export interface StandardWork { priceSnapshot?: WorkPrice[]; id: string; companyId: string; name: string; section: '기계'|'전기'; version: number; components: WorkComponent[]; updatedAt: string; updatedBy: string; reason: string }
-export interface StandardWorkRequest { quantity: number; lengths: { 배선: number; 배관: number }; reuse: typeof WORK_REUSE_FLAGS[number][]; overrides: Record<string, number> }
+export interface WorkComponent { includeWhen?: WorkCondition[]; excludeWhen?: WorkCondition[];  id: string; priceId: string; role: typeof WORK_COMPONENT_ROLES[number]; mode: typeof WORK_QUANTITY_MODES[number]; factor: number; lengthKey: '배선'|'배관'; omitWhen: typeof WORK_REUSE_FLAGS[number][]; customerGroup: string }
+export interface StandardWork { workType?:string; description?:string; baseQuantity?:number; unit?:string; calculation?:string; conditions?:WorkCondition[]; active?:boolean; deletedAt?:string|null;  priceSnapshot?: WorkPrice[]; id: string; companyId: string; name: string; section: '기계'|'전기'; version: number; components: WorkComponent[]; updatedAt: string; updatedBy: string; reason: string }
+export interface StandardWorkRequest { conditions?:WorkSiteConditions; autoPrice?:boolean;  quantity: number; lengths: { 배선: number; 배관: number }; reuse: typeof WORK_REUSE_FLAGS[number][]; overrides: Record<string, number> }
 
 export interface QuoteFavorites { companyId:string; userId:string|null; priceIds:string[] }
 /** Preserve the existing row's negotiated prices; additions only accumulate quantity and provenance. */
@@ -281,4 +282,9 @@ export interface MaterialImportRow {rowNumber:number;values:(string|number)[];st
 export interface MaterialImportJob {id:string;companyId:string;filename:string;createdAt:string;createdBy:string;status:'미리보기'|'반영완료';rows:MaterialImportRow[];summary:{total:number;new:number;updated:number;unchanged:number;errors:number};appliedAt?:string;appliedCount?:number}
 
 /** Explicit opt-in only: callers must ask the user before replacing negotiated quote prices. */
-export function reapplyLatestQuotePrices(items:QuoteItemInput[],prices:WorkPrice[]):QuoteItemInput[]{return items.map(i=>{const p=prices.find(p=>p.id===i.materialCode);if(!p)return {...i};const latest=priceToQuoteItem(p);return {...i,materialUnitCost:latest.materialUnitCost,laborUnitCost:latest.laborUnitCost,expenseUnitCost:latest.expenseUnitCost,saleUnitPrice:latest.saleUnitPrice};});}
+export function reapplyLatestQuotePrices(items:QuoteItemInput[],prices:WorkPrice[]):QuoteItemInput[]{return items.map(i=>{const p=prices.find(p=>p.id===i.materialCode);if(!p)return {...i};const latest=priceToQuoteItem(p);return {...i,materialUnitCost:latest.materialUnitCost,laborUnitCost:latest.laborUnitCost,expenseUnitCost:latest.expenseUnitCost,saleUnitPrice:latest.saleUnitPrice,pricePending:false};});}
+
+export const WORK_CONDITION_KEYS=['workType','installation','reuseWiring','reusePiping','reuseEquipment','ceiling','height','night','demolition'] as const;
+export const WORK_CONDITION_LABELS:Record<typeof WORK_CONDITION_KEYS[number],string>={workType:'작업구분',installation:'노출/매립',reuseWiring:'기존 배선 활용',reusePiping:'기존 배관 활용',reuseEquipment:'기존 기구 재사용',ceiling:'천장 종류',height:'층고',night:'야간작업',demolition:'철거 포함'};
+export interface WorkSiteConditions {workType:string;installation:'노출'|'매립';reuseWiring:boolean;reusePiping:boolean;reuseEquipment:boolean;ceiling:string;height:number;night:boolean;demolition:boolean}
+export interface WorkCondition {key:typeof WORK_CONDITION_KEYS[number];operator:'같음'|'다름'|'이상'|'이하';value:string|number|boolean}

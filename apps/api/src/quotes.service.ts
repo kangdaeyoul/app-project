@@ -214,6 +214,7 @@ export class QuotesService {
           )
             throw new BadRequestException("고객금액 분류를 확인해 주세요.");
           return {
+            pricePending:this.option(i,"pricePending",false),
             materialCode: text(i,'materialCode',100),
             entrySources: this.entrySources(i.entrySources),
             standardSources: this.standardSources(i.standardSources),

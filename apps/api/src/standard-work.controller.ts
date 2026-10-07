@@ -1,5 +1,6 @@
 import {
   Body,
+  Delete,
   Controller,
   Get,
   Inject,
@@ -17,14 +18,27 @@ export class StandardWorkController {
   @Get() list() {
     return this.service.list();
   }
+  @Post() create(@Body() body: StandardWork) {
+    return this.service.create(body);
+  }
+  @Post(":id/copy") copy(@Param("id") id: string) {
+    return this.service.copy(id);
+  }
+  @Delete(":id") archive(@Param("id") id: string) {
+    return this.service.archive(id);
+  }
   @Post("prices") createPrice(@Body() body: WorkPrice) {
     return this.service.savePrice(body);
   }
   @Put("prices/:id") price(@Param("id") id: string, @Body() body: WorkPrice) {
     return this.service.savePrice(body, id);
   }
-  @Get("favorites") favorites(){return this.service.favorites();}
-  @Put("favorites") saveFavorites(@Body() body:{priceIds:unknown}){return this.service.saveFavorites(body);}
+  @Get("favorites") favorites() {
+    return this.service.favorites();
+  }
+  @Put("favorites") saveFavorites(@Body() body: { priceIds: unknown }) {
+    return this.service.saveFavorites(body);
+  }
   @Get(":id/history") history(@Param("id") id: string) {
     return this.service.history(id);
   }

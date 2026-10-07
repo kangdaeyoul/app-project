@@ -1,4 +1,10 @@
-import { WorkPrice, StandardWork, WorkComponent, MaterialPriceHistory, MaterialImportJob } from "@jongno/shared";
+import {
+  WorkPrice,
+  StandardWork,
+  WorkComponent,
+  MaterialPriceHistory,
+  MaterialImportJob,
+} from "@jongno/shared";
 export const STANDARD_WORK_REPOSITORY = Symbol("STANDARD_WORK_REPOSITORY");
 export interface StandardWorkRepository {
   list(): { prices: WorkPrice[]; templates: StandardWork[] };
@@ -6,20 +12,29 @@ export interface StandardWorkRepository {
   get(id: string): StandardWork[];
   save(template: StandardWork): void;
   savePrice(price: WorkPrice): void;
- priceHistory(id:string):MaterialPriceHistory[];
- getImport(id:string):MaterialImportJob|undefined;
- saveImport(job:MaterialImportJob):void;
- commitPrices(prices:WorkPrice[],histories:MaterialPriceHistory[]):void;
+  priceHistory(id: string): MaterialPriceHistory[];
+  getImport(id: string): MaterialImportJob | undefined;
+  saveImport(job: MaterialImportJob): void;
+  commitPrices(prices: WorkPrice[], histories: MaterialPriceHistory[]): void;
   favorites(): string[];
   saveFavorites(ids: string[]): void;
 }
 export class MemoryStandardWorkRepository implements StandardWorkRepository {
-  private histories:MaterialPriceHistory[]=[];
-  private jobs=new Map<string,MaterialImportJob>();
-  priceHistory(id:string){return structuredClone(this.histories.filter(h=>h.materialId===id));}
-  getImport(id:string){return structuredClone(this.jobs.get(id));}
-  saveImport(job:MaterialImportJob){this.jobs.set(job.id,structuredClone(job));}
-  commitPrices(prices:WorkPrice[],histories:MaterialPriceHistory[]){for(const p of prices)this.savePrice(p);this.histories.push(...structuredClone(histories));}
+  private histories: MaterialPriceHistory[] = [];
+  private jobs = new Map<string, MaterialImportJob>();
+  priceHistory(id: string) {
+    return structuredClone(this.histories.filter((h) => h.materialId === id));
+  }
+  getImport(id: string) {
+    return structuredClone(this.jobs.get(id));
+  }
+  saveImport(job: MaterialImportJob) {
+    this.jobs.set(job.id, structuredClone(job));
+  }
+  commitPrices(prices: WorkPrice[], histories: MaterialPriceHistory[]) {
+    for (const p of prices) this.savePrice(p);
+    this.histories.push(...structuredClone(histories));
+  }
   private favoriteIds: string[] = [];
   favorites() {
     return [...this.favoriteIds];
@@ -126,18 +141,34 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
               labor ? 250000 : role === "시험/시운전" ? 50000 : 3000,
               labor ? "노무비" : role === "시험/시운전" ? "경비" : "재료비",
             ),
-            role,
+            role:
+              role === "배선"
+                ? "전선"
+                : name === "전선관"
+                  ? "전선관"
+                  : role === "부속자재" && equipment === "스프링클러헤드"
+                    ? "배관부속"
+                    : role,
             mode,
             factor,
             lengthKey: role === "배관" ? "배관" : "배선",
             omitWhen,
-            customerGroup: ["부속자재", "잡자재"].includes(role)
-              ? role === "잡자재"
-                ? "잡자재"
-                : "부속류"
-              : role === "배관"
-                ? "배관 및 부속"
-                : "",
+            customerGroup:
+              role === "배선"
+                ? "배선 및 부속"
+                : role.includes("노무")
+                  ? role === "철거노무"
+                    ? "철거비"
+                    : "설치 및 결선비"
+                  : ["부속자재", "잡자재"].includes(role)
+                    ? role === "잡자재"
+                      ? "잡자재"
+                      : equipment === "스프링클러헤드"
+                        ? "배관 및 부속"
+                        : "부속류"
+                    : role === "배관"
+                      ? "배관 및 부속"
+                      : "",
           });
         };
         add(
@@ -161,7 +192,8 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
           add("배관", "배관", 5, "m", "길이기준", ["기존 배관 활용"]);
           for (const n of ["니플", "엘보", "티", "행거/클램프"])
             add(n, "부속자재");
-          add("실링재 및 잡자재", "잡자재", 1, "식", "1식");
+          add("실링재", "잡자재", 1, "식", "1식");
+          add("잡자재", "잡자재", 1, "식", "1식");
           add("배관노무", "설치노무", 0.16, "인");
           add("누설/동작시험", "시험/시운전", 1, "식", "1식");
         } else {
@@ -174,7 +206,8 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
             ["기존 간선 활용"],
           );
           add("전선관", "배관", 5, "m", "길이기준", ["기존 배관 활용"]);
-          add("단자류", "부속자재", 2);
+          add(equipment === "수신반" ? "단자대" : "단자류", "부속자재", 2);
+          if (equipment === "화재감지기") add("커넥터/클립류", "부속자재", 2);
           if (equipment === "수신반") {
             add("압착단자", "부속자재", 10);
             add("마킹/라벨", "잡자재", 1, "식", "1식");
@@ -192,6 +225,14 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
           id: `WORK-${this.versions.length + 1}`,
           companyId,
           name: `${equipment} ${action}`,
+          workType: action,
+          description: `${equipment} ${action} 기본 세트 (현장별 기준 조정 필요)`,
+          baseQuantity: 1,
+          unit: "개",
+          calculation: "구성품별 계산",
+          active: true,
+          conditions: [],
+          deletedAt: null,
           section: equipment === "스프링클러헤드" ? "기계" : "전기",
           version: 1,
           components,

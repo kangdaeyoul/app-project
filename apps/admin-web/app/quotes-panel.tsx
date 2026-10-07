@@ -159,7 +159,7 @@ export default function QuotesPanel({
   }
   function addItems(kind:'기계'|'전기',items:QuoteItemInput[],standard=false){
     clearPreview();setForm(f=>{if(!f)return f;const sections=f.sections.map(s=>({...s,items:s.items.filter(i=>i.name.trim())}));let section=sections.find(s=>s.kind===kind);if(!section){section={kind,items:[]};sections.push(section);}
-    const incoming=standard&&f.autoPrice===false?items.map(i=>({...i,saleUnitPrice:0,materialUnitCost:0,laborUnitCost:0,expenseUnitCost:0})):items;
+    const incoming=standard&&f.autoPrice===false?items.map(i=>({...i,pricePending:true,saleUnitPrice:0,materialUnitCost:0,laborUnitCost:0,expenseUnitCost:0})):items;
     section.items=accumulateQuoteItems(section.items,incoming,f.mergeDuplicates??true,f.mergeAcrossSources??true);
     return {...f,sections:sections.filter(s=>s.items.length)};
     });setTab(`을지: ${kind}`);
@@ -998,10 +998,10 @@ export default function QuotesPanel({
                                   type="number"
                                   min={0}
                                   step={1}
-                                  value={item.saleUnitPrice}
+                                  value={item.pricePending&&item.saleUnitPrice===0?"":item.saleUnitPrice}
                                   onChange={(e) =>
                                     update(index, {
-                                      saleUnitPrice: Number(e.target.value),
+                                      saleUnitPrice: Number(e.target.value),pricePending:false,
                                     })
                                   }
                                 />

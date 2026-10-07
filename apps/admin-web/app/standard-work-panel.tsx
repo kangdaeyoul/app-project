@@ -1,4 +1,5 @@
 "use client";
+import WorkConditionsEditor from "./work-conditions-editor";
 import { useEffect, useState } from "react";
 import {
   WorkPrice,
@@ -101,6 +102,88 @@ export default function StandardWorkPanel({
             샘플 기준값입니다. 실제 현장 조건에 맞춰 수량과 단가를 확인하세요.
             고객용 묶음 출력은 견적 작성 화면에서 선택합니다.
           </p>
+          <div className="worker-actions">
+            <button
+              type="button"
+              disabled={busy || !data.prices.length}
+              onClick={() => {
+                setItems([]);
+                setHistory([]);
+                setTemplate({
+                  id: "",
+                  companyId: "",
+                  name: "새 작업세트",
+                  section: "전기",
+                  workType: "증설",
+                  description: "",
+                  baseQuantity: 1,
+                  unit: "개",
+                  calculation: "구성품별 계산",
+                  conditions: [],
+                  active: true,
+                  version: 1,
+                  reason: "새 작업세트 등록",
+                  updatedAt: "",
+                  updatedBy: "",
+                  components: [
+                    {
+                      id: crypto.randomUUID(),
+                      priceId: data.prices[0].id,
+                      role: "주자재",
+                      mode: "작업수량에 비례",
+                      factor: 1,
+                      lengthKey: "배선",
+                      omitWhen: [],
+                      customerGroup: "",
+                    },
+                  ],
+                });
+              }}
+            >
+              작업세트 추가
+            </button>
+            <button
+              type="button"
+              disabled={busy || !template?.id}
+              onClick={() =>
+                run(async () => {
+                  const copied = await api<StandardWork>(
+                    `/${template!.id}/copy`,
+                    {},
+                    "POST",
+                  );
+                  await refresh();
+                  setTemplate(copied);
+                  setItems([]);
+                  setHistory([]);
+                  setNotice("작업세트를 복사했습니다.");
+                })
+              }
+            >
+              작업세트 복사
+            </button>
+            <button
+              type="button"
+              disabled={busy || !template?.id}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "작업세트를 삭제할까요? 기존 견적과 버전 이력은 보존됩니다.",
+                  )
+                )
+                  void run(async () => {
+                    await api(`/${template!.id}`, {}, "DELETE");
+                    const d = await refresh();
+                    setTemplate(d.templates[0] ?? null);
+                    setItems([]);
+                    setHistory([]);
+                    setNotice("작업세트를 삭제했습니다.");
+                  });
+              }}
+            >
+              작업세트 삭제
+            </button>
+          </div>
           <div className="form-grid">
             <label>
               표준작업
@@ -112,6 +195,7 @@ export default function StandardWorkPanel({
                       data.templates.find((t) => t.id === e.target.value)!,
                     ),
                   );
+                  setQuantity(data.templates.find(t=>t.id===e.target.value)?.baseQuantity??1);
                   setItems([]);
                   setHistory([]);
                   setReuse([]);
@@ -121,6 +205,7 @@ export default function StandardWorkPanel({
                 {data.templates.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name} · v{t.version}
+                    {t.active === false ? " (비활성)" : ""}
                   </option>
                 ))}
               </select>
@@ -196,7 +281,7 @@ export default function StandardWorkPanel({
             ))}
           <button
             type="button"
-            disabled={busy || !template}
+            disabled={busy || !template?.id || template.active === false}
             onClick={() =>
               run(async () => {
                 const v = await api<{ items: QuoteItemInput[] }>(
@@ -336,7 +421,7 @@ export default function StandardWorkPanel({
             </>
           )}
           {template && (
-            <details>
+            <details open={template.id === "" ? true : undefined}>
               <summary>관리자 템플릿 수정 · 버전 이력</summary>
               <p>
                 수량 비례=작업수량×기준값, 길이=총길이 입력 또는
@@ -353,6 +438,107 @@ export default function StandardWorkPanel({
                   }
                 />
               </label>
+              <div className="form-grid">
+                <label>
+                  공종
+                  <select
+                    aria-label="세트 공종"
+                    value={template.section}
+                    onChange={(e) =>
+                      setTemplate({
+                        ...template,
+                        section: e.target.value as typeof template.section,
+                      })
+                    }
+                  >
+                    <option>전기</option>
+                    <option>기계</option>
+                  </select>
+                </label>
+                <label>
+                  작업구분
+                  <select
+                    aria-label="세트 작업구분"
+                    value={
+                      template.workType ??
+                      ["증설", "이설", "신설", "교체"].find((v) =>
+                        template.name.endsWith(v),
+                      ) ??
+                      "신설"
+                    }
+                    onChange={(e) =>
+                      setTemplate({ ...template, workType: e.target.value })
+                    }
+                  >
+                    {["증설", "이설", "신설", "교체"].map((v) => (
+                      <option key={v}>{v}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  설명
+                  <input
+                    aria-label="세트 설명"
+                    value={template.description ?? ""}
+                    onChange={(e) =>
+                      setTemplate({ ...template, description: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  기본수량
+                  <input
+                    aria-label="세트 기본수량"
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    value={template.baseQuantity ?? 1}
+                    onChange={(e) =>
+                      setTemplate({
+                        ...template,
+                        baseQuantity: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  세트 단위
+                  <input
+                    aria-label="세트 단위"
+                    value={template.unit ?? "개"}
+                    onChange={(e) =>
+                      setTemplate({ ...template, unit: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  세트 계산방식
+                  <input
+                    aria-label="세트 계산방식"
+                    readOnly
+                    value="구성품별 계산"
+                  />
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={template.active ?? true}
+                    onChange={(e) =>
+                      setTemplate({ ...template, active: e.target.checked })
+                    }
+                  />
+                  세트 활성
+                </label>
+              </div>
+              <p>
+                적용조건과 포함조건은 모두 일치할 때 적용합니다. 제외조건은
+                하나라도 일치하면 제외합니다.
+              </p>
+              <WorkConditionsEditor
+                label="세트 적용조건"
+                value={template.conditions ?? []}
+                onChange={(v) => setTemplate({ ...template, conditions: v })}
+              />
               <div className="table-scroll">
                 <table>
                   <thead>
@@ -364,6 +550,8 @@ export default function StandardWorkPanel({
                       <th>길이 구분</th>
                       <th>재사용 시 제외</th>
                       <th>고객 묶음명</th>
+                      <th>구성품 조건</th>
+                      <th>순서</th>
                       <th />
                     </tr>
                   </thead>
@@ -470,6 +658,45 @@ export default function StandardWorkPanel({
                             />
                           </td>
                           <td>
+                            <WorkConditionsEditor
+                              label={`${n + 1}번 포함조건`}
+                              value={c.includeWhen ?? []}
+                              onChange={(v) => patch({ includeWhen: v })}
+                            />
+                            <WorkConditionsEditor
+                              label={`${n + 1}번 제외조건`}
+                              value={c.excludeWhen ?? []}
+                              onChange={(v) => patch({ excludeWhen: v })}
+                            />
+                          </td>
+                          <td>
+                            {[-1, 1].map((offset) => (
+                              <button
+                                key={offset}
+                                type="button"
+                                aria-label={`${n + 1}번 구성품 ${offset < 0 ? "위로" : "아래로"}`}
+                                disabled={
+                                  n + offset < 0 ||
+                                  n + offset >= template.components.length
+                                }
+                                onClick={() => {
+                                  const next = [...template.components];
+                                  [next[n], next[n + offset]] = [
+                                    next[n + offset],
+                                    next[n],
+                                  ];
+                                  setTemplate({
+                                    ...template,
+                                    components: next,
+                                  });
+                                  setItems([]);
+                                }}
+                              >
+                                {offset < 0 ? "↑" : "↓"}
+                              </button>
+                            ))}
+                          </td>
+                          <td>
                             <button
                               type="button"
                               onClick={() =>
@@ -527,9 +754,14 @@ export default function StandardWorkPanel({
                 disabled={busy}
                 onClick={() =>
                   run(async () => {
-                    await api(`/${template.id}`, template, "PUT");
+                    const { companyId: _companyId, ...body } = template;
+                    const saved = await api<StandardWork>(
+                      template.id ? `/${template.id}` : "",
+                      body,
+                      template.id ? "PUT" : "POST",
+                    );
                     const d = await refresh();
-                    setTemplate(d.templates.find((t) => t.id === template.id)!);
+                    setTemplate(d.templates.find((t) => t.id === saved.id)!);
                     setItems([]);
                     setNotice(
                       "새 템플릿 버전을 저장했습니다. 기존 견적은 유지됩니다.",
