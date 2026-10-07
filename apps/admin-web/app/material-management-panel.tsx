@@ -384,8 +384,10 @@ export default function MaterialManagementPanel() {
                   <td>{p.manufacturer}</td>
                   <td>{p.supplier}</td>
                   <td>{p.purchasePrice ?? 0}</td>
-                  <td>{p.cost}</td>
-                  <td>{p.salePrice}</td>
+                  <td>{p.priceRegistered === false ? "미등록" : p.cost}</td>
+                  <td>
+                    {p.priceRegistered === false ? "미등록" : p.salePrice}
+                  </td>
                   <td>{p.vatIncluded ? "포함" : "미포함"}</td>
                   <td>{p.effectiveDate}</td>
                   <td>{p.notes}</td>

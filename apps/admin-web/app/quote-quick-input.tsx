@@ -1,6 +1,6 @@
 "use client";
 import StandardWorkQuick from "./standard-work-quick";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   WorkPrice,
   QuoteItemInput,
@@ -25,10 +25,21 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 export default function QuoteQuickInput({
   autoPrice,
   onAdd,
+  onPendingChange,
 }: {
+  onPendingChange?: (count: number) => void;
   autoPrice: boolean;
   onAdd: (items: QuoteItemInput[], section: "기계" | "전기") => void;
 }) {
+  const pending = useRef(0),
+    mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      if (pending.current) onPendingChange?.(0);
+    };
+  }, [onPendingChange]);
   const [entryTab, setEntryTab] = useState("품목");
   const [prices, setPrices] = useState<WorkPrice[]>([]),
     [ids, setIds] = useState<string[]>([]),
@@ -83,15 +94,21 @@ export default function QuoteQuickInput({
     }
   }
   async function add(p: WorkPrice, source: "catalog" | "favorite") {
+    pending.current++;
+    onPendingChange?.(pending.current);
     setError("");
     try {
       const data = await api<{ prices: WorkPrice[] }>("/standard-work");
+      if (!mounted.current) return;
       const latest = data.prices.find((v) => v.id === p.id);
       if (!latest) throw Error("품목을 다시 조회하세요.");
       setPrices(data.prices);
       onAdd([priceToQuoteItem(latest, autoPrice, source)], section);
     } catch (e) {
-      setError((e as Error).message);
+      if (mounted.current) setError((e as Error).message);
+    } finally {
+      pending.current--;
+      if (mounted.current) onPendingChange?.(pending.current);
     }
   }
   return (
@@ -252,7 +269,11 @@ export default function QuoteQuickInput({
                       </td>
                       <td>{p.specification}</td>
                       <td>{p.unit}</td>
-                      <td>{p.salePrice.toLocaleString()}원</td>
+                      <td>
+                        {p.priceRegistered === false
+                          ? "단가 미등록"
+                          : p.salePrice.toLocaleString() + "원"}
+                      </td>
                       <td>
                         <button
                           type="button"

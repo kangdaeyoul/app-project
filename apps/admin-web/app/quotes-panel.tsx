@@ -15,7 +15,7 @@ import {
   quoteLineAmount,
 } from "@jongno/shared";
 import QuoteQuickInput from "./quote-quick-input";
-import {accumulateQuoteItems} from "@jongno/shared";
+import { accumulateQuoteItems } from "@jongno/shared";
 import StandardWorkPanel from "./standard-work-panel";
 import PdfPreview from "./pdf-preview";
 const today = () =>
@@ -28,7 +28,7 @@ const sale = (n: number, unit: QuoteInput["displayUnit"]) =>
     ? `${new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 4 }).format(n / 10000)}만원 (${money(n)})`
     : money(n);
 const newItem = (): QuoteItemInput => ({
-  entrySources:["manual"],
+  entrySources: ["manual"],
   trade: "소방시설",
   name: "",
   specification: "",
@@ -79,9 +79,23 @@ export default function QuotesPanel({
   onChanged: () => void;
   onOpenSite: (id: string) => void;
 }) {
-  const [autoPriceDefault,setAutoPriceDefault]=useState(true);
-  const [companyName,setCompanyName] = useState(DEFAULT_COMPANY.displayName);
-  useEffect(()=>{const controller=new AbortController();fetch("/api/company/current",{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(v=>{setCompanyName(v.company.displayName);setAutoPriceDefault(v.company.quotePreferences?.autoPrice??true);}).catch(()=>{});return()=>controller.abort();},[]);
+  const [pendingItems, setPendingItems] = useState(0);
+  const [autoPriceDefault, setAutoPriceDefault] = useState(true);
+  const [companyName, setCompanyName] = useState(DEFAULT_COMPANY.displayName);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/company/current", { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw Error();
+        return r.json();
+      })
+      .then((v) => {
+        setCompanyName(v.company.displayName);
+        setAutoPriceDefault(v.company.quotePreferences?.autoPrice ?? true);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
   const [quotes, setQuotes] = useState<QuoteView[]>([]),
     [customers, setCustomers] = useState<Customer[]>([]),
     [sites, setSites] = useState<Site[]>([]);
@@ -157,12 +171,43 @@ export default function QuotesPanel({
     clearPreview();
     setForm((f) => (f ? { ...f, ...patch } : f));
   }
-  function addItems(kind:'기계'|'전기',items:QuoteItemInput[],standard=false){
-    clearPreview();setForm(f=>{if(!f)return f;const sections=f.sections.map(s=>({...s,items:s.items.filter(i=>i.name.trim())}));let section=sections.find(s=>s.kind===kind);if(!section){section={kind,items:[]};sections.push(section);}
-    const incoming=standard&&f.autoPrice===false?items.map(i=>({...i,pricePending:true,saleUnitPrice:0,materialUnitCost:0,laborUnitCost:0,expenseUnitCost:0})):items;
-    section.items=accumulateQuoteItems(section.items,incoming,f.mergeDuplicates??true,f.mergeAcrossSources??true);
-    return {...f,sections:sections.filter(s=>s.items.length)};
-    });setTab(`을지: ${kind}`);
+  function addItems(
+    kind: "기계" | "전기",
+    items: QuoteItemInput[],
+    standard = false,
+  ) {
+    clearPreview();
+    setForm((f) => {
+      if (!f) return f;
+      const sections = f.sections.map((s) => ({
+        ...s,
+        items: s.items.filter((i) => i.name.trim()),
+      }));
+      let section = sections.find((s) => s.kind === kind);
+      if (!section) {
+        section = { kind, items: [] };
+        sections.push(section);
+      }
+      const incoming =
+        standard && f.autoPrice === false
+          ? items.map((i) => ({
+              ...i,
+              pricePending: true,
+              saleUnitPrice: 0,
+              materialUnitCost: 0,
+              laborUnitCost: 0,
+              expenseUnitCost: 0,
+            }))
+          : items;
+      section.items = accumulateQuoteItems(
+        section.items,
+        incoming,
+        f.mergeDuplicates ?? true,
+        f.mergeAcrossSources ?? true,
+      );
+      return { ...f, sections: sections.filter((s) => s.items.length) };
+    });
+    setTab(`을지: ${kind}`);
   }
   const calc = (() => {
     try {
@@ -173,7 +218,7 @@ export default function QuotesPanel({
   })();
   const locked = !!selected?.convertedSiteId;
   async function save() {
-    if (!form || busy) return;
+    if (!form || busy || pendingItems > 0) return;
     setBusy(true);
     setError("");
     try {
@@ -284,7 +329,9 @@ export default function QuotesPanel({
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 30000);
-        setNotice(`고객용 견적서 ${excel ? "Excel" : "PDF"}을 다운로드했습니다.`);
+        setNotice(
+          `고객용 견적서 ${excel ? "Excel" : "PDF"}을 다운로드했습니다.`,
+        );
       } else {
         clearPreview();
         previewUrl.current = url;
@@ -317,16 +364,61 @@ export default function QuotesPanel({
     : [];
   return (
     <div className="quotes-workspace">
-      {form&&<>
-        <div className="quote-entry-options">
-        <label><input type="checkbox" checked={form.autoPrice??autoPriceDefault} onChange={e=>change({autoPrice:e.target.checked})}/>단가 자동입력</label>
-        <label><input type="checkbox" checked={form.mergeDuplicates??true} onChange={e=>change({mergeDuplicates:e.target.checked})}/>중복 품목 자동합산</label>
-        <label><input type="checkbox" checked={form.mergeAcrossSources??true} onChange={e=>change({mergeAcrossSources:e.target.checked})}/>자동·수동 입력 품목 병합</label>
-        </div><QuoteQuickInput autoPrice={form.autoPrice??autoPriceDefault} onAdd={(items,kind)=>addItems(kind,items)}/>
-      </>}
-      <StandardWorkPanel onAdd={form?(kind,items)=>addItems(kind,items,true):undefined}/>
+      {form && (
+        <>
+          <div className="quote-entry-options">
+            <label>
+              <input
+                type="checkbox"
+                checked={form.autoPrice ?? autoPriceDefault}
+                onChange={(e) => change({ autoPrice: e.target.checked })}
+              />
+              단가 자동입력
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.mergeDuplicates ?? true}
+                onChange={(e) => change({ mergeDuplicates: e.target.checked })}
+              />
+              중복 품목 자동합산
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.mergeAcrossSources ?? true}
+                onChange={(e) =>
+                  change({ mergeAcrossSources: e.target.checked })
+                }
+              />
+              자동·수동 입력 품목 병합
+            </label>
+          </div>
+          {pendingItems > 0 && (
+            <p role="status">선택한 품목을 추가하는 중입니다…</p>
+          )}
+          <QuoteQuickInput
+            key={selected?.id ?? "new"}
+            onPendingChange={setPendingItems}
+            autoPrice={form.autoPrice ?? autoPriceDefault}
+            onAdd={(items, kind) => addItems(kind, items)}
+          />
+        </>
+      )}
+      <StandardWorkPanel
+        onAdd={form ? (kind, items) => addItems(kind, items, true) : undefined}
+      />
 
-      {form && <label><input type="checkbox" checked={form.groupComponents??false} onChange={e=>change({groupComponents:e.target.checked})}/>고객 출력: 부속류·잡자재·배관 묶음 표시 (내부 구성품 유지)</label>}
+      {form && (
+        <label>
+          <input
+            type="checkbox"
+            checked={form.groupComponents ?? false}
+            onChange={(e) => change({ groupComponents: e.target.checked })}
+          />
+          고객 출력: 부속류·잡자재·배관 묶음 표시 (내부 구성품 유지)
+        </label>
+      )}
 
       {error && (
         <p className="error" role="alert">
@@ -353,7 +445,18 @@ export default function QuotesPanel({
               disabled={busy || !customers.length}
               onClick={() => {
                 setSelected(null);
-                void api<{company:{quotePreferences?:{autoPrice:boolean}}}>("/company/current").then(v=>setForm({...newQuote(customers[0].id),autoPrice:v.company.quotePreferences?.autoPrice??true,mergeDuplicates:true,mergeAcrossSources:true})).catch(e=>setError(e.message));
+                void api<{
+                  company: { quotePreferences?: { autoPrice: boolean } };
+                }>("/company/current")
+                  .then((v) =>
+                    setForm({
+                      ...newQuote(customers[0].id),
+                      autoPrice: v.company.quotePreferences?.autoPrice ?? true,
+                      mergeDuplicates: true,
+                      mergeAcrossSources: true,
+                    }),
+                  )
+                  .catch((e) => setError(e.message));
                 setTab("갑지: 총괄");
                 setNotice("");
                 setError("");
@@ -559,7 +662,7 @@ export default function QuotesPanel({
                   <button
                     type="submit"
                     className="primary-button"
-                    disabled={busy}
+                    disabled={busy || pendingItems > 0}
                   >
                     {busy ? "처리 중…" : "견적 저장"}
                   </button>
@@ -976,17 +1079,19 @@ export default function QuotesPanel({
                                 </label>
                               ))}
                               <label>
-                                수량
+                                수량 {item.quantityPending && "· 현장산출 필요"}
                                 <input
                                   required
                                   type="number"
-                                  min={0.001}
+                                  min={item.quantityPending ? 0 : 0.001}
                                   max={1000000}
                                   step={0.001}
                                   value={item.quantity}
                                   onChange={(e) =>
                                     update(index, {
                                       quantity: Number(e.target.value),
+                                      quantityPending: false,
+                                      manualQuantity: true,
                                     })
                                   }
                                 />
@@ -994,14 +1099,20 @@ export default function QuotesPanel({
                               <label>
                                 판매단가 (고객 공개)
                                 <input
-                                  required
                                   type="number"
                                   min={0}
                                   step={1}
-                                  value={item.pricePending&&item.saleUnitPrice===0?"":item.saleUnitPrice}
+                                  placeholder="단가 미등록 / 직접 입력"
+                                  value={
+                                    item.pricePending &&
+                                    item.saleUnitPrice === 0
+                                      ? ""
+                                      : item.saleUnitPrice
+                                  }
                                   onChange={(e) =>
                                     update(index, {
-                                      saleUnitPrice: Number(e.target.value),pricePending:false,
+                                      saleUnitPrice: Number(e.target.value),
+                                      pricePending: false,
                                     })
                                   }
                                 />
@@ -1142,7 +1253,14 @@ export default function QuotesPanel({
                 >
                   견적서 PDF 다운로드
                 </button>
-                <button type="button" className="primary-button" disabled={busy || dirty} onClick={() => print(true, true)}>{companyName} Excel 다운로드</button>
+                <button
+                  type="button"
+                  className="primary-button"
+                  disabled={busy || dirty}
+                  onClick={() => print(true, true)}
+                >
+                  {companyName} Excel 다운로드
+                </button>
               </div>
               {preview && (
                 <div className="report-preview">

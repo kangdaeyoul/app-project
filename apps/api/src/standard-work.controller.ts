@@ -8,7 +8,12 @@ import {
   Post,
   Put,
 } from "@nestjs/common";
-import { WorkPrice, StandardWork, StandardWorkRequest } from "@jongno/shared";
+import {
+  WorkPrice,
+  StandardWork,
+  StandardWorkRequest,
+  WorkCompositeRequest,
+} from "@jongno/shared";
 import { StandardWorkService } from "./standard-work.service";
 @Controller("standard-work")
 export class StandardWorkController {
@@ -17,6 +22,12 @@ export class StandardWorkController {
   ) {}
   @Get() list() {
     return this.service.list();
+  }
+  @Post("initialize-defaults") initialize() {
+    return this.service.initializeDefaults();
+  }
+  @Post("composite") composite(@Body() body: WorkCompositeRequest) {
+    return this.service.composite(body);
   }
   @Post() create(@Body() body: StandardWork) {
     return this.service.create(body);

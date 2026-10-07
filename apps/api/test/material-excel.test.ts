@@ -358,3 +358,48 @@ test("중복 코드/동일품목/누락/문자 단가/잘못된 날짜/수식 �
     await app.close();
   }
 });
+
+test("Excel 빈 판매단가는 미등록으로 보존하고 자동입력 금액을 확정하지 않는다", async () => {
+  const app = await setup(),
+    http = app.getHttpServer();
+  try {
+    const buffer = await workbook([
+      [
+        "",
+        "미등록 단가 부속",
+        "16mm",
+        "개",
+        "전기",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "미포함",
+        "2026-10-07",
+        "현장 확인 필요",
+      ],
+    ]);
+    const preview = (
+      await request(http)
+        .post("/api/material-prices/imports/preview")
+        .attach("file", buffer, "blank-price.xlsx")
+        .expect(201)
+    ).body;
+    assert.equal(preview.summary.new, 1);
+    assert.equal(preview.rows[0].price.priceRegistered, false);
+    await request(http)
+      .post(`/api/material-prices/imports/${preview.id}/apply`)
+      .send({ mode: "전체" })
+      .expect(201);
+    const material = (
+      await request(http).get("/api/standard-work")
+    ).body.prices.find((p: { name: string }) => p.name === "미등록 단가 부속");
+    const item = priceToQuoteItem(material, true);
+    assert.equal(item.saleUnitPrice, 0);
+    assert.equal(item.pricePending, true);
+    assert.equal(material.priceRegistered, false);
+  } finally {
+    await app.close();
+  }
+});

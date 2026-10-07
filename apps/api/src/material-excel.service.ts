@@ -239,6 +239,14 @@ export class MaterialExcelService {
         errors.push("여러 기존품목과 일치합니다. 자재코드를 입력하세요.");
       const before = matches[0];
       const p: WorkPrice = {
+        compatibility: before?.compatibility,
+        priceRegistered:
+          before?.priceRegistered === false &&
+          before.cost === cost &&
+          before.salePrice === salePrice &&
+          (before.purchasePrice ?? 0) === purchasePrice
+            ? false
+            : str(9) !== "",
         id: before?.id ?? (code || randomUUID()),
         companyId: this.context.companyId,
         name,

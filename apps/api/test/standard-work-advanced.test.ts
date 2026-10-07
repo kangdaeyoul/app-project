@@ -36,15 +36,28 @@ test("작업세트 생성·수정·복사·순서·삭제 및 조건·최신 단
   const http = app.getHttpServer();
   try {
     const data = (await request(http).get("/api/standard-work")).body;
-    assert.equal(data.templates.length, 16);
+    assert.ok(data.templates.length > 100);
     assert(
       data.templates.every(
         (t: { active: boolean; workType: string }) => t.active && t.workType,
       ),
     );
-    const seed = data.templates.find(
+    const upgraded = data.templates.find(
       (t: { name: string }) => t.name === "화재감지기 증설",
     );
+    const legacy = (
+      await request(http).get(`/api/standard-work/${upgraded.id}/history`)
+    ).body[0];
+    const seed = (
+      await request(http)
+        .post("/api/standard-work")
+        .send({
+          ...legacy,
+          name: "기존 계산 방식 감지기 증설",
+          integrated: false,
+        })
+        .expect(201)
+    ).body;
     const copy = (
       await request(http)
         .post(`/api/standard-work/${seed.id}/copy`)

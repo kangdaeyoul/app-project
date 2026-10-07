@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 export function normalizedPrice(p: WorkPrice): WorkPrice {
   return {
     ...p,
+    priceRegistered: p.priceRegistered ?? true,
     trade: p.trade ?? "",
     manufacturer: p.manufacturer ?? "",
     supplier: p.supplier ?? "",
@@ -15,7 +16,9 @@ export function normalizedPrice(p: WorkPrice): WorkPrice {
 export function equalPrice(a: WorkPrice, b: WorkPrice) {
   const x = normalizedPrice(a),
     y = normalizedPrice(b);
-  return (Object.keys(x) as (keyof WorkPrice)[]).every((k) => x[k] === y[k]);
+  return (Object.keys(x) as (keyof WorkPrice)[]).every(
+    (k) => JSON.stringify(x[k]) === JSON.stringify(y[k]),
+  );
 }
 export function priceChange(
   p: WorkPrice,

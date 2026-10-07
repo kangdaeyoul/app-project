@@ -54,7 +54,15 @@ test("빠른입력 동일품목 누적, 규격 분리, 수정단가 보존, 자�
   const manual = { ...a, entrySources: ["manual" as const] };
   assert.equal(accumulateQuoteItems([a], [manual], true, false).length, 2);
   assert.equal(accumulateQuoteItems([a], [manual], true, true)[0].quantity, 2);
-  assert.equal(accumulateQuoteItems([a],[{...b,entrySources:['standard']}],true,false).length,1);
+  assert.equal(
+    accumulateQuoteItems(
+      [a],
+      [{ ...b, entrySources: ["standard"] }],
+      true,
+      false,
+    ).length,
+    1,
+  );
   assert.equal(priceToQuoteItem(p, false).saleUnitPrice, 0);
 });
 test("회사 즐겨찾기 순서·검증·권한·격리, 회사 기본값 및 표준작업 공통 합산", async () => {
@@ -114,7 +122,10 @@ test("회사 즐겨찾기 순서·검증·권한·격리, 회사 기본값 및 �
     const merged = accumulateQuoteItems(calc.items, calc.items);
     assert.equal(merged.length, calc.items.length);
     for (let i = 0; i < merged.length; i++)
-      assert.equal(merged[i].quantity, calc.items[i].quantity * 2);
+      assert.equal(
+        merged[i].quantity,
+        calc.items[i].quantity * (calc.items[i].accumulation === "max" ? 1 : 2),
+      );
     const price = data.prices.find(
       (p: { id: string }) => p.id === merged[0].materialCode,
     );

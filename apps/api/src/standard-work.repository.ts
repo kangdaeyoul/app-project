@@ -1,3 +1,4 @@
+import { registerDefaultWorks } from "./standard-work-defaults";
 import {
   WorkPrice,
   StandardWork,
@@ -47,6 +48,7 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
   constructor(seed = true) {
     if (seed) {
       this.seed();
+      registerDefaultWorks(this, "jongno");
       for (const name of [
         "유도등",
         "발신기",
@@ -78,7 +80,11 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
       structuredClone({
         ...template,
         priceSnapshot: this.prices.filter((p) =>
-          template.components.some((c) => c.priceId === p.id),
+          template.components.some(
+            (c) =>
+              c.priceId === p.id ||
+              Object.values(c.variants ?? {}).includes(p.id),
+          ),
         ),
       }),
     );
@@ -93,7 +99,7 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
     const price = (
       name: string,
       unit = "개",
-      cost = 3000,
+      cost = 0,
       category: WorkPrice["category"] = "재료비",
     ) => {
       let p = this.prices.find((p) => p.name === name);
@@ -105,6 +111,7 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
           specification: "표준 (현장 확인)",
           unit,
           category,
+          priceRegistered: false,
           cost,
           salePrice: Math.round(cost * 1.3),
         };
@@ -138,7 +145,7 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
             priceId: price(
               name,
               unit,
-              labor ? 250000 : role === "시험/시운전" ? 50000 : 3000,
+              0,
               labor ? "노무비" : role === "시험/시운전" ? "경비" : "재료비",
             ),
             role:

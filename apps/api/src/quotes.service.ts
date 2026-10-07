@@ -1,5 +1,5 @@
-import {CompanyContext} from "./company-context";
-import { AuditRecorder } from './audit-recorder';
+import { CompanyContext } from "./company-context";
+import { AuditRecorder } from "./audit-recorder";
 import { QUOTE_ADMIN_ACCESS, QuoteAdminAccess } from "./quote-access";
 import {
   BadRequestException,
@@ -66,7 +66,7 @@ export class QuotesService {
     @Inject(SitesService) private readonly sites: SitesService,
     @Inject(QUOTE_ADMIN_ACCESS) private readonly access: QuoteAdminAccess,
     @Inject(AuditRecorder) private readonly audit: AuditRecorder,
-    @Inject(CompanyContext) private readonly context:CompanyContext,
+    @Inject(CompanyContext) private readonly context: CompanyContext,
   ) {}
   customersList() {
     return this.customers.list();
@@ -131,23 +131,83 @@ export class QuotesService {
     this.access.assertAdmin();
     return this.view(this.record(id));
   }
-  private option(r:Record<string,unknown>,key:string,fallback:boolean){if(r[key]!==undefined&&typeof r[key]!=='boolean')throw new BadRequestException('견적 옵션을 확인해 주세요.');return (r[key] as boolean|undefined)??fallback;}
-  private entrySources(v:unknown):QuoteItemInput['entrySources']{if(v===undefined)return ['manual'];if(!Array.isArray(v)||!v.length||v.some(s=>!['manual','catalog','favorite','standard'].includes(s)))throw new BadRequestException('품목 입력 출처를 확인해 주세요.');return [...new Set(v)] as QuoteItemInput['entrySources'];}
-  private standardSources(v:unknown):QuoteItemInput['standardSources']{if(v===undefined)return undefined;if(!Array.isArray(v)||v.length>1000)throw new BadRequestException('구성품 출처를 확인해 주세요.');return v.map(x=>this.standardSource(x)!);}
-  private standardSource(value: unknown): QuoteItemInput['standardSource'] {
-    if(value===undefined)return undefined;
-    const v=object(value);if(!Number.isSafeInteger(v.version)||(v.version as number)<1)throw new BadRequestException('템플릿 버전을 확인해 주세요.');
-    return {templateId:text(v,'templateId',100,true),componentId:text(v,'componentId',100,true),version:v.version as number};
+  private option(r: Record<string, unknown>, key: string, fallback: boolean) {
+    if (r[key] !== undefined && typeof r[key] !== "boolean")
+      throw new BadRequestException("견적 옵션을 확인해 주세요.");
+    return (r[key] as boolean | undefined) ?? fallback;
   }
-  private customerItems(q:QuoteView, items:QuoteItemInput[]) {
-    if(!q.groupComponents)return items;
-    const result:QuoteItemInput[]=[];
-    for(const i of items){if(!i.customerGroup){result.push(i);continue;}
-      const existing=result.find(j=>j.customerGroup===i.customerGroup&&j.trade===i.trade&&j.priceCategory===i.priceCategory);
-      const amount=importAmount(i.quantity,i.saleUnitPrice);
-      if(existing)existing.saleUnitPrice+=amount;
-      else result.push({...i,name:i.customerGroup,specification:'',quantity:1,unit:'식',saleUnitPrice:amount,notes:''});
-    }return result;
+  private entrySources(v: unknown): QuoteItemInput["entrySources"] {
+    if (v === undefined) return ["manual"];
+    if (
+      !Array.isArray(v) ||
+      !v.length ||
+      v.some((s) => !["manual", "catalog", "favorite", "standard"].includes(s))
+    )
+      throw new BadRequestException("품목 입력 출처를 확인해 주세요.");
+    return [...new Set(v)] as QuoteItemInput["entrySources"];
+  }
+  private standardSources(v: unknown): QuoteItemInput["standardSources"] {
+    if (v === undefined) return undefined;
+    if (!Array.isArray(v) || v.length > 1000)
+      throw new BadRequestException("구성품 출처를 확인해 주세요.");
+    return v.map((x) => this.standardSource(x)!);
+  }
+  private standardSource(value: unknown): QuoteItemInput["standardSource"] {
+    if (value === undefined) return undefined;
+    const v = object(value);
+    if (!Number.isSafeInteger(v.version) || (v.version as number) < 1)
+      throw new BadRequestException("템플릿 버전을 확인해 주세요.");
+    return {
+      templateId: text(v, "templateId", 100, true),
+      componentId: text(v, "componentId", 100, true),
+      version: v.version as number,
+    };
+  }
+  private customerItems(q: QuoteView, items: QuoteItemInput[]) {
+    if (!q.groupComponents) return items;
+    const result: QuoteItemInput[] = [];
+    for (const i of items) {
+      if (!i.customerGroup) {
+        result.push(i);
+        continue;
+      }
+      const existing = result.find(
+        (j) =>
+          j.customerGroup === i.customerGroup &&
+          j.trade === i.trade &&
+          j.priceCategory === i.priceCategory,
+      );
+      const amount = importAmount(i.quantity, i.saleUnitPrice);
+      if (existing) existing.saleUnitPrice += amount;
+      else
+        result.push({
+          ...i,
+          name: i.customerGroup,
+          specification: "",
+          quantity: 1,
+          unit: "식",
+          saleUnitPrice: amount,
+          notes: "",
+        });
+    }
+    return result;
+  }
+  private laborBasis(value: unknown): QuoteItemInput["laborBasis"] {
+    const r = object(value);
+    for (const key of ["base", "extra", "workQuantity"])
+      if (
+        typeof r[key] !== "number" ||
+        !Number.isFinite(r[key]) ||
+        (r[key] as number) < 0 ||
+        (r[key] as number) > 1000000
+      )
+        throw new BadRequestException("노무 산출 이력을 확인하세요.");
+    return {
+      templateId: text(r, "templateId", 100, true),
+      base: r.base as number,
+      extra: r.extra as number,
+      workQuantity: r.workQuantity as number,
+    };
   }
   private input(body: unknown): QuoteInput {
     const r = object(body),
@@ -200,7 +260,8 @@ export class QuotesService {
           if (
             typeof quantity !== "number" ||
             !Number.isFinite(quantity) ||
-            quantity < 0.001 ||
+            quantity < 0 ||
+            (quantity === 0 && i.quantityPending !== true) ||
             quantity > 1_000_000 ||
             Math.abs(quantity * 1000 - Math.round(quantity * 1000)) > 0.000001
           )
@@ -214,8 +275,27 @@ export class QuotesService {
           )
             throw new BadRequestException("고객금액 분류를 확인해 주세요.");
           return {
-            pricePending:this.option(i,"pricePending",false),
-            materialCode: text(i,'materialCode',100),
+            laborBasis:
+              i.laborBasis === undefined
+                ? undefined
+                : this.laborBasis(i.laborBasis),
+            quantityPending: this.option(i, "quantityPending", false),
+            calculationBasis: text(i, "calculationBasis", 1000),
+            constructionKey: text(i, "constructionKey", 300),
+            accumulation:
+              i.accumulation === undefined
+                ? undefined
+                : ["sum", "max"].includes(i.accumulation as string)
+                  ? (i.accumulation as "sum" | "max")
+                  : (() => {
+                      throw new BadRequestException("합산정책을 확인하세요.");
+                    })(),
+            accumulationScope: text(i, "accumulationScope", 500),
+            manualQuantity: this.option(i, "manualQuantity", false),
+            autoGenerated: this.option(i, "autoGenerated", false),
+            reviewNotice: text(i, "reviewNotice", 500),
+            pricePending: this.option(i, "pricePending", false),
+            materialCode: text(i, "materialCode", 100),
             entrySources: this.entrySources(i.entrySources),
             standardSources: this.standardSources(i.standardSources),
             customerGroup: text(i, "customerGroup", 100),
@@ -242,11 +322,31 @@ export class QuotesService {
       throw new BadRequestException(
         "을지 중복 없이 견적항목을 1건 이상 입력해 주세요.",
       );
-    if (r.groupComponents !== undefined && typeof r.groupComponents !== "boolean") throw new BadRequestException("구성품 출력 옵션을 확인해 주세요.");
+    if (
+      r.status !== "작성중" &&
+      r.status !== "수정요청" &&
+      sections.some((s) =>
+        s.items.some(
+          (i) => i.quantityPending || (i.pricePending && i.saleUnitPrice === 0),
+        ),
+      )
+    )
+      throw new BadRequestException(
+        "현장산출 필요 수량과 미등록 단가를 확인한 뒤 제출하세요.",
+      );
+    if (
+      r.groupComponents !== undefined &&
+      typeof r.groupComponents !== "boolean"
+    )
+      throw new BadRequestException("구성품 출력 옵션을 확인해 주세요.");
     const input: QuoteInput = {
-      autoPrice:this.option(r,'autoPrice',this.context.settings().quotePreferences?.autoPrice??true),
-      mergeDuplicates:this.option(r,'mergeDuplicates',true),
-      mergeAcrossSources:this.option(r,'mergeAcrossSources',true),
+      autoPrice: this.option(
+        r,
+        "autoPrice",
+        this.context.settings().quotePreferences?.autoPrice ?? true,
+      ),
+      mergeDuplicates: this.option(r, "mergeDuplicates", true),
+      mergeAcrossSources: this.option(r, "mergeAcrossSources", true),
       groupComponents: r.groupComponents === true,
       customerId,
       siteId: siteId || null,
@@ -308,7 +408,13 @@ export class QuotesService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    this.audit.withOperation({action:"복사", reason:`${this.audit.reason ? this.audit.reason+" / " : ""}원본 견적 ${source.id} 복사`},()=>this.repository.save(copy));
+    this.audit.withOperation(
+      {
+        action: "복사",
+        reason: `${this.audit.reason ? this.audit.reason + " / " : ""}원본 견적 ${source.id} 복사`,
+      },
+      () => this.repository.save(copy),
+    );
     return this.find(copy.id);
   }
   remove(id: string) {
@@ -366,14 +472,26 @@ export class QuotesService {
     const publicQuote = this.customer(id, mode);
     const record = this.record(id);
     const client = this.customers.find(record.customerId);
-    return { ...publicQuote, contactName: client?.contactName ?? "", phone: client?.phone ?? "",
-      groups: record.sections.map(section => this.customerItems(this.view(record), section.items).map(item => {
-        if (item.priceCategory === "노무비") return 3;
-        if (item.priceCategory === "경비") return 4;
-        if (/전선|케이블|전기배관|전선관|박스|단자|차단기/.test(item.name)) return 2;
-        if (/배관|강관|백관|흑관|엘보|^티$|소켓|레듀샤|플랜지|행거|밸브|니플|유니온/.test(item.name)) return 1;
-        return 0;
-      })) };
+    return {
+      ...publicQuote,
+      contactName: client?.contactName ?? "",
+      phone: client?.phone ?? "",
+      groups: record.sections.map((section) =>
+        this.customerItems(this.view(record), section.items).map((item) => {
+          if (item.priceCategory === "노무비") return 3;
+          if (item.priceCategory === "경비") return 4;
+          if (/전선|케이블|전기배관|전선관|박스|단자|차단기/.test(item.name))
+            return 2;
+          if (
+            /배관|강관|백관|흑관|엘보|^티$|소켓|레듀샤|플랜지|행거|밸브|니플|유니온/.test(
+              item.name,
+            )
+          )
+            return 1;
+          return 0;
+        }),
+      ),
+    };
   }
   customer(id: string, mode: string = "전체 상세"): CustomerQuote {
     if (!QUOTE_PRINT_MODES.includes(mode as CustomerQuote["printMode"]))
@@ -387,13 +505,28 @@ export class QuotesService {
       workContent: q.workContent,
       quoteDate: q.quoteDate,
       validUntil: q.validUntil,
-      notes: q.notes,
+      notes: [
+        q.notes,
+        q.sections.some((s) => s.items.some((i) => i.reviewNotice))
+          ? "예시수량 포함 / 현장확인 필요. 법정 표준 또는 확정 시공물량이 아닙니다."
+          : "",
+        q.sections.some((s) => s.items.some((i) => i.quantityPending))
+          ? "현장산출 필요 항목 포함: 수량 확정 전 초안입니다."
+          : "",
+        q.sections.some((s) =>
+          s.items.some((i) => i.pricePending && i.saleUnitPrice === 0),
+        )
+          ? "미등록 또는 미입력 단가 포함: 금액 확정 전 초안입니다."
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
       displayUnit: q.displayUnit,
       printMode: mode as CustomerQuote["printMode"],
       totals: { ...q.totals },
       sections: q.sections.map((s) => ({
         kind: s.kind,
-        items: this.customerItems(q,s.items).map((i) => ({
+        items: this.customerItems(q, s.items).map((i) => ({
           trade: i.trade,
           name: i.name,
           specification: i.specification,

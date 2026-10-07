@@ -1,4 +1,5 @@
 "use client";
+import WorkCalculationEditor from "./work-calculation-editor";
 import WorkConditionsEditor from "./work-conditions-editor";
 import { useEffect, useState } from "react";
 import {
@@ -92,6 +93,24 @@ export default function StandardWorkPanel({
       </div>
       {expanded && (
         <>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              void run(async () => {
+                const result = await api<{
+                  templateCount: number;
+                  materialCount: number;
+                }>("/initialize-defaults", {});
+                await refresh();
+                setNotice(
+                  `기본 작업 ${result.templateCount}개, 자재 ${result.materialCount}개 등록 · 기존 설정과 삭제 이력 유지`,
+                );
+              })
+            }
+          >
+            기본 표준작업 등록 (중복 방지)
+          </button>
           {error && (
             <p role="alert" className="error">
               {error}
@@ -195,7 +214,10 @@ export default function StandardWorkPanel({
                       data.templates.find((t) => t.id === e.target.value)!,
                     ),
                   );
-                  setQuantity(data.templates.find(t=>t.id===e.target.value)?.baseQuantity??1);
+                  setQuantity(
+                    data.templates.find((t) => t.id === e.target.value)
+                      ?.baseQuantity ?? 1,
+                  );
                   setItems([]);
                   setHistory([]);
                   setReuse([]);
@@ -457,23 +479,13 @@ export default function StandardWorkPanel({
                 </label>
                 <label>
                   작업구분
-                  <select
+                  <input
                     aria-label="세트 작업구분"
-                    value={
-                      template.workType ??
-                      ["증설", "이설", "신설", "교체"].find((v) =>
-                        template.name.endsWith(v),
-                      ) ??
-                      "신설"
-                    }
+                    value={template.workType ?? "신설"}
                     onChange={(e) =>
                       setTemplate({ ...template, workType: e.target.value })
                     }
-                  >
-                    {["증설", "이설", "신설", "교체"].map((v) => (
-                      <option key={v}>{v}</option>
-                    ))}
-                  </select>
+                  />
                 </label>
                 <label>
                   설명
@@ -510,6 +522,32 @@ export default function StandardWorkPanel({
                       setTemplate({ ...template, unit: e.target.value })
                     }
                   />
+                </label>
+                <label>
+                  검토 상태
+                  <select
+                    aria-label="세트 검토 상태"
+                    value={template.reviewStatus ?? "검토필요"}
+                    onChange={(e) =>
+                      setTemplate({
+                        ...template,
+                        reviewStatus: e.target.value as "검토필요" | "사용승인",
+                      })
+                    }
+                  >
+                    <option>검토필요</option>
+                    <option>사용승인</option>
+                  </select>
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={template.integrated ?? false}
+                    onChange={(e) =>
+                      setTemplate({ ...template, integrated: e.target.checked })
+                    }
+                  />
+                  현장산출 계산 사용
                 </label>
                 <label>
                   세트 계산방식
@@ -572,12 +610,25 @@ export default function StandardWorkPanel({
                             <select
                               value={c.priceId}
                               onChange={(e) =>
-                                patch({ priceId: e.target.value })
+                                patch({
+                                  priceId: e.target.value,
+                                  ...(c.defaultVariant && c.variants
+                                    ? {
+                                        variants: {
+                                          ...c.variants,
+                                          [c.defaultVariant]: e.target.value,
+                                        },
+                                      }
+                                    : {}),
+                                })
                               }
                             >
                               {data.prices.map((p) => (
                                 <option key={p.id} value={p.id}>
-                                  {p.name}
+                                  {p.name} / {p.specification} / {p.unit}
+                                  {p.priceRegistered === false
+                                    ? " · 단가 미등록"
+                                    : ""}
                                 </option>
                               ))}
                             </select>
@@ -595,13 +646,36 @@ export default function StandardWorkPanel({
                             </select>
                           </td>
                           <td>
+                            {template.integrated && (
+                              <WorkCalculationEditor
+                                component={c}
+                                prices={data.prices}
+                                onChange={patch}
+                              />
+                            )}
                             <select
+                              disabled={template.integrated}
+                              title={
+                                template.integrated
+                                  ? "산출·규격 연결 설정에서 실제 계산방식을 변경하세요."
+                                  : undefined
+                              }
                               value={c.mode}
                               onChange={(e) =>
                                 patch({ mode: e.target.value as typeof c.mode })
                               }
                             >
-                              {WORK_QUANTITY_MODES.map((v) => (
+                              {WORK_QUANTITY_MODES.filter(
+                                (v) =>
+                                  template.integrated ||
+                                  [
+                                    "작업수량에 비례",
+                                    "고정수량",
+                                    "길이기준",
+                                    "1식",
+                                    "관리자 직접입력",
+                                  ].includes(v),
+                              ).map((v) => (
                                 <option key={v}>{v}</option>
                               ))}
                             </select>
@@ -613,7 +687,17 @@ export default function StandardWorkPanel({
                               step="0.001"
                               value={c.factor}
                               onChange={(e) =>
-                                patch({ factor: Number(e.target.value) })
+                                patch({
+                                  factor: Number(e.target.value),
+                                  ...(c.quantityRule
+                                    ? {
+                                        quantityRule: {
+                                          ...c.quantityRule,
+                                          factor: Number(e.target.value),
+                                        },
+                                      }
+                                    : {}),
+                                })
                               }
                             />
                           </td>

@@ -13,7 +13,7 @@ const input = {
   reuse: [],
   overrides: {},
 };
-test("16개 표준작업, 다중 구성품 수량·재사용·직접입력·버전·회사 격리 및 고객 출력", async () => {
+test("기본 작업군 및 기존 계산방식, 다중 구성품 수량·재사용·직접입력·버전·회사 격리 및 고객 출력", async () => {
   const app = await NestFactory.create(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
@@ -21,14 +21,24 @@ test("16개 표준작업, 다중 구성품 수량·재사용·직접입력·버�
   try {
     const data = (await request(http).get("/api/standard-work").expect(200))
       .body;
-    assert.equal(data.templates.length, 16);
+    assert.ok(data.templates.length > 100);
     assert.equal(
       new Set(data.templates.map((t: StandardWork) => t.name)).size,
-      16,
+      data.templates.length,
     );
-    const detector = data.templates.find(
+    const updatedSeed = data.templates.find(
       (t: StandardWork) => t.name === "화재감지기 증설",
     );
+    // Retain regression coverage of user-created legacy calculation modes.
+    const legacy = (
+      await request(http).get(`/api/standard-work/${updatedSeed.id}/history`)
+    ).body[0];
+    const detector = (
+      await request(http)
+        .post("/api/standard-work")
+        .send({ ...legacy, name: "과거 방식 감지기 증설", integrated: false })
+        .expect(201)
+    ).body;
     let calc = (
       await request(http)
         .post(`/api/standard-work/${detector.id}/calculate`)

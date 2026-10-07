@@ -1,3 +1,8 @@
+import { registerDefaultWorks } from "./standard-work-defaults";
+import {
+  calculateIntegrated,
+  validateEstimate,
+} from "./standard-work-calculator";
 import { priceChange } from "./material-price";
 import { validDate } from "./date";
 import {
@@ -12,6 +17,8 @@ import {
   WorkPrice,
   StandardWork,
   StandardWorkRequest,
+  WorkCompositeRequest,
+  accumulateQuoteItems,
   QuoteItemInput,
   WORK_COMPONENT_ROLES,
   WORK_QUANTITY_MODES,
@@ -56,6 +63,69 @@ export class StandardWorkService {
     private readonly repository: StandardWorkRepository,
     @Inject(CompanyContext) private readonly context: CompanyContext,
   ) {}
+  initializeDefaults() {
+    this.context.assertMember(true);
+    return registerDefaultWorks(this.repository, this.context.companyId);
+  }
+  composite(raw: WorkCompositeRequest) {
+    this.context.assertMember(true);
+    if (
+      !raw ||
+      !Array.isArray(raw.tasks) ||
+      !raw.tasks.length ||
+      raw.tasks.length > 100 ||
+      !Array.isArray(raw.routes) ||
+      raw.routes.length > 100
+    )
+      bad();
+    const batch = text(raw.batchId, true);
+    const routes = new Map<string, ReturnType<typeof validateEstimate>>();
+    for (const route of raw.routes) {
+      const id = text(route?.id, true);
+      if (routes.has(id)) bad();
+      routes.set(id, validateEstimate(route.options));
+    }
+    const ids = new Set<string>();
+    const results = raw.tasks.map((task) => {
+      if (!task || !task.request || ids.has(task.id)) bad();
+      ids.add(text(task.id, true));
+      const group = task.request.estimate?.routeGroup;
+      if (group && !routes.has(group))
+        throw new BadRequestException("공유 경로를 먼저 정의하세요.");
+      return this.calculate(task.templateId, {
+        ...task.request,
+        autoPrice: raw.autoPrice ?? task.request.autoPrice,
+        estimate: {
+          ...task.request.estimate,
+          ...(group ? routes.get(group) : {}),
+          ...(group ? { routeGroup: group } : {}),
+          batchId: batch,
+        },
+      });
+    });
+    const sections: ["기계" | "전기", QuoteItemInput[]][] = [
+      ["기계", []],
+      ["전기", []],
+    ];
+    for (const result of results) {
+      const entry = sections.find(([kind]) => kind === result.section)!;
+      entry[1] = accumulateQuoteItems(entry[1], result.items, true, true);
+    }
+    return {
+      batchId: batch,
+      results,
+      sections: sections
+        .filter(([, items]) => items.length)
+        .map(([kind, items]) => ({ kind, items })),
+      warnings: [
+        ...new Set(
+          results.flatMap((r) =>
+            "warnings" in r ? (r.warnings as string[]) : [],
+          ),
+        ),
+      ],
+    };
+  }
   list() {
     this.context.assertMember(true);
     const data = this.repository.list();
@@ -120,6 +190,7 @@ export class StandardWorkService {
       specification: text(raw.specification),
       unit: text(raw.unit, true),
       category: raw.category,
+      priceRegistered: true,
       cost: number(raw.cost, 1000000000),
       salePrice: number(raw.salePrice, 1000000000),
     };
@@ -134,6 +205,56 @@ export class StandardWorkService {
     const history = priceChange(p, old, "수동", this.context.identity.userId);
     this.repository.commitPrices([p], history ? [history] : []);
     return p;
+  }
+  private quantityRule(value: unknown) {
+    if (value === undefined) return undefined;
+    const r = value as import("@jongno/shared").WorkQuantityRule;
+    if (
+      !r ||
+      typeof r !== "object" ||
+      ![
+        "quantity",
+        "wire",
+        "conduit",
+        "pipe",
+        "locations",
+        "connections",
+        "couplings",
+        "supports",
+        "screws",
+        "anchors",
+        "circuits",
+        "peopleDays",
+        "manual",
+        "fixed",
+        "baseAdditional",
+      ].includes(r.source)
+    )
+      bad();
+    return {
+      source: r.source,
+      factor: number(r.factor),
+      base: r.base === undefined ? undefined : number(r.base),
+      extra: r.extra === undefined ? undefined : number(r.extra),
+      inputKey: r.inputKey === undefined ? undefined : text(r.inputKey),
+    };
+  }
+  private variants(value: unknown, prices: WorkPrice[]) {
+    if (value === undefined) return undefined;
+    if (
+      !value ||
+      typeof value !== "object" ||
+      Array.isArray(value) ||
+      Object.keys(value).length > 1000
+    )
+      bad();
+    const result: Record<string, string> = {};
+    for (const [key, id] of Object.entries(value)) {
+      text(key, true);
+      if (typeof id !== "string" || !prices.some((p) => p.id === id)) bad();
+      result[key] = id as string;
+    }
+    return result;
   }
   private rules(value: unknown): WorkCondition[] {
     if (value === undefined) return [];
@@ -161,11 +282,7 @@ export class StandardWorkService {
         if (typeof r.value !== "boolean") bad();
       } else {
         text(r.value, true);
-        if (
-          r.key === "workType" &&
-          !["증설", "이설", "신설", "교체"].includes(r.value)
-        )
-          bad();
+
         if (r.key === "installation" && !["노출", "매립"].includes(r.value))
           bad();
       }
@@ -248,6 +365,12 @@ export class StandardWorkService {
       )
         bad();
       return {
+        quantityRule: this.quantityRule(c.quantityRule),
+        variants: this.variants(c.variants, prices),
+        selector: c.selector === undefined ? undefined : text(c.selector),
+        defaultVariant:
+          c.defaultVariant === undefined ? undefined : text(c.defaultVariant),
+        commonKey: c.commonKey === undefined ? undefined : text(c.commonKey),
         includeWhen: this.rules(c.includeWhen),
         excludeWhen: this.rules(c.excludeWhen),
         id: cid,
@@ -260,9 +383,23 @@ export class StandardWorkService {
         customerGroup: text(c.customerGroup),
       };
     });
+    if (
+      raw.reviewStatus !== undefined &&
+      !["검토필요", "사용승인"].includes(raw.reviewStatus)
+    )
+      bad();
     const t: StandardWork = {
       id,
       companyId: this.context.companyId,
+      integrated: raw.integrated ?? old?.integrated ?? false,
+      seedKey: old?.seedKey,
+      reviewStatus: raw.reviewStatus ?? old?.reviewStatus ?? "검토필요",
+      reviewedAt:
+        raw.reviewStatus === "사용승인" ? new Date().toISOString() : undefined,
+      reviewedBy:
+        raw.reviewStatus === "사용승인"
+          ? this.context.identity.userId
+          : undefined,
       name: text(raw.name, true),
       section: raw.section,
       workType: text(
@@ -286,10 +423,11 @@ export class StandardWorkService {
         this.context.identity.userDisplayName ?? this.context.identity.userId,
       reason: text(raw.reason, true),
     };
+    if (!t.workType?.trim() || typeof t.active !== "boolean" || !t.baseQuantity)
+      bad();
     if (
-      !["증설", "이설", "신설", "교체"].includes(t.workType!) ||
-      typeof t.active !== "boolean" ||
-      !t.baseQuantity
+      typeof t.integrated !== "boolean" ||
+      !["검토필요", "사용승인"].includes(t.reviewStatus!)
     )
       bad();
     this.repository.save(t);
@@ -331,7 +469,9 @@ export class StandardWorkService {
     )
       bad();
     if (
-      !["증설", "이설", "신설", "교체"].includes(conditions.workType) ||
+      typeof conditions.workType !== "string" ||
+      !conditions.workType.trim() ||
+      conditions.workType.length > 300 ||
       !["노출", "매립"].includes(conditions.installation) ||
       typeof conditions.ceiling !== "string" ||
       conditions.ceiling.length > 300 ||
@@ -375,6 +515,15 @@ export class StandardWorkService {
       number(v);
     }
     const prices = this.repository.list().prices;
+    if (t.integrated)
+      return calculateIntegrated(
+        t,
+        prices,
+        r,
+        autoPrice,
+        conditions,
+        (rule, c) => this.matches(rule, c),
+      );
     const items: QuoteItemInput[] = [];
     for (const c of t.components) {
       if (c.omitWhen.some((f) => r.reuse.includes(f))) continue;
@@ -420,7 +569,7 @@ export class StandardWorkService {
         laborUnitCost: autoPrice && p.category === "노무비" ? p.cost : 0,
         expenseUnitCost: autoPrice && p.category === "경비" ? p.cost : 0,
         saleUnitPrice: autoPrice ? p.salePrice : 0,
-        pricePending:!autoPrice,
+        pricePending: !autoPrice || p.priceRegistered === false,
         priceCategory: p.category,
         notes: "",
         customerGroup: c.customerGroup,
