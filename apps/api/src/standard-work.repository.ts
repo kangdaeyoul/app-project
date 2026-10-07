@@ -6,12 +6,33 @@ export interface StandardWorkRepository {
   get(id: string): StandardWork[];
   save(template: StandardWork): void;
   savePrice(price: WorkPrice): void;
+  favorites(): string[];
+  saveFavorites(ids: string[]): void;
 }
 export class MemoryStandardWorkRepository implements StandardWorkRepository {
+  private favoriteIds: string[] = [];
+  favorites() {
+    return [...this.favoriteIds];
+  }
+  saveFavorites(ids: string[]) {
+    this.favoriteIds = [...ids];
+  }
   private prices: WorkPrice[] = [];
   private versions: StandardWork[] = [];
   constructor(seed = true) {
-    if (seed) this.seed();
+    if (seed) {
+      this.seed();
+      for (const name of [
+        "유도등",
+        "발신기",
+        "시각경보기",
+        "스프링클러헤드",
+        "소방용전선",
+      ]) {
+        const p = this.prices.find((p) => p.name === name);
+        if (p) this.favoriteIds.push(p.id);
+      }
+    }
   }
   list() {
     return structuredClone({
@@ -169,5 +190,22 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
           reason: "초기 기준값: 실제 현장 단가·수량 보정 필요",
         });
       }
+    for (const [name, specification, unit] of [
+      ["화재감지기(연기식)", "연기식", "개"],
+      ["화재감지기(차동식)", "차동식", "개"],
+      ["백관", "25A", "m"],
+      ["백관", "32A", "m"],
+    ]) {
+      const id = price(
+        name === "백관" ? name + " " + specification : name,
+        unit,
+      );
+      const row = this.prices.find((p) => p.id === id)!;
+      row.name = name;
+      row.specification = specification;
+      this.favoriteIds.push(id);
+    }
+    const setId = price("발신기세트");
+    this.favoriteIds.push(setId);
   }
 }

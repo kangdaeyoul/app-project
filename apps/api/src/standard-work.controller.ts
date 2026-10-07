@@ -23,6 +23,8 @@ export class StandardWorkController {
   @Put("prices/:id") price(@Param("id") id: string, @Body() body: WorkPrice) {
     return this.service.savePrice(body, id);
   }
+  @Get("favorites") favorites(){return this.service.favorites();}
+  @Put("favorites") saveFavorites(@Body() body:{priceIds:unknown}){return this.service.saveFavorites(body);}
   @Get(":id/history") history(@Param("id") id: string) {
     return this.service.history(id);
   }

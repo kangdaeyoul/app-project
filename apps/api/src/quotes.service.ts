@@ -1,3 +1,4 @@
+import {CompanyContext} from "./company-context";
 import { AuditRecorder } from './audit-recorder';
 import { QUOTE_ADMIN_ACCESS, QuoteAdminAccess } from "./quote-access";
 import {
@@ -65,6 +66,7 @@ export class QuotesService {
     @Inject(SitesService) private readonly sites: SitesService,
     @Inject(QUOTE_ADMIN_ACCESS) private readonly access: QuoteAdminAccess,
     @Inject(AuditRecorder) private readonly audit: AuditRecorder,
+    @Inject(CompanyContext) private readonly context:CompanyContext,
   ) {}
   customersList() {
     return this.customers.list();
@@ -129,6 +131,9 @@ export class QuotesService {
     this.access.assertAdmin();
     return this.view(this.record(id));
   }
+  private option(r:Record<string,unknown>,key:string,fallback:boolean){if(r[key]!==undefined&&typeof r[key]!=='boolean')throw new BadRequestException('견적 옵션을 확인해 주세요.');return (r[key] as boolean|undefined)??fallback;}
+  private entrySources(v:unknown):QuoteItemInput['entrySources']{if(v===undefined)return ['manual'];if(!Array.isArray(v)||!v.length||v.some(s=>!['manual','catalog','favorite','standard'].includes(s)))throw new BadRequestException('품목 입력 출처를 확인해 주세요.');return [...new Set(v)] as QuoteItemInput['entrySources'];}
+  private standardSources(v:unknown):QuoteItemInput['standardSources']{if(v===undefined)return undefined;if(!Array.isArray(v)||v.length>1000)throw new BadRequestException('구성품 출처를 확인해 주세요.');return v.map(x=>this.standardSource(x)!);}
   private standardSource(value: unknown): QuoteItemInput['standardSource'] {
     if(value===undefined)return undefined;
     const v=object(value);if(!Number.isSafeInteger(v.version)||(v.version as number)<1)throw new BadRequestException('템플릿 버전을 확인해 주세요.');
@@ -209,6 +214,9 @@ export class QuotesService {
           )
             throw new BadRequestException("고객금액 분류를 확인해 주세요.");
           return {
+            materialCode: text(i,'materialCode',100),
+            entrySources: this.entrySources(i.entrySources),
+            standardSources: this.standardSources(i.standardSources),
             customerGroup: text(i, "customerGroup", 100),
             standardSource: this.standardSource(i.standardSource),
             trade: text(i, "trade", 100, true),
@@ -235,6 +243,9 @@ export class QuotesService {
       );
     if (r.groupComponents !== undefined && typeof r.groupComponents !== "boolean") throw new BadRequestException("구성품 출력 옵션을 확인해 주세요.");
     const input: QuoteInput = {
+      autoPrice:this.option(r,'autoPrice',this.context.settings().quotePreferences?.autoPrice??true),
+      mergeDuplicates:this.option(r,'mergeDuplicates',true),
+      mergeAcrossSources:this.option(r,'mergeAcrossSources',true),
       groupComponents: r.groupComponents === true,
       customerId,
       siteId: siteId || null,

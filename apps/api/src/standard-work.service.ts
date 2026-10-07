@@ -55,6 +55,8 @@ export class StandardWorkService {
     this.context.assertMember(true);
     return this.repository.list();
   }
+  favorites(){this.context.assertMember(true);return {companyId:this.context.companyId,userId:null,priceIds:this.repository.favorites()};}
+  saveFavorites(raw:{priceIds:unknown}){this.context.assertMember(true);const ids=raw?.priceIds;const prices=this.repository.list().prices;if(!Array.isArray(ids)||ids.length>100||new Set(ids).size!==ids.length||ids.some(id=>typeof id!=='string'||!prices.some(p=>p.id===id)))bad();this.repository.saveFavorites(ids);return this.favorites();}
   history(id: string) {
     this.context.assertMember(true);
     this.find(id);
@@ -188,6 +190,8 @@ export class StandardWorkService {
       quantity = number(Math.round(quantity * 1000) / 1000);
       if (!quantity) continue;
       items.push({
+        materialCode:p.id,
+        entrySources:["standard"],
         trade: t.name,
         name: p.name,
         specification: p.specification,

@@ -38,6 +38,7 @@ export function companyRepository<T extends object>(
         const companyId = context.companyId;
         const reads = new Set([
           "list",
+          "favorites",
           "find",
           "receipts",
           "payments",

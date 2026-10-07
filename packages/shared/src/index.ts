@@ -118,6 +118,9 @@ export const QUOTE_PRINT_MODES = ['전체 상세', '단가 숨김', '금액 숨�
 export const QUOTE_PRICE_CATEGORIES = ['재료비', '노무비', '경비'] as const;
 export interface Customer { id: string; name: string; address: string; contactName: string; phone: string }
 export interface QuoteItemInput {
+  materialCode?: string;
+  entrySources?: ("manual"|"catalog"|"favorite"|"standard")[];
+  standardSources?: {templateId:string;version:number;componentId:string}[];
   customerGroup?: string;
   standardSource?: { templateId: string; version: number; componentId: string };
   trade: string; name: string; specification: string; quantity: number; unit: string;
@@ -126,6 +129,9 @@ export interface QuoteItemInput {
 }
 export interface QuoteSectionInput { kind: typeof QUOTE_SECTIONS[number]; items: QuoteItemInput[] }
 export interface QuoteInput {
+  autoPrice?: boolean;
+  mergeDuplicates?: boolean;
+  mergeAcrossSources?: boolean;
   groupComponents?: boolean;
   customerId: string; siteId: string | null; siteName: string; address: string; workContent: string;
   quoteDate: string; validUntil: string; status: typeof QUOTE_STATUSES[number]; notes: string;
@@ -174,6 +180,7 @@ export interface CompanyMembership { companyId: string; userId: string; role: 'a
 export interface CompanyUser { id: string; name: string; memberships: CompanyMembership[] }
 export type CompanyOwned<T> = T & { companyId: string };
 export interface Company {
+  quotePreferences?: {autoPrice:boolean};
   id: string; name: string; displayName: string; logoUrl: string | null; sealKey: string | null;
   phone: string; fax: string; email: string; address: string; branchAddress: string; website: string;
   business: BusinessParty & { corporationNumber: string };
@@ -254,3 +261,15 @@ export interface WorkPrice { id: string; companyId: string; name: string; specif
 export interface WorkComponent { id: string; priceId: string; role: typeof WORK_COMPONENT_ROLES[number]; mode: typeof WORK_QUANTITY_MODES[number]; factor: number; lengthKey: '배선'|'배관'; omitWhen: typeof WORK_REUSE_FLAGS[number][]; customerGroup: string }
 export interface StandardWork { priceSnapshot?: WorkPrice[]; id: string; companyId: string; name: string; section: '기계'|'전기'; version: number; components: WorkComponent[]; updatedAt: string; updatedBy: string; reason: string }
 export interface StandardWorkRequest { quantity: number; lengths: { 배선: number; 배관: number }; reuse: typeof WORK_REUSE_FLAGS[number][]; overrides: Record<string, number> }
+
+export interface QuoteFavorites { companyId:string; userId:string|null; priceIds:string[] }
+/** Preserve the existing row's negotiated prices; additions only accumulate quantity and provenance. */
+export function accumulateQuoteItems(existing:QuoteItemInput[], incoming:QuoteItemInput[], merge=true, acrossSources=true):QuoteItemInput[]{
+ const result=existing.map(i=>structuredClone(i));
+ for(const raw of incoming){const item=structuredClone(raw);
+ const row=merge?result.find(i=>(i.materialCode??'').trim()===(item.materialCode??'').trim()&&i.name.trim()===item.name.trim()&&i.specification.trim()===item.specification.trim()&&i.unit.trim()===item.unit.trim()&&i.priceCategory===item.priceCategory&&(acrossSources||(i.entrySources??['manual']).includes('manual')===(item.entrySources??['manual']).includes('manual'))):undefined;
+ if(row){row.quantity=Math.round((row.quantity+item.quantity)*1000)/1000;row.entrySources=[...new Set([...(row.entrySources??['manual']),...(item.entrySources??['manual'])])];row.standardSources=[...(row.standardSources??(row.standardSource?[row.standardSource]:[])),...(item.standardSources??(item.standardSource?[item.standardSource]:[]))];}
+ else result.push(item);
+ }return result;
+}
+export function priceToQuoteItem(price:WorkPrice,autoPrice=true,source:'catalog'|'favorite'='catalog'):QuoteItemInput{return {materialCode:price.id,entrySources:[source],trade:'소방시설',name:price.name,specification:price.specification,quantity:1,unit:price.unit,priceCategory:price.category,materialUnitCost:autoPrice&&price.category==='재료비'?price.cost:0,laborUnitCost:autoPrice&&price.category==='노무비'?price.cost:0,expenseUnitCost:autoPrice&&price.category==='경비'?price.cost:0,saleUnitPrice:autoPrice?price.salePrice:0,notes:''};}

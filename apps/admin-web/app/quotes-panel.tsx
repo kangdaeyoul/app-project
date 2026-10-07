@@ -14,6 +14,8 @@ import {
   calculateQuote,
   quoteLineAmount,
 } from "@jongno/shared";
+import QuoteQuickInput from "./quote-quick-input";
+import {accumulateQuoteItems} from "@jongno/shared";
 import StandardWorkPanel from "./standard-work-panel";
 import PdfPreview from "./pdf-preview";
 const today = () =>
@@ -26,6 +28,7 @@ const sale = (n: number, unit: QuoteInput["displayUnit"]) =>
     ? `${new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 4 }).format(n / 10000)}만원 (${money(n)})`
     : money(n);
 const newItem = (): QuoteItemInput => ({
+  entrySources:["manual"],
   trade: "소방시설",
   name: "",
   specification: "",
@@ -76,8 +79,9 @@ export default function QuotesPanel({
   onChanged: () => void;
   onOpenSite: (id: string) => void;
 }) {
+  const [autoPriceDefault,setAutoPriceDefault]=useState(true);
   const [companyName,setCompanyName] = useState(DEFAULT_COMPANY.displayName);
-  useEffect(()=>{const controller=new AbortController();fetch("/api/company/current",{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(v=>setCompanyName(v.company.displayName)).catch(()=>{});return()=>controller.abort();},[]);
+  useEffect(()=>{const controller=new AbortController();fetch("/api/company/current",{signal:controller.signal}).then(r=>{if(!r.ok)throw Error();return r.json();}).then(v=>{setCompanyName(v.company.displayName);setAutoPriceDefault(v.company.quotePreferences?.autoPrice??true);}).catch(()=>{});return()=>controller.abort();},[]);
   const [quotes, setQuotes] = useState<QuoteView[]>([]),
     [customers, setCustomers] = useState<Customer[]>([]),
     [sites, setSites] = useState<Site[]>([]);
@@ -152,6 +156,13 @@ export default function QuotesPanel({
   function change(patch: Partial<QuoteInput>) {
     clearPreview();
     setForm((f) => (f ? { ...f, ...patch } : f));
+  }
+  function addItems(kind:'기계'|'전기',items:QuoteItemInput[],standard=false){
+    clearPreview();setForm(f=>{if(!f)return f;const sections=f.sections.map(s=>({...s,items:s.items.filter(i=>i.name.trim())}));let section=sections.find(s=>s.kind===kind);if(!section){section={kind,items:[]};sections.push(section);}
+    const incoming=standard&&f.autoPrice===false?items.map(i=>({...i,saleUnitPrice:0,materialUnitCost:0,laborUnitCost:0,expenseUnitCost:0})):items;
+    section.items=accumulateQuoteItems(section.items,incoming,f.mergeDuplicates??true,f.mergeAcrossSources??true);
+    return {...f,sections:sections.filter(s=>s.items.length)};
+    });setTab(`을지: ${kind}`);
   }
   const calc = (() => {
     try {
@@ -306,12 +317,14 @@ export default function QuotesPanel({
     : [];
   return (
     <div className="quotes-workspace">
-      <StandardWorkPanel onAdd={form ? (kind,items)=>{
-        const sections=form.sections.map(s=>({...s,items:s.items.filter(i=>i.name.trim())}));
-        const existing=sections.find(s=>s.kind===kind);
-        if(existing)existing.items.push(...items);else sections.push({kind,items});
-        change({sections:sections.filter(s=>s.items.length)});setTab(`을지: ${kind}`);
-      } : undefined}/>
+      {form&&<>
+        <div className="quote-entry-options">
+        <label><input type="checkbox" checked={form.autoPrice??autoPriceDefault} onChange={e=>change({autoPrice:e.target.checked})}/>단가 자동입력</label>
+        <label><input type="checkbox" checked={form.mergeDuplicates??true} onChange={e=>change({mergeDuplicates:e.target.checked})}/>중복 품목 자동합산</label>
+        <label><input type="checkbox" checked={form.mergeAcrossSources??true} onChange={e=>change({mergeAcrossSources:e.target.checked})}/>자동·수동 입력 품목 병합</label>
+        </div><QuoteQuickInput autoPrice={form.autoPrice??autoPriceDefault} onAdd={(items,kind)=>addItems(kind,items)}/>
+      </>}
+      <StandardWorkPanel onAdd={form?(kind,items)=>addItems(kind,items,true):undefined}/>
 
       {form && <label><input type="checkbox" checked={form.groupComponents??false} onChange={e=>change({groupComponents:e.target.checked})}/>고객 출력: 부속류·잡자재·배관 묶음 표시 (내부 구성품 유지)</label>}
 
@@ -340,7 +353,7 @@ export default function QuotesPanel({
               disabled={busy || !customers.length}
               onClick={() => {
                 setSelected(null);
-                setForm(newQuote(customers[0].id));
+                void api<{company:{quotePreferences?:{autoPrice:boolean}}}>("/company/current").then(v=>setForm({...newQuote(customers[0].id),autoPrice:v.company.quotePreferences?.autoPrice??true,mergeDuplicates:true,mergeAcrossSources:true})).catch(e=>setError(e.message));
                 setTab("갑지: 총괄");
                 setNotice("");
                 setError("");
