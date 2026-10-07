@@ -6,10 +6,14 @@ import {
   InspectionReportSource,
   InspectionItemInput,
   INSPECTION_REPORT_TITLE,
+  INSPECTION_OUTPUT_MODES,
+  INSPECTION_COVER_TITLES,
 } from "@jongno/shared";
 import PdfPreview from "./pdf-preview";
 const newItem = (number: string): InspectionItemInput => ({
   number,
+  location: "",
+  photoContent: "",
   inspection: "",
   result: "",
   beforePhotoIds: [],
@@ -190,7 +194,9 @@ export default function InspectionReportPanel({ siteId }: { siteId: string }) {
       <div className="panel-title">
         <div>
           <h3>{INSPECTION_REPORT_TITLE}</h3>
-          <p>표지 1장과 지적사항별 전후 사진을 하나의 PDF로 출력합니다.</p>
+          <p>
+            제출용 이행완료 보고서·보수결과·사진대지를 하나의 PDF로 출력합니다.
+          </p>
         </div>
         <button
           className="secondary-button"
@@ -226,11 +232,79 @@ export default function InspectionReportPanel({ siteId }: { siteId: string }) {
             </select>
           </label>
           <label>
+            출력 모드
+            <select
+              aria-label="제출문서 출력 모드"
+              value={form.outputMode ?? INSPECTION_OUTPUT_MODES[0]}
+              onChange={(e) =>
+                change({
+                  outputMode: e.target
+                    .value as InspectionReportInput["outputMode"],
+                })
+              }
+            >
+              {INSPECTION_OUTPUT_MODES.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+          {(form.outputMode ?? INSPECTION_OUTPUT_MODES[0]) ===
+            INSPECTION_OUTPUT_MODES[0] && (
+            <>
+              <label>
+                표지 문서명
+                <select
+                  aria-label="표지 문서명"
+                  value={form.coverTitle ?? INSPECTION_COVER_TITLES[0]}
+                  onChange={(e) =>
+                    change({
+                      coverTitle: e.target
+                        .value as InspectionReportInput["coverTitle"],
+                    })
+                  }
+                >
+                  {INSPECTION_COVER_TITLES.map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="full-width">
+                이행조치 내용
+                <textarea
+                  aria-label="이행조치 내용"
+                  maxLength={1000}
+                  rows={4}
+                  value={form.actionSummary ?? ""}
+                  onChange={(e) => change({ actionSummary: e.target.value })}
+                />
+              </label>
+              <div className="full-width">
+                <button
+                  className="secondary-button"
+                  onClick={() =>
+                    change({
+                      actionSummary: form.items
+                        .filter((i) => i.result.trim())
+                        .map(
+                          (i) =>
+                            `점검번호 ${i.number}${i.location ? " (" + i.location + ")" : ""}: ${i.result}`,
+                        )
+                        .join("\n")
+                        .slice(0, 1000),
+                    })
+                  }
+                >
+                  보수내용으로 이행조치 요약 불러오기
+                </button>
+              </div>
+            </>
+          )}
+          <label>
             현장명
             <input readOnly value={source.site.name} />
           </label>
           <label>
-            공사를 진행한 회사명
+            공사업체
             <input readOnly value={source.companyName} />
           </label>
           <label>
@@ -272,14 +346,33 @@ export default function InspectionReportPanel({ siteId }: { siteId: string }) {
           </label>
         </div>
         <p>
-          사진은 원본 비율을 유지합니다. 긴 지적내용은 페이지를 늘려 전체 내용을
-          표시합니다.
+          원본 점검번호를 그대로 유지합니다. 같은 점검번호에 여러 위치가 있으면
+          세부항목을 추가하세요. 사진은 원본 비율을 유지합니다. 긴 지적내용은
+          페이지를 늘려 전체 내용을 표시합니다.
         </p>
         {form.items.map((item, index) => (
           <section className="inspection-item" key={item.id ?? index}>
             <div className="panel-title">
-              <h4>지적사항 {index + 1}</h4>
+              <h4>
+                점검번호 {item.number || "미입력"}
+                {item.location ? ` · ${item.location}` : ""}
+              </h4>
               <div className="form-actions">
+                <button
+                  className="secondary-button"
+                  disabled={form.items.length >= 100}
+                  onClick={() => {
+                    const items = [...form.items];
+                    items.splice(index + 1, 0, {
+                      ...newItem(item.number),
+                      inspection: item.inspection,
+                      photoContent: item.photoContent,
+                    });
+                    change({ items });
+                  }}
+                >
+                  같은 점검번호 세부항목 추가
+                </button>
                 <button
                   className="secondary-button"
                   disabled={index === 0}
@@ -317,7 +410,7 @@ export default function InspectionReportPanel({ siteId }: { siteId: string }) {
             </div>
             <div className="form-grid">
               <label>
-                지적번호
+                원본 점검번호
                 <input
                   aria-label={`지적번호 ${index + 1}`}
                   maxLength={30}
@@ -327,8 +420,31 @@ export default function InspectionReportPanel({ siteId }: { siteId: string }) {
                   }
                 />
               </label>
+              <label>
+                작업 위치 / 세부 보수항목
+                <input
+                  aria-label={`작업 위치 ${index + 1}`}
+                  maxLength={100}
+                  value={item.location ?? ""}
+                  onChange={(e) =>
+                    itemChange(index, { location: e.target.value })
+                  }
+                />
+              </label>
               <label className="full-width">
-                점검지적사항 내용
+                사진내용 (전·후 공통 캡션)
+                <input
+                  aria-label={`사진내용 ${index + 1}`}
+                  maxLength={300}
+                  placeholder="예: 옥내소화전 유량계 및 배관"
+                  value={item.photoContent ?? ""}
+                  onChange={(e) =>
+                    itemChange(index, { photoContent: e.target.value })
+                  }
+                />
+              </label>
+              <label className="full-width">
+                지적사항
                 <textarea
                   aria-label={`지적내용 ${index + 1}`}
                   rows={2}
@@ -340,7 +456,7 @@ export default function InspectionReportPanel({ siteId }: { siteId: string }) {
                 />
               </label>
               <label className="full-width">
-                보수결과
+                보수내용
                 <textarea
                   aria-label={`보수결과 ${index + 1}`}
                   rows={2}

@@ -234,8 +234,10 @@ export interface CompletionReportSource {
 }
 
 export const INSPECTION_REPORT_TITLE = '점검지적사항 보수결과보고서';
-export interface InspectionItemInput { id?: string; number: string; inspection: string; result: string; beforePhotoIds: string[]; afterPhotoIds: string[] }
-export interface InspectionReportInput { workDate: string; createdDate: string; originalDocumentName: string; layout: 6 | 8; items: InspectionItemInput[] }
+export const INSPECTION_COVER_TITLES = ['소방시설등의 자체점검 결과 이행완료 보고서', INSPECTION_REPORT_TITLE] as const;
+export const INSPECTION_OUTPUT_MODES = ['이행완료 보고서 + 보수결과 + 사진대지', '보수결과 + 사진대지', '사진대지만'] as const;
+export interface InspectionItemInput { id?: string; number: string; location?: string; photoContent?: string; inspection: string; result: string; beforePhotoIds: string[]; afterPhotoIds: string[] }
+export interface InspectionReportInput { workDate: string; createdDate: string; originalDocumentName: string; layout: 6 | 8; outputMode?: typeof INSPECTION_OUTPUT_MODES[number]; coverTitle?: typeof INSPECTION_COVER_TITLES[number]; actionSummary?: string; items: InspectionItemInput[] }
 export interface InspectionReportRecord extends Omit<InspectionReportInput, 'items'> { id: string; companyId: string; siteId: string; createdAt: string; updatedAt: string }
 export interface InspectionItemRecord extends Omit<InspectionItemInput,'id'|'beforePhotoIds'|'afterPhotoIds'> { id: string; companyId: string; reportId: string; position: number }
 export interface InspectionPhotoLink { companyId: string; itemId: string; photoId: string; stage: '작업 전' | '작업 후'; position: number }

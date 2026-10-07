@@ -11,15 +11,16 @@ import {
   InspectionItemRecord,
   InspectionPhotoLink,
   INSPECTION_REPORT_TITLE,
+  INSPECTION_OUTPUT_MODES,
+  INSPECTION_COVER_TITLES,
 } from "@jongno/shared";
 import PDFDocument from "pdfkit";
-import sharp from "sharp";
+import { PhotoReportService } from "./photo-report.service";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { CompletionReportService } from "./completion-report.service";
 import { CompanyContext } from "./company-context";
 import { AuditRecorder } from "./audit-recorder";
-import { PhotoService } from "./photo.service";
 import {
   INSPECTION_REPORT_REPOSITORY,
   InspectionReportRepository,
@@ -37,7 +38,8 @@ export class InspectionReportService {
     private readonly completion: CompletionReportService,
     @Inject(CompanyContext) private readonly company: CompanyContext,
     @Inject(AuditRecorder) private readonly audit: AuditRecorder,
-    @Inject(PhotoService) private readonly photos: PhotoService,
+    @Inject(PhotoReportService)
+    private readonly photoReports: PhotoReportService,
     @Inject(INSPECTION_REPORT_REPOSITORY)
     private readonly repo: InspectionReportRepository,
     @Inject(INSPECTION_REPORT_STORAGE)
@@ -55,6 +57,9 @@ export class InspectionReportService {
         createdDate: seoulToday(),
         originalDocumentName: "",
         layout: 6,
+        outputMode: INSPECTION_OUTPUT_MODES[0],
+        coverTitle: INSPECTION_COVER_TITLES[0],
+        actionSummary: s.defaults.summary.slice(0, 1000),
         items: [],
       },
     };
@@ -112,18 +117,36 @@ export class InspectionReportService {
       return {
         id,
         number: text(i.number, 30, true),
-        inspection: text(i.inspection, 5000, true),
-        result: text(i.result, 5000, true),
+        location: text(i.location ?? "", 100),
+        photoContent: text(i.photoContent ?? "", 300),
+        inspection: text(
+          i.inspection ?? "",
+          5000,
+          raw.outputMode !== INSPECTION_OUTPUT_MODES[2],
+        ),
+        result: text(
+          i.result ?? "",
+          5000,
+          raw.outputMode !== INSPECTION_OUTPUT_MODES[2],
+        ),
         beforePhotoIds: ids("beforePhotoIds", "작업 전"),
         afterPhotoIds: ids("afterPhotoIds", "작업 후"),
       };
     });
     if (
-      new Set(items.map((i) => i.number)).size !== items.length ||
+      items.some(
+        (i) =>
+          !i.location &&
+          items.filter((other) => other.number === i.number).length > 1,
+      ) ||
+      new Set(items.map((i) => JSON.stringify([i.number, i.location]))).size !==
+        items.length ||
       new Set(items.filter((i) => i.id).map((i) => i.id)).size !==
         items.filter((i) => i.id).length
     )
-      throw new BadRequestException("지적번호 또는 항목 ID가 중복되었습니다.");
+      throw new BadRequestException(
+        "같은 점검번호의 항목은 서로 다른 작업 위치를 입력해 주세요. 항목 ID도 중복될 수 없습니다.",
+      );
     if (
       items.reduce(
         (n, i) => n + i.beforePhotoIds.length + i.afterPhotoIds.length,
@@ -133,10 +156,40 @@ export class InspectionReportService {
       throw new BadRequestException(
         "보고서 사진은 최대 120장까지 포함할 수 있습니다.",
       );
+    const outputMode = raw.outputMode ?? INSPECTION_OUTPUT_MODES[0],
+      coverTitle = raw.coverTitle ?? INSPECTION_REPORT_TITLE;
+    if (
+      !INSPECTION_OUTPUT_MODES.includes(
+        outputMode as (typeof INSPECTION_OUTPUT_MODES)[number],
+      ) ||
+      !INSPECTION_COVER_TITLES.includes(
+        coverTitle as (typeof INSPECTION_COVER_TITLES)[number],
+      )
+    )
+      throw new BadRequestException("출력 모드와 표지 제목을 확인해 주세요.");
+    if (
+      outputMode === INSPECTION_OUTPUT_MODES[2] &&
+      !items.some((i) => i.beforePhotoIds.length || i.afterPhotoIds.length)
+    )
+      throw new BadRequestException("사진대지에 포함할 사진을 선택해 주세요.");
+    const actionSummary = text(
+      raw.actionSummary ??
+        items
+          .map(
+            (i) =>
+              `점검번호 ${i.number}${i.location ? " (" + i.location + ")" : ""}: ${i.result}`,
+          )
+          .join("\n")
+          .slice(0, 1000),
+      1000,
+    );
     const input: InspectionReportInput = {
       workDate,
       createdDate,
       layout,
+      outputMode: outputMode as InspectionReportInput["outputMode"],
+      coverTitle: coverTitle as InspectionReportInput["coverTitle"],
+      actionSummary,
       originalDocumentName: text(raw.originalDocumentName ?? "", 300),
       items,
     };
@@ -164,6 +217,8 @@ export class InspectionReportService {
       reportId,
       position,
       number: i.number,
+      location: i.location,
+      photoContent: i.photoContent,
       inspection: i.inspection,
       result: i.result,
     }));
@@ -188,6 +243,9 @@ export class InspectionReportService {
         workDate: input.workDate,
         createdDate: input.createdDate,
         layout: input.layout,
+        outputMode: input.outputMode,
+        coverTitle: input.coverTitle,
+        actionSummary: input.actionSummary,
         originalDocumentName: input.originalDocumentName,
         createdAt: before?.createdAt ?? now,
         updatedAt: now,
@@ -207,42 +265,18 @@ export class InspectionReportService {
   }
   async render(siteId: string, body: unknown, save = false) {
     const { source, input: o } = this.prepare(siteId, body);
-    const selectedIds = [
-        ...new Set(
-          o.items.flatMap((i) => [...i.beforePhotoIds, ...i.afterPhotoIds]),
-        ),
-      ],
-      images = new Map<string, Buffer>();
-    for (const id of selectedIds) {
-      try {
-        images.set(
-          id,
-          await sharp(this.photos.file(id).buffer, {
-            limitInputPixels: 40_000_000,
-          })
-            .rotate()
-            .flatten({ background: "#fff" })
-            .resize({
-              width: 1400,
-              height: 1400,
-              fit: "inside",
-              withoutEnlargement: true,
-            })
-            .png()
-            .toBuffer(),
-        );
-      } catch {
-        throw new BadRequestException(
-          "원본 사진을 읽을 수 없습니다. 사진을 확인해 주세요.",
-        );
-      }
-    }
+    const title =
+      o.outputMode === INSPECTION_OUTPUT_MODES[2]
+        ? "점검지적사항 사진대지"
+        : o.outputMode === INSPECTION_OUTPUT_MODES[0]
+          ? o.coverTitle!
+          : INSPECTION_REPORT_TITLE;
     const doc = new PDFDocument({
       size: "A4",
       margins: { top: 32, bottom: 52, left: 30, right: 30 },
       autoFirstPage: false,
       bufferPages: true,
-      info: { Title: INSPECTION_REPORT_TITLE, Author: source.companyName },
+      info: { Title: title, Author: source.companyName },
     });
     const chunks: Buffer[] = [];
     const result = new Promise<Buffer>((resolve, reject) => {
@@ -255,162 +289,60 @@ export class InspectionReportService {
       join(__dirname, "../fixtures/fonts/NanumGothic-Regular.ttf"),
     );
     doc.font("Korean");
-    doc.addPage();
-    doc
-      .fontSize(23)
-      .fillColor("#183d43")
-      .text(INSPECTION_REPORT_TITLE, 40, 155, { width: 515, align: "center" });
-    doc.moveTo(65, 220).lineTo(530, 220).strokeColor("#cad7d8").stroke();
-    let coverY = 300;
-    const coverFields = [
-      ["현장명", source.site.name],
-      ["작업일자 / 보수완료일", o.workDate],
-      ["공사를 진행한 회사", source.companyName],
-      ...(o.originalDocumentName
-        ? [["원본 점검자료명", o.originalDocumentName]]
-        : []),
-      ["보고서 작성일", o.createdDate],
-    ];
-    let coverFont = 14;
-    while (coverFont > 9) {
-      doc.fontSize(coverFont);
-      const height = coverFields.reduce(
-        (sum, field) =>
-          sum + doc.heightOfString(field[1], { width: 465, lineGap: 2 }) + 44,
-        0,
-      );
-      if (height <= 455) break;
-      coverFont--;
-    }
-    for (const [label, value] of coverFields) {
-      doc
-        .fontSize(11)
-        .fillColor("#657579")
-        .text(label, 65, coverY, { width: 465 });
-      coverY = doc.y + 7;
-      doc
-        .fontSize(coverFont)
-        .fillColor("#20373b")
-        .text(value, 65, coverY, { width: 465, lineGap: 2 });
-      coverY = doc.y + 24;
-    }
-    const top = 68,
-      bottom = 787,
-      width = 535,
-      rows = o.layout / 2,
-      slot = (bottom - top) / rows;
-    let y = top;
-    const bodyPage = () => {
+    if (o.outputMode === INSPECTION_OUTPUT_MODES[0]) {
       doc.addPage();
       doc
-        .font("Korean")
-        .fontSize(12)
+        .fontSize(21)
         .fillColor("#183d43")
-        .text(INSPECTION_REPORT_TITLE, 30, 25, { width });
-      doc
-        .fontSize(8)
-        .fillColor("#657579")
-        .text(`${source.site.name.slice(0, 65)} · ${o.workDate}`, 30, 46, {
-          width,
-        });
-      y = top;
-    };
-    bodyPage();
-    for (const item of o.items) {
-      doc.fontSize(9);
-      const inspection = `점검지적사항: ${item.inspection}`,
-        repair = `보수결과: ${item.result}`;
-      const h1 = doc.heightOfString(inspection, { width: 519, lineGap: 2 }),
-        h2 = doc.heightOfString(repair, { width: 519, lineGap: 2 });
-      const metaH = 22 + h1 + h2 + 6;
-      const long = metaH > slot - 105;
-      if (long) {
-        if (y !== top) bodyPage();
-        doc
-          .fontSize(11)
-          .fillColor("#183d43")
-          .text(`지적번호 ${item.number}`, 30, y, { width });
-        doc.moveDown(0.5);
+        .text(title, 40, 105, { width: 515, align: "center" });
+      doc.moveTo(65, 195).lineTo(530, 195).strokeColor("#cad7d8").stroke();
+      const fields = [
+        ["현장명", source.site.name.replace(/\s+/g, " ")],
+        ["작업일자", o.workDate],
+        ["공사업체", source.companyName.replace(/\s+/g, " ")],
+        ...(o.originalDocumentName
+          ? [["원본 점검자료명", o.originalDocumentName.replace(/\s+/g, " ")]]
+          : []),
+        ["작성일", o.createdDate],
+        [
+          "이행조치 내용",
+          o.actionSummary ||
+            "아래 점검번호별 지적사항에 대한 보수내용 및 전후 사진을 참조하시기 바랍니다.",
+        ],
+      ];
+      let font = 12;
+      const height = () => {
+        doc.fontSize(font);
+        return fields.reduce(
+          (sum, f) =>
+            sum + doc.heightOfString(f[1], { width: 465, lineGap: 2 }) + 30,
+          0,
+        );
+      };
+      while (font > 9 && height() > 540) font--;
+      if (height() > 540)
+        throw new BadRequestException(
+          "표지 한 페이지에 들어가도록 이행조치 내용과 표지 문구를 요약해 주세요.",
+        );
+      let y = 225;
+      for (const [label, value] of fields) {
         doc
           .fontSize(10)
+          .fillColor("#657579")
+          .text(label, 65, y, { width: 465 });
+        doc
+          .fontSize(font)
           .fillColor("#20373b")
-          .text(inspection, { width, lineGap: 3 });
-        doc.moveDown(0.8);
-        doc.text(repair, { width, lineGap: 3 });
-        bodyPage();
-      }
-      const pairs = Math.max(
-        1,
-        item.beforePhotoIds.length,
-        item.afterPhotoIds.length,
-      );
-      for (let n = 0; n < pairs; n++) {
-        if (y + slot > bottom + 0.1) bodyPage();
-        const headerH = long ? 26 : metaH,
-          cellY = y + headerH,
-          cellH = slot - headerH - 5;
-        doc
-          .lineWidth(0.5)
-          .strokeColor("#aebec1")
-          .rect(30, y, width, slot - 5)
-          .stroke();
-        doc.moveTo(30, cellY).lineTo(565, cellY).stroke();
-        doc
-          .moveTo(297.5, cellY)
-          .lineTo(297.5, y + slot - 5)
-          .stroke();
-        doc
-          .fontSize(9)
-          .fillColor("#183d43")
-          .text(
-            `지적번호 ${item.number}${n || long ? " · 계속" : ""}`,
-            38,
-            y + 7,
-            { width: 519 },
-          );
-        if (!long) {
-          doc
-            .fontSize(9)
-            .fillColor("#20373b")
-            .text(inspection, 38, y + 22, { width: 519, lineGap: 2 });
-          doc.text(repair, 38, doc.y + 3, { width: 519, lineGap: 2 });
-        }
-        for (const [col, id, stage] of [
-          [0, item.beforePhotoIds[n], "작업 전"],
-          [1, item.afterPhotoIds[n], "작업 후"],
-        ] as const) {
-          const x = 30 + col * 267.5,
-            photo = source.photos.find((p) => p.id === id),
-            imageHeight = cellH - 50;
-          if (photo) {
-            doc.image(images.get(id)!, x + 8, cellY + 6, {
-              fit: [251.5, imageHeight],
-              align: "center",
-              valign: "center",
-            });
-            const short = (v: string, max: number) =>
-              v.replace(/\s+/g, " ").slice(0, max);
-            doc
-              .fontSize(8)
-              .fillColor("#20373b")
-              .text(
-                `${item.number}번 항목 ${stage === "작업 전" ? "보수 전" : "보수 후"}\n위치: ${short(photo.location, 45) || "미입력"}\n${short(photo.description, 75) || "설명 미입력"}`,
-                x + 8,
-                cellY + imageHeight + 11,
-                { width: 251.5, height: 38, ellipsis: true },
-              );
-          } else
-            doc
-              .fontSize(9)
-              .fillColor("#657579")
-              .text(`${stage} 사진 없음`, x + 8, cellY + 25, {
-                width: 251.5,
-                align: "center",
-              });
-        }
-        y += slot;
+          .text(value, 65, doc.y + 5, { width: 465, lineGap: 2 });
+        y = doc.y + 14;
       }
     }
+    await this.photoReports.appendInspectionSheets(doc, siteId, {
+      items: o.items,
+      layout: o.layout,
+      workDate: o.workDate,
+      photosOnly: o.outputMode === INSPECTION_OUTPUT_MODES[2],
+    });
     const pages = doc.bufferedPageRange();
     for (let i = 0; i < pages.count; i++) {
       doc.switchToPage(i);
@@ -421,7 +353,7 @@ export class InspectionReportService {
         .fontSize(8)
         .fillColor("#657579")
         .text(`${i + 1} / ${pages.count}`, 30, 807, {
-          width,
+          width: 535,
           align: "center",
           lineBreak: false,
         });

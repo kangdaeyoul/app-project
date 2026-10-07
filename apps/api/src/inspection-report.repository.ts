@@ -4,6 +4,8 @@ import {
   InspectionItemRecord,
   InspectionPhotoLink,
   DEFAULT_COMPANY,
+  INSPECTION_OUTPUT_MODES,
+  INSPECTION_COVER_TITLES,
 } from "@jongno/shared";
 import { seoulToday } from "./date";
 export const INSPECTION_REPORT_REPOSITORY = Symbol(
@@ -38,6 +40,10 @@ export class MemoryInspectionReportRepository implements InspectionReportReposit
           createdDate: seoulToday(),
           originalDocumentName: "소방시설 점검 지적사항 (샘플)",
           layout: 6,
+          outputMode: INSPECTION_OUTPUT_MODES[0],
+          coverTitle: INSPECTION_COVER_TITLES[0],
+          actionSummary:
+            "3층 스프링클러 배관 보수 및 감지기 확인을 완료하였습니다.",
           createdAt: now,
           updatedAt: now,
         },
@@ -49,6 +55,8 @@ export class MemoryInspectionReportRepository implements InspectionReportReposit
           reportId: id,
           position: 0,
           number: "1",
+          location: "3층 천장 배관",
+          photoContent: "스프링클러 배관 및 감지기 상태",
           inspection: "3층 스프링클러 배관 및 감지기 상태 확인 (샘플)",
           result: "배관 보수 및 감지기 상태 확인 완료 (샘플)",
         },
@@ -63,12 +71,23 @@ export class MemoryInspectionReportRepository implements InspectionReportReposit
   private view(record: InspectionReportRecord): InspectionReport {
     return {
       ...structuredClone(record),
+      outputMode: record.outputMode ?? INSPECTION_OUTPUT_MODES[0],
+      coverTitle: record.coverTitle ?? INSPECTION_COVER_TITLES[0],
+      actionSummary:
+        record.actionSummary ??
+        this.items
+          .filter((i) => i.reportId === record.id)
+          .map((i) => `점검번호 ${i.number}: ${i.result}`)
+          .join("\n")
+          .slice(0, 1000),
       items: this.items
         .filter((i) => i.reportId === record.id)
         .sort((a, b) => a.position - b.position)
         .map((i) => ({
           id: i.id,
           number: i.number,
+          location: i.location ?? "",
+          photoContent: i.photoContent ?? "",
           inspection: i.inspection,
           result: i.result,
           beforePhotoIds: this.links

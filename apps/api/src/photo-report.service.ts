@@ -1,5 +1,6 @@
-import { AuditRecorder } from './audit-recorder';
-import { CompanyContext } from './company-context';
+import { appendInspectionTables } from "./photo-report-table";
+import { AuditRecorder } from "./audit-recorder";
+import { CompanyContext } from "./company-context";
 import {
   BadRequestException,
   Inject,
@@ -14,6 +15,7 @@ import {
   PHOTO_REPORT_LAYOUTS,
   PhotoReportOptions,
   PhotoView,
+  InspectionItemInput,
 } from "@jongno/shared";
 import { PhotoService } from "./photo.service";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";
@@ -137,7 +139,11 @@ export class PhotoReportService {
       createdDate,
       periodStart,
       periodEnd,
-      title: text("title", this.company.settings().output.photoReportTitle, 100),
+      title: text(
+        "title",
+        this.company.settings().output.photoReportTitle,
+        100,
+      ),
       companyName: text("companyName", this.company.settings().name, 100),
       workContent: text("workContent", site.description, 5000),
       showWorker: bool("showWorker", false),
@@ -148,9 +154,7 @@ export class PhotoReportService {
       throw new BadRequestException("문서 제목과 회사명을 입력해 주세요.");
     return { site, photos, options };
   }
-  async render(siteId: string, body: unknown, save = false) {
-    const { site, photos, options: o } = this.prepare(siteId, body);
-    // Decode every image before rendering, rejecting corrupt/missing originals.
+  async prepareImages(photos: PhotoView[]) {
     const images = new Map<string, Buffer>();
     for (const p of photos) {
       const file = this.photos.file(p.id);
@@ -173,6 +177,45 @@ export class PhotoReportService {
         );
       }
     }
+    return images;
+  }
+  async appendInspectionSheets(
+    doc: PDFKit.PDFDocument,
+    siteId: string,
+    options: {
+      items: InspectionItemInput[];
+      layout: 6 | 8;
+      workDate: string;
+      photosOnly: boolean;
+    },
+  ) {
+    const site = this.sites.find(siteId);
+    if (!site) throw new NotFoundException("현장을 찾을 수 없습니다.");
+    const photos = this.photos.list(siteId),
+      ids = [
+        ...new Set(
+          options.items.flatMap((i) => [
+            ...i.beforePhotoIds,
+            ...i.afterPhotoIds,
+          ]),
+        ),
+      ];
+    if (ids.some((id) => !photos.some((p) => p.id === id)))
+      throw new BadRequestException("현장 사진을 확인해 주세요.");
+    const images = await this.prepareImages(
+      photos.filter((p) => ids.includes(p.id)),
+    );
+    appendInspectionTables(doc, {
+      ...options,
+      photos,
+      images,
+      siteName: site.name,
+    });
+  }
+  async render(siteId: string, body: unknown, save = false) {
+    const { site, photos, options: o } = this.prepare(siteId, body);
+    // Decode every image before rendering, rejecting corrupt/missing originals.
+    const images = await this.prepareImages(photos);
     const doc = new PDFDocument({
       size: "A4",
       margin: 32,
@@ -197,12 +240,10 @@ export class PhotoReportService {
         width: 531,
         align: "center",
       });
-      doc
-        .fontSize(9)
-        .text(o.companyName.replace(/\s+/g, " "), 32, doc.y + 7, {
-          width: 531,
-          align: "right",
-        });
+      doc.fontSize(9).text(o.companyName.replace(/\s+/g, " "), 32, doc.y + 7, {
+        width: 531,
+        align: "right",
+      });
       doc
         .fontSize(10)
         .text(`현장: ${site.name.replace(/\s+/g, " ")}`, 32, doc.y + 9, {
@@ -334,7 +375,10 @@ export class PhotoReportService {
     const filename = `${safeName}_공사사진대지_${o.createdDate}.pdf`;
     const id = randomUUID();
     const storageKey = `companies/${this.company.companyId}/${siteId}/05 현장사진/사진대지/${id}/${filename}`;
-    if (save) this.audit.withOperation({siteIds:[siteId]},()=>this.storage.put(storageKey, buffer));
+    if (save)
+      this.audit.withOperation({ siteIds: [siteId] }, () =>
+        this.storage.put(storageKey, buffer),
+      );
     return { buffer, filename, storageKey };
   }
 }

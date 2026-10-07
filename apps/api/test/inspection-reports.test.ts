@@ -97,7 +97,7 @@ test("점검지적사항 보고서: 회사별 초안 저장·수정·순서, 단
       assert.equal(r.body.subarray(0, 5).toString(), "%PDF-");
       assert(r.body.length > 10000);
       const pdf = await PDFDocument.load(r.body);
-      assert.equal(pdf.getTitle(), INSPECTION_REPORT_TITLE);
+      assert.equal(pdf.getTitle(), source.defaults.coverTitle);
       assert.equal(pdf.getPageCount(), pages);
       const plain = Buffer.from(
         await pdf.save({ useObjectStreams: false }),
@@ -325,6 +325,138 @@ test("점검지적사항 보고서: 잘못된 사진·항목·날짜와 회사/�
       company.run(other, () => store.get("key")),
       undefined,
     );
+  } finally {
+    await app.close();
+  }
+});
+
+test("제출문서: 3가지 출력 모드·표지 제목·이행조치, 원본 번호별 위치 분리와 캡션 저장", async () => {
+  const app = await NestFactory.create(AppModule, { logger: false });
+  app.setGlobalPrefix("api");
+  await app.init();
+  const http = app.getHttpServer();
+  try {
+    const source = (
+      await request(http).get("/api/sites/S001/inspection-reports/source")
+    ).body;
+    const input = {
+      ...source.defaults,
+      actionSummary: "옥내소화전 유량계와 배관 보수를 완료하였습니다.",
+      items: [
+        {
+          ...item("7-2"),
+          location: "지하 1층 펌프실",
+          photoContent: "옥내소화전 유량계 및 배관",
+        },
+        {
+          ...item("7-2"),
+          location: "지하 2층 펌프실",
+          photoContent: "옥내소화전 유량계 및 배관",
+        },
+      ],
+    };
+    const created = (
+      await request(http)
+        .post("/api/sites/S001/inspection-reports")
+        .send(input)
+        .expect(201)
+    ).body;
+    assert.deepEqual(
+      created.items.map((i: any) => i.number),
+      ["7-2", "7-2"],
+    );
+    assert.deepEqual(
+      created.items.map((i: any) => i.location),
+      ["지하 1층 펌프실", "지하 2층 펌프실"],
+    );
+    assert.equal(created.actionSummary, input.actionSummary);
+    assert.equal(created.items[0].photoContent, input.items[0].photoContent);
+    for (const [mode, pages, title] of [
+      [
+        "이행완료 보고서 + 보수결과 + 사진대지",
+        2,
+        "소방시설등의 자체점검 결과 이행완료 보고서",
+      ],
+      ["보수결과 + 사진대지", 1, INSPECTION_REPORT_TITLE],
+      ["사진대지만", 1, "점검지적사항 사진대지"],
+    ]) {
+      const r = await request(http)
+        .post("/api/sites/S001/inspection-reports/preview")
+        .send({ ...input, outputMode: mode })
+        .buffer(true)
+        .parse(parse)
+        .expect(201);
+      const pdf = await PDFDocument.load(r.body);
+      assert.equal(pdf.getPageCount(), pages);
+      assert.equal(pdf.getTitle(), title);
+      const plain = Buffer.from(
+        await pdf.save({ useObjectStreams: false }),
+      ).toString("latin1");
+      assert.equal((plain.match(/\/Subtype \/Image\b/g) || []).length, 4);
+      assert(plain.includes("/FontFile2"));
+    }
+    await request(http)
+      .post("/api/sites/S001/inspection-reports/preview")
+      .send({
+        ...input,
+        outputMode: "사진대지만",
+        items: [
+          { ...item("7-2"), inspection: "", result: "", location: "지하 1층" },
+        ],
+      })
+      .buffer(true)
+      .parse(parse)
+      .expect(201);
+    const alternate = await request(http)
+      .post("/api/sites/S001/inspection-reports/preview")
+      .send({ ...input, coverTitle: INSPECTION_REPORT_TITLE })
+      .buffer(true)
+      .parse(parse)
+      .expect(201);
+    assert.equal(
+      (await PDFDocument.load(alternate.body)).getTitle(),
+      INSPECTION_REPORT_TITLE,
+    );
+    const legacy = await request(http)
+      .post("/api/sites/S001/inspection-reports/preview")
+      .send({ items: [item("1")] })
+      .buffer(true)
+      .parse(parse)
+      .expect(201);
+    assert.equal((await PDFDocument.load(legacy.body)).getPageCount(), 2);
+    for (const patch of [
+      { outputMode: "잘못된 모드" },
+      { coverTitle: "잘못된 제목" },
+      { actionSummary: "x".repeat(1001) },
+      { items: [input.items[0], input.items[0]] },
+      { items: [{ ...input.items[0], location: 123 }] },
+      { items: [{ ...input.items[0], photoContent: "x".repeat(301) }] },
+      {
+        outputMode: "사진대지만",
+        items: [{ ...item("1"), beforePhotoIds: [], afterPhotoIds: [] }],
+      },
+    ])
+      await request(http)
+        .post("/api/sites/S001/inspection-reports/preview")
+        .send({ ...input, ...patch })
+        .expect(400);
+    await request(http)
+      .put(`/api/sites/S001/inspection-reports/${created.id}`)
+      .send({
+        ...created,
+        outputMode: "사진대지만",
+        items: [created.items[1], created.items[0]],
+      })
+      .expect(200);
+    const stored = (
+      await request(http).get("/api/sites/S001/inspection-reports/source")
+    ).body.reports.find((r: any) => r.id === created.id);
+    assert.equal(stored.outputMode, "사진대지만");
+    assert.deepEqual(
+      stored.items.map((i: any) => i.number),
+      ["7-2", "7-2"],
+    );
+    assert.equal(stored.items[0].location, "지하 2층 펌프실");
   } finally {
     await app.close();
   }
