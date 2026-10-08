@@ -21,8 +21,8 @@ export class DashboardService {
       inProgress: sites.filter(s => s.status === '진행중').length,
       completed: sites.filter(s => s.status === '완료').length,
       unassigned: sites.filter(s => s.status === '미배정').length,
-      contractRevenue: sum('contractAmount'), collected: sum('collectedAmount'),
-      receivables: sum('contractAmount') - sum('collectedAmount'), unpaidWorkers: sum('unpaidWorkerAmount'), totalExpenses: sumMoney(financials.map(f=>f.totalExpenses)), siteProfit:sumMoney(financials.map(f=>f.siteProfit)), taxWarnings,
+      contractRevenue: sumMoney(financials.map(f=>f.contractAmount)), collected: sum('collectedAmount'),
+      receivables: sumMoney(financials.map(f=>f.receivables)), unpaidWorkers: sum('unpaidWorkerAmount'), totalExpenses: sumMoney(financials.map(f=>f.totalExpenses)), siteProfit:sumMoney(financials.map(f=>f.siteProfit)), taxWarnings,
     } };
   }
 }

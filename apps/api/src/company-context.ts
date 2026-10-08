@@ -21,6 +21,9 @@ export const SAMPLE_IDENTITY: CompanyIdentity = {
 // Only trusted server authentication adapters may establish this context.
 @Injectable()
 export class CompanyContext {
+  private readonly operational = new AsyncLocalStorage<boolean>();
+  get operationalWrite(){return this.operational.getStore()===true}
+  withOperationalWrite<T>(work:()=>T):T {this.assertMember();return this.operational.run(true,work)}
   private readonly local = new AsyncLocalStorage<CompanyIdentity>();
   private readonly companies = new Map<string, Company>([
     [DEFAULT_COMPANY.id, structuredClone(DEFAULT_COMPANY)],

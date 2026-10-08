@@ -1,3 +1,4 @@
+import {AS_REPOSITORY,AfterServiceRepository} from "./after-service.repository";
 import { CompanyContext } from "./company-context";
 import { AuditRecorder } from "./audit-recorder";
 import { QUOTE_ADMIN_ACCESS, QuoteAdminAccess } from "./quote-access";
@@ -59,7 +60,7 @@ function money(v: unknown) {
 }
 @Injectable()
 export class QuotesService {
-  constructor(
+  constructor(@Inject(AS_REPOSITORY)private asRepo:AfterServiceRepository,
     @Inject(QUOTES_REPOSITORY) private readonly repository: QuotesRepository,
     @Inject(CUSTOMERS_REPOSITORY)
     private readonly customers: CustomersRepository,
@@ -431,6 +432,8 @@ export class QuotesService {
     if (q.convertedSiteId) return this.sites.find(q.convertedSiteId);
     if (q.status !== "승인")
       throw new ConflictException("승인된 견적만 현장으로 전환할 수 있습니다.");
+    const asRequest=this.asRepo.list().find(a=>a.generatedQuoteIds?.includes(q.id));
+    if(asRequest){if(asRequest.billing!=="유상")throw new ConflictException("유상 A/S만 계약전환할 수 있습니다.");const asUpdated=this.asRepo.save({...asRequest,chargeAmount:this.view(q).totals.totalAmount,updatedAt:new Date().toISOString()});this.audit.record({targetType:"A/S",targetId:asRequest.id,action:"수정",before:asRequest,after:asUpdated,siteIds:[asRequest.siteId],reason:"A/S 견적 계약전환"});this.repository.save({...q,status:"계약전환",convertedSiteId:asRequest.siteId,updatedAt:new Date().toISOString()});return this.sites.find(asRequest.siteId);}
     const r = object(body),
       startDate = text(r, "startDate"),
       endDate = text(r, "endDate");

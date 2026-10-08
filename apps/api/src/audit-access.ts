@@ -7,7 +7,7 @@ export interface AuditAccess {
   assertSite(siteId: string): void;
   snapshot(value: AuditValue): AuditValue;
 }
-const privateKeys = new Set([
+const privateKeys = new Set(["chargeAmount","financial","asRevenue","asCost","originalRevenue","originalCost","totalProfit",
   "materialUnitCost",
   "laborUnitCost",
   "expenseUnitCost",

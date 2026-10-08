@@ -122,6 +122,7 @@ export default function SchedulePanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           siteId: editing.siteId,
+          asId: editing.asId,
           dailyWorkId: editing.dailyWorkId,
           date: workDate,
           managerId: manager,
@@ -192,7 +193,7 @@ export default function SchedulePanel({
           style={{ color: SCHEDULE_COLORS[e.status] }}
         >
           {e.urgent ? "! " : ""}
-          {e.status}
+          {e.asId&&<b className="as-tag">A/S </b>}{e.status}
           {e.workStatus &&
           ["긴급", "확인필요", "견적방문·현장확인"].includes(e.status)
             ? ` · ${e.workStatus}`

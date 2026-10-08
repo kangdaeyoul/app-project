@@ -1,4 +1,8 @@
 import {
+  AS_REPOSITORY,
+  AfterServiceRepository,
+} from "./after-service.repository";
+import {
   BadRequestException,
   Body,
   ConflictException,
@@ -25,6 +29,7 @@ import { validDate, seoulToday } from "./date";
 @Injectable()
 export class WorkerScheduleService {
   constructor(
+    @Inject(AS_REPOSITORY) private asRepo: AfterServiceRepository,
     @Inject(CompanyContext) private context: CompanyContext,
     @Inject(DAILY_WORK_REPOSITORY) private daily: DailyWorkRepository,
     @Inject(WORKERS_REPOSITORY) private workers: WorkersRepository,
@@ -137,6 +142,41 @@ export class WorkerScheduleService {
           kind: "현장 예정",
         });
       }
+    const asRows = this.asRepo
+      .list()
+      .filter((a) => !a.deletedAt && sites.some((s) => s.id === a.siteId));
+    for (const e of events) {
+      const a = asRows.find((a) => a.workIds.includes(e.dailyWorkId ?? ""));
+      if (a) {
+        e.asId = a.id;
+        e.asNumber = a.number;
+      }
+    }
+    for (const a of asRows.filter(
+      (a) =>
+        a.plannedDate >= from &&
+        a.plannedDate <= to &&
+        !a.workIds.some((id) =>
+          source.some((d) => d.id === id && d.workDate === a.plannedDate),
+        ),
+    ))
+      events.push({
+        id: `as:${a.id}`,
+        asId: a.id,
+        asNumber: a.number,
+        siteId: a.siteId,
+        siteName: sites.find((s) => s.id === a.siteId)!.name,
+        date: a.plannedDate,
+        start: a.plannedStart,
+        end: a.plannedEnd,
+        status: a.urgent ? "긴급" : a.managerId ? "배정완료" : "미배정",
+        urgent: a.urgent,
+        content: a.request,
+        trades: [],
+        managerId: a.managerId || null,
+        workerIds: [a.managerId, ...a.participantIds].filter(Boolean),
+        kind: "A/S",
+      });
     const visible = events.filter(
       (e) => !identity.workerId || e.workerIds.includes(identity.workerId),
     );
@@ -195,6 +235,17 @@ export class WorkerScheduleService {
     const site = this.sites.find(String(body.siteId));
     if (!site || site.deletedAt || !this.allowed(site.id))
       throw new BadRequestException("배정 가능한 현장을 선택해 주세요.");
+    const linkedAs = body.asId
+      ? this.asRepo.find(String(body.asId))
+      : undefined;
+    if (
+      body.asId &&
+      (!linkedAs ||
+        linkedAs.deletedAt ||
+        linkedAs.siteId !== site.id ||
+        linkedAs.status === "종결")
+    )
+      throw new BadRequestException("A/S 연결을 확인해 주세요.");
     const date = String(body.date),
       start = String(body.start ?? ""),
       end = String(body.end ?? "");
@@ -226,6 +277,7 @@ export class WorkerScheduleService {
       : undefined;
     if (body.dailyWorkId && (!existing || existing.siteId !== site.id))
       throw new BadRequestException("일일작업 연결을 확인해 주세요.");
+    if (linkedAs && existing && !linkedAs.workIds.includes(existing.id)) throw new BadRequestException("A/S에 연결된 처리작업을 선택해 주세요.");
     const warnings: string[] = [];
     // Use all company work for conflict detection, including work outside staff view scope.
     for (const id of ids) {
@@ -306,6 +358,21 @@ export class WorkerScheduleService {
     const saved = existing
       ? this.work.update(existing.id, input)
       : this.work.create(input);
+    const asRecord =
+      linkedAs ?? this.asRepo.list().find((a) => a.workIds.includes(saved.id));
+    if (asRecord)
+      this.asRepo.save({
+        ...asRecord,
+        workIds: [...new Set([...asRecord.workIds, saved.id])],
+        status: asRecord.status === "접수" ? "일정예정" : asRecord.status,
+        plannedDate: date,
+        plannedStart: start,
+        plannedEnd: end,
+        managerId,
+        participantIds: saved.participants.map((p) => p.workerId),
+        urgent: !!saved.urgent,
+        updatedAt: new Date().toISOString(),
+      });
     if (!site.managerId)
       this.sites.update(site.id, {
         ...site,

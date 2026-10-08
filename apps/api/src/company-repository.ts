@@ -57,7 +57,7 @@ export function companyRepository<T extends object>(
           context.identity.memberships.find(
             (m) =>
               m.companyId === companyId && m.userId === context.identity.userId,
-          )?.role === "viewer"
+          )?.role === "viewer" && !(context.operationalWrite && ["save","put","remove","reorder"].includes(property))
         )
           throw new ForbiddenException("읽기 전용 회사 권한입니다.");
         args.forEach((arg) => check(arg, companyId));

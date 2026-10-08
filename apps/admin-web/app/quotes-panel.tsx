@@ -75,7 +75,9 @@ const json = (body: unknown, method = "POST") => ({
 export default function QuotesPanel({
   onChanged,
   onOpenSite,
+  initialQuoteId,
 }: {
+  initialQuoteId?:string;
   onChanged: () => void;
   onOpenSite: (id: string) => void;
 }) {
@@ -158,6 +160,7 @@ export default function QuotesPanel({
       });
     return () => c.abort();
   }, [search, status, from, to, revision]);
+  useEffect(()=>{if(initialQuoteId)fetch(`/api/quotes/${initialQuoteId}`).then(async r=>{const b=await r.json();if(!r.ok)throw Error(b.message);return b}).then(open).catch(e=>setError(e.message))},[initialQuoteId]);
   function open(q: QuoteView) {
     clearPreview();
     setSelected(q);

@@ -5,6 +5,7 @@ export const MENU_ITEMS = [
   "견적",
   "작업진행자",
   "작업진행자 스케줄",
+  "A/S 관리",
   "일일작업",
   "자재·경비",
   "정산",
@@ -197,6 +198,9 @@ export interface SiteMaterials {
 export const PHOTO_TYPES = ["작업 전", "작업 후"] as const;
 export type PhotoType = (typeof PHOTO_TYPES)[number];
 export interface PhotoRecord {
+  asRequestId?:string;
+  asSiteId?:string;
+  asPhase?:string;
   id: string;
   dailyWorkId: string;
   type: PhotoType;
@@ -404,6 +408,7 @@ export interface SettlementList {
   };
 }
 export interface SiteFinance {
+  originalRevenue?:number; originalCost?:number; asCost?:number; asRevenue?:number;
   siteId: string;
   contractAmount: number;
   collectedAmount: number;
@@ -907,6 +912,7 @@ export const AUDIT_TARGETS = [
   "증빙",
   "파일",
   "점검지적사항 보고서",
+  "A/S",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type AuditTarget = (typeof AUDIT_TARGETS)[number];
@@ -1507,6 +1513,7 @@ export interface ScheduleEvent {
   end: string;
   status: ScheduleStatus;
   workStatus?: DailyWorkStatus | SiteStatus;
+  asId?:string; asNumber?:string;
   urgent: boolean;
   content: string;
   trades: string[];
@@ -1521,3 +1528,14 @@ export interface WorkerSchedule {
   canEdit: boolean;
   canForce: boolean;
 }
+
+export const AS_STATUSES=['접수','확인중','일정예정','작업중','처리완료','보류','재확인필요','종결'] as const;
+export const AS_TYPES=['하자보수','재방문','추가보수','점검지적 후속조치','긴급보수','고객요청','확인방문','기타'] as const;
+export const AS_PHOTO_PHASES=['접수 사진','작업 전','작업 중','작업 후','시험/확인'] as const;
+export interface AfterServiceInput {
+ siteId:string;receivedDate:string;receivedBy:string;request:string;location:string;equipment:string;type:string;urgent:boolean;priority:'일반'|'높음'|'긴급';billing:'무상'|'유상'|'판단보류';plannedDate:string;plannedStart:string;plannedEnd:string;managerId:string;participantIds:string[];status:string;notes:string;
+ previousId:string;quoteIds:string[];originalWorkIds:string[];inspectionIds:string[];originalPhotoIds:string[];materialUsageIds:string[];completionFileKeys:string[];workIds:string[];
+ cause:string;action:string;testResult:string;completedDate:string;result:string;finalAction:string;normalOperation:boolean;needsVisit:boolean;needsQuote:boolean;resultConfirmed:boolean;chargeAmount:number;
+}
+export interface AfterService extends AfterServiceInput {generatedQuoteIds:string[];id:string;number:string;companyId:string;createdAt:string;updatedAt:string;deletedAt:string|null;attachments:{id:string;name:string;key:string;size:number;mimeType:string}[]}
+export interface AfterServiceView extends Omit<AfterService,'chargeAmount'> {chargeAmount?:number;siteName:string;customerName:string;address:string;contactName:string;phone:string;managerName:string;recurrenceCount:number;delayed:boolean;canEdit:boolean;canFinance:boolean;canClose:boolean;photos:PhotoView[];works:DailyWork[];financial?:{originalRevenue:number;originalCost:number;asCost:number;asRevenue:number;totalProfit:number};expenses?:Expense[]}

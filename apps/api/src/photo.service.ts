@@ -1,3 +1,4 @@
+import {AS_REPOSITORY,AfterServiceRepository} from "./after-service.repository";
 import { AuditRecorder } from './audit-recorder';
 import { CompanyContext } from './company-context';
 import {
@@ -5,6 +6,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import {
@@ -29,27 +31,29 @@ export interface UploadFile {
 }
 @Injectable()
 export class PhotoService {
-  constructor(
+  constructor(@Inject(AS_REPOSITORY)private asRepo:AfterServiceRepository,
     @Inject(PHOTO_REPOSITORY) private readonly photos: PhotoRepository,
     @Inject(FILE_STORAGE) private readonly storage: FileStorage,
     @Inject(DAILY_WORK_REPOSITORY) private readonly work: DailyWorkRepository,
     @Inject(CompanyContext) private readonly company: CompanyContext,
     @Inject(AuditRecorder) private readonly audit: AuditRecorder,
   ) {}
+  private allowed(p:PhotoRecord){const i=this.company.identity,w=this.work.find(p.dailyWorkId),a=p.asRequestId?this.asRepo.find(p.asRequestId):undefined;return i.workerId?(a?a.managerId===i.workerId||a.participantIds.includes(i.workerId):w?.managerId===i.workerId||w?.participants.some(p=>p.workerId===i.workerId)):i.accessibleSiteIds===undefined||i.memberships.some(m=>m.companyId===this.company.companyId&&m.userId===i.userId&&m.role==="admin")||i.accessibleSiteIds.includes(w?.siteId??p.asSiteId??"");}
   private record(id: string) {
     const p = this.photos.find(id);
     if (!p) throw new NotFoundException("사진을 찾을 수 없습니다.");
+    if(!this.allowed(p))throw new ForbiddenException("사진 접근 권한이 없습니다.");
     return p;
   }
   private view(p: PhotoRecord): PhotoView {
     const work = this.work.find(p.dailyWorkId);
-    if (!work) throw new NotFoundException("일일작업을 찾을 수 없습니다.");
+    if (!work && !p.asSiteId) throw new NotFoundException("일일작업을 찾을 수 없습니다.");
     return {
       ...p,
       size: this.storage.get(p.storageKey)?.buffer.length ?? p.size,
-      siteId: work.siteId,
-      workDate: work.workDate,
-      url: `/api/photos/${p.id}/file`,
+      siteId: work?.siteId ?? p.asSiteId!,
+      workDate: work?.workDate ?? (p.capturedAt ?? p.createdAt).slice(0,10),
+      url: p.asRequestId?`/api/after-service/${p.asRequestId}/photos/${p.id}/file`:`/api/photos/${p.id}/file`,
     };
   }
   list(
@@ -64,6 +68,7 @@ export class PhotoService {
       throw new BadRequestException("작업일자를 확인해 주세요.");
     return this.photos
       .list()
+      .filter(p=>this.allowed(p))
       .map((p) => this.view(p))
       .filter(
         (p) =>
@@ -150,8 +155,9 @@ export class PhotoService {
     type: string,
     body: unknown,
     files: UploadFile[],
+    asContext?:{id:string;siteId:string;phase:string},
   ) {
-    if (!this.work.find(dailyWorkId))
+    if (!asContext && !this.work.find(dailyWorkId))
       throw new NotFoundException("일일작업을 찾을 수 없습니다.");
     if (
       !PHOTO_TYPES.includes(type as PhotoType) ||
@@ -160,6 +166,8 @@ export class PhotoService {
       files.length > 20
     )
       throw new BadRequestException("사진 구분과 파일을 확인해 주세요.");
+    const linked=this.work.find(dailyWorkId);const own=this.company.identity.workerId;
+    if(own&&!asContext&&linked?.managerId!==own&&!linked?.participants.some(p=>p.workerId===own))throw new ForbiddenException();
     const meta = this.metadata(body);
     const validated = files.map((file) => ({
       file,
@@ -172,9 +180,10 @@ export class PhotoService {
     return validated.map(({ file, mime }) => {
       const id = randomUUID();
       const key = `companies/${this.company.companyId}/photos/${id}`;
-      this.audit.withOperation({siteIds:[this.work.find(dailyWorkId)!.siteId]},()=>this.storage.put(key, { buffer: file.buffer, mimeType: mime,originalFilename:this.originalFilename(file.originalname) }));
+      this.audit.withOperation({siteIds:[asContext?.siteId ?? this.work.find(dailyWorkId)!.siteId]},()=>this.storage.put(key, { buffer: file.buffer, mimeType: mime,originalFilename:this.originalFilename(file.originalname) }));
       const p: PhotoRecord = {
         ...meta,
+        ...(asContext?{asRequestId:asContext.id,asSiteId:asContext.siteId,asPhase:asContext.phase}:{}),
         id,
         dailyWorkId,
         type: type as PhotoType,
@@ -190,6 +199,7 @@ export class PhotoService {
       return this.view(p);
     });
   }
+  attachAsWork(asId:string,workId:string){const w=this.work.find(workId);if(!w)throw new NotFoundException();for(const p of this.photos.list().filter(p=>p.asRequestId===asId&&!p.dailyWorkId&&["작업 전","작업 후"].includes(p.asPhase??""))){if(p.asSiteId!==w.siteId)throw new BadRequestException();this.photos.save({...p,dailyWorkId:workId})}}
   update(id: string, body: unknown) {
     const p = this.record(id);
     this.photos.save({ ...p, ...this.metadata(body) });
@@ -198,7 +208,7 @@ export class PhotoService {
   remove(id: string) {
     const p = this.record(id);
     this.photos.remove(id);
-    this.audit.withOperation({siteIds:[this.work.find(p.dailyWorkId)!.siteId]},()=>this.storage.remove(p.storageKey));
+    this.audit.withOperation({siteIds:[p.asSiteId ?? this.work.find(p.dailyWorkId)!.siteId]},()=>this.storage.remove(p.storageKey));
     this.photos.reorder(
       this.photos
         .list()

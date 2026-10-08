@@ -1,3 +1,9 @@
+import { CompanyContext } from "./company-context";
+import {
+  AS_REPOSITORY,
+  AfterServiceRepository,
+  MemoryAfterServiceRepository,
+} from "./after-service.repository";
 import { INVOICES_REPOSITORY, InvoicesRepository } from "./invoices.repository";
 import {
   BadRequestException,
@@ -62,6 +68,10 @@ export class FinanceService {
     @Inject(EXPENSES_REPOSITORY) private readonly expenses: ExpensesRepository,
     @Inject(SITES_REPOSITORY) private readonly sites: SitesRepository,
     @Inject(WORKERS_REPOSITORY) private readonly workers: WorkersRepository,
+    @Inject(AS_REPOSITORY)
+    private readonly afterService: AfterServiceRepository = new MemoryAfterServiceRepository(
+      new CompanyContext(),
+    ),
   ) {}
   private site(id: string) {
     const site = this.sites.find(id);
@@ -296,11 +306,24 @@ export class FinanceService {
     const rows = this.expenses.list().filter((e) => e.siteId === siteId);
     const collectedAmount = sum(this.receipts(siteId).map((r) => r.amount));
     const totalExpenses = sum(rows.map((e) => e.totalAmount));
+    const asRows = this.afterService.list().filter((a) => a.siteId === siteId);
+    const asRevenue = sum(asRows.map((a) => a.chargeAmount));
+    const workIds = new Set(asRows.flatMap((a) => a.workIds));
+    const asCost = sum(
+      rows
+        .filter((e) => e.dailyWorkId && workIds.has(e.dailyWorkId))
+        .map((e) => e.totalAmount),
+    );
+
     return {
       siteId,
-      contractAmount: site.contractAmount,
+      originalRevenue: site.contractAmount,
+      originalCost: totalExpenses - asCost,
+      asRevenue,
+      asCost,
+      contractAmount: site.contractAmount + asRevenue,
       collectedAmount,
-      receivables: site.contractAmount - collectedAmount,
+      receivables: site.contractAmount + asRevenue - collectedAmount,
       directMaterials: sum(
         rows
           .filter((e) => e.type === "회사 직접 자재구매")
@@ -318,7 +341,7 @@ export class FinanceService {
         rows.filter((e) => e.type === "기타경비").map((e) => e.totalAmount),
       ),
       totalExpenses,
-      siteProfit: site.contractAmount - totalExpenses,
+      siteProfit: site.contractAmount + asRevenue - totalExpenses,
       unpaidWorkerAmount: this.settlements(siteId).totals.unpaidAmount,
     };
   }

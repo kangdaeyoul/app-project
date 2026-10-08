@@ -34,6 +34,10 @@ test("예시 현장 수금·미수·차익과 수금 다건 등록/수정/삭제
       .body;
     assert.deepEqual(f, {
       siteId: "S002",
+      originalRevenue: 5500000,
+      originalCost: 2450000,
+      asCost: 0,
+      asRevenue: 0,
       contractAmount: 5500000,
       collectedAmount: 4000000,
       receivables: 1500000,
