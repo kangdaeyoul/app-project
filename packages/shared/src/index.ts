@@ -4,6 +4,7 @@ export const MENU_ITEMS = [
   "현장",
   "견적",
   "작업진행자",
+  "작업진행자 스케줄",
   "일일작업",
   "자재·경비",
   "정산",
@@ -64,6 +65,7 @@ export const AVAILABILITY_STATUSES = [
 ] as const;
 export type AvailabilityStatus = (typeof AVAILABILITY_STATUSES)[number];
 export interface WorkerInput {
+  color?: string;
   name: string;
   displayName: string;
   phone: string;
@@ -110,6 +112,11 @@ export const DAILY_WORK_STATUSES = [
 ] as const;
 export type DailyWorkStatus = (typeof DAILY_WORK_STATUSES)[number];
 export interface DailyWorkInput {
+  plannedStartTime?: string;
+  plannedEndTime?: string;
+  urgent?: boolean;
+  scheduleKind?: "작업" | "견적방문" | "현장확인";
+  reviewRequired?: boolean;
   workDate: string;
   siteId: string;
   managerId: string;
@@ -1460,4 +1467,57 @@ export interface WorkCompositeRequest {
   autoPrice?: boolean;
   tasks: { id: string; templateId: string; request: StandardWorkRequest }[];
   routes: { id: string; options: WorkEstimateOptions }[];
+}
+
+export const WORKER_COLORS = [
+  "#2563eb",
+  "#15803d",
+  "#c76b16",
+  "#7c3aed",
+  "#0f8591",
+  "#334d80",
+  "#a43c77",
+  "#846045",
+] as const;
+export const SCHEDULE_COLORS = {
+  미배정: "#64748b",
+  배정완료: "#2563eb",
+  작업중: "#c76b16",
+  완료: "#15803d",
+  확인필요: "#7c3aed",
+  긴급: "#dc2626",
+  "견적방문·현장확인": "#0f8591",
+} as const;
+export type ScheduleStatus = keyof typeof SCHEDULE_COLORS;
+export interface ScheduleWorker {
+  id: string;
+  displayName: string;
+  color: string;
+  inactive: boolean;
+  defaultAvailability: AvailabilityStatus;
+  availability: WorkerAvailability[];
+}
+export interface ScheduleEvent {
+  id: string;
+  dailyWorkId?: string;
+  siteId: string;
+  siteName: string;
+  date: string;
+  start: string;
+  end: string;
+  status: ScheduleStatus;
+  workStatus?: DailyWorkStatus | SiteStatus;
+  urgent: boolean;
+  content: string;
+  trades: string[];
+  managerId: string | null;
+  workerIds: string[];
+  kind: string;
+}
+export interface WorkerSchedule {
+  companyId: string;
+  events: ScheduleEvent[];
+  workers: ScheduleWorker[];
+  canEdit: boolean;
+  canForce: boolean;
 }

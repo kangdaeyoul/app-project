@@ -72,6 +72,19 @@ export class DailyWorkService {
         throw new BadRequestException(`${key} 입력값을 확인해 주세요.`);
       input[key] = value.trim();
     }
+    for (const key of ["plannedStartTime", "plannedEndTime"] as const) {
+      const time = raw[key] ?? existing?.[key] ?? "";
+      if (typeof time !== "string" || (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new BadRequestException("예정시간을 확인해 주세요.");
+      input[key] = time;
+    }
+    if (input.plannedEndTime && (!input.plannedStartTime || String(input.plannedEndTime) <= String(input.plannedStartTime))) throw new BadRequestException("예정 종료시간은 시작시간 이후여야 합니다.");
+    for(const key of ["urgent", "reviewRequired"] as const) {
+      const flag=raw[key] ?? existing?.[key] ?? false;
+      if(typeof flag!=="boolean") throw new BadRequestException("일정 옵션을 확인해 주세요.");
+      input[key]=flag;
+    }
+    input.scheduleKind=raw.scheduleKind ?? existing?.scheduleKind ?? "작업";
+    if(!["작업","견적방문","현장확인"].includes(String(input.scheduleKind))) throw new BadRequestException("일정 종류를 확인해 주세요.");
     const value = input as unknown as DailyWorkInput;
     if (!validDate(value.workDate))
       throw new BadRequestException("유효한 작업일자가 필요합니다.");

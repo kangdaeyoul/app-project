@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  WORKER_COLORS,
   Worker,
   WorkerInput,
   WorkerAvailability,
@@ -53,7 +54,28 @@ export class SampleWorkersRepository implements WorkersRepository {
   private overrides = new Map<string, WorkerAvailability[]>();
   private records: Record<string, WorkerWork[]>;
   constructor(today = seoulToday(), seed = true) {
-    if (!seed) { this.workers = []; this.records = {}; return; }
+    if (!seed) {
+      this.workers = [];
+      this.records = {};
+      return;
+    }
+    this.workers.push(
+      ...["최기계", "정전기", "한지원"].map((name, i) => ({
+        id: `W00${i + 4}`,
+        name,
+        displayName: `${name} 기사`,
+        phone: "",
+        role: "기사",
+        memo: "스케줄 샘플",
+        defaultAvailability: (i === 1
+          ? "오후불가"
+          : i === 2
+            ? "휴무"
+            : "근무가능") as Worker["defaultAvailability"],
+        deletedAt: null,
+      })),
+    );
+    this.workers.forEach((w, i) => (w.color = WORKER_COLORS[i]));
     const month = today.slice(0, 7);
     this.records = {
       W001: [
@@ -93,7 +115,28 @@ export class SampleWorkersRepository implements WorkersRepository {
     return worker && { ...worker };
   }
   create(input: WorkerInput) {
-    const worker = { ...input, id: randomUUID(), deletedAt: null };
+    const used = new Set(this.workers.map((w) => w.color));
+    let color = input.color ?? WORKER_COLORS.find((c) => !used.has(c));
+    if (!color) {
+      // Golden-angle hues extend the palette without reusing an exact color.
+      for (let i = this.workers.length; !color; i++) {
+        const hue = (i * 137.508) % 360,
+          saturation = 0.62,
+          lightness = 0.42;
+        const a = saturation * Math.min(lightness, 1 - lightness);
+        const channel = (n: number) => {
+          const k = (n + hue / 30) % 12;
+          return Math.round(
+            255 * (lightness - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))),
+          )
+            .toString(16)
+            .padStart(2, "0");
+        };
+        const candidate = `#${channel(0)}${channel(8)}${channel(4)}`;
+        if (!used.has(candidate)) color = candidate;
+      }
+    }
+    const worker = { ...input, color, id: randomUUID(), deletedAt: null };
     this.workers.push(worker);
     return { ...worker };
   }

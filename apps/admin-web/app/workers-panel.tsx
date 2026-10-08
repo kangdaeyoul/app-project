@@ -31,7 +31,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!r.ok) throw Error(b.message || "요청 실패");
   return b;
 }
-export default function WorkersPanel({onChanged}:{onChanged?:()=>void}) {
+export default function WorkersPanel({onChanged,initialWorkerId}:{onChanged?:()=>void;initialWorkerId?:string}) {
   const [workers, setWorkers] = useState<WorkerSummary[]>([]);
   const [detail, setDetail] = useState<WorkerDetail | null>(null);
   const [form, setForm] = useState<WorkerInput | null>(null);
@@ -48,6 +48,7 @@ export default function WorkersPanel({onChanged}:{onChanged?:()=>void}) {
   const [saving, setSaving] = useState(false);
   const [revision, setRevision] = useState(0);
   const [notice, setNotice] = useState("");
+  useEffect(()=>{if(initialWorkerId)api<WorkerDetail>(`/${initialWorkerId}`).then(setDetail).catch(e=>setError(e.message))},[initialWorkerId]);
   useEffect(() => {
     const c = new AbortController();
     setLoading(true);

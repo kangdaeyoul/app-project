@@ -22,7 +22,7 @@ export class SampleSitesRepository implements SitesRepository {
       { id: 'S004', name: '창신동 공동주택 배관 공사', client: '창신 공동주택', address: '종로구 창신길 62', startDate: month + '-18', endDate: month + '-20', status: '진행중', manager: '이소방 기사', managerId: 'W003', contractAmount: 32000000, collectedAmount: 0, unpaidWorkerAmount: 0 },
       { id: 'S005', name: '익선동 매장 소화설비 설치', client: '익선 매장', address: '종로구 수표로 28길', startDate: month + '-24', endDate: month + '-24', status: '미배정', manager: null, managerId: null, contractAmount: 6500000, collectedAmount: 0, unpaidWorkerAmount: 0 },
     ];
-    this.sites = entries.map(s => ({ ...s, status: s.status as Site['status'], contactName: '현장 담당자', phone: '02-000-0000', description: s.name }));
+    this.sites = entries.map(s => ({ ...s, status: s.status as Site['status'], trades: (s.id === 'S002' ? ['전기'] : ['기계','전기']) as Site['trades'], contactName: '현장 담당자', phone: '02-000-0000', description: s.name }));
   }
   list() { return this.sites.map(s => structuredClone(s)); }
   find(id: string) { const site = this.sites.find(s => s.id === id); return site && structuredClone(site); }

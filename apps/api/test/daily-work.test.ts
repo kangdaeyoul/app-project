@@ -162,6 +162,7 @@ test("잘못된 연결, 날짜, 시간, 중복 참여자와 상태는 저장되�
   const app = await setup();
   const http = app.getHttpServer();
   try {
+    const original = (await request(http).get("/api/daily-work").expect(200)).body;
     for (const invalid of [
       { workDate: "2026-02-30" },
       { siteId: "missing" },
@@ -182,10 +183,7 @@ test("잘못된 연결, 날짜, 시간, 중복 참여자와 상태는 저장되�
         .expect(400);
     await request(http).get("/api/daily-work/missing").expect(404);
     await request(http).put("/api/daily-work/missing").send(input).expect(404);
-    assert.equal(
-      (await request(http).get("/api/daily-work").expect(200)).body.length,
-      1,
-    );
+    assert.deepEqual((await request(http).get("/api/daily-work").expect(200)).body, original);
   } finally {
     await app.close();
   }

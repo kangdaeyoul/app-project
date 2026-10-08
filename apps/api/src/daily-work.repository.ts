@@ -27,8 +27,15 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
   private participants: DailyWorkParticipant[];
   private catalog: Material[] = [];
   private usages: MaterialUsage[] = [];
-  constructor(@Inject(PHOTO_REPOSITORY) private readonly photos: PhotoRepository, seed = true) {
-    if (!seed) { this.records = []; this.participants = []; return; }
+  constructor(
+    @Inject(PHOTO_REPOSITORY) private readonly photos: PhotoRepository,
+    seed = true,
+  ) {
+    if (!seed) {
+      this.records = [];
+      this.participants = [];
+      return;
+    }
     const today = seoulToday();
     this.records = [
       {
@@ -45,6 +52,60 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
         status: "작업완료",
       },
     ];
+    this.records.push(
+      ...[
+        {
+          id: "D002",
+          siteId: "S003",
+          siteName: "광화문 빌딩 정기점검",
+          managerId: "W004",
+          managerDisplayName: "최기계 기사",
+          plannedStartTime: "09:00",
+          plannedEndTime: "12:00",
+          status: "작업예정" as const,
+        },
+        {
+          id: "D003",
+          siteId: "S004",
+          siteName: "창신동 공동주택 배관",
+          managerId: "W004",
+          managerDisplayName: "최기계 기사",
+          plannedStartTime: "14:00",
+          plannedEndTime: "17:00",
+          status: "작업예정" as const,
+        },
+        {
+          id: "D004",
+          siteId: "S004",
+          siteName: "창신동 공동주택 배관",
+          managerId: "W005",
+          managerDisplayName: "정전기 기사",
+          plannedStartTime: "13:00",
+          plannedEndTime: "17:00",
+          startTime: "13:00",
+          status: "작업중" as const,
+        },
+        {
+          id: "D005",
+          siteId: "S003",
+          siteName: "광화문 빌딩 정기점검",
+          managerId: "W006",
+          managerDisplayName: "한지원 기사",
+          plannedStartTime: "10:00",
+          plannedEndTime: "11:00",
+          urgent: true,
+          scheduleKind: "현장확인" as const,
+          status: "작업예정" as const,
+        },
+      ].map((row) => ({
+        workDate: today,
+        startTime: "",
+        endTime: "",
+        content: "스케줄 확인용 샘플 작업",
+        notes: "",
+        ...row,
+      })),
+    );
     this.participants = [
       { dailyWorkId: "D001", workerId: "W002", displayName: "박진행 팀장" },
       { dailyWorkId: "D001", workerId: "W003", displayName: "이소방 기사" },
@@ -53,8 +114,14 @@ export class SampleDailyWorkRepository implements DailyWorkRepository {
   private view(record: DailyWorkRecord): DailyWork {
     return {
       ...record,
-      beforePhotoCount: this.photos.list().filter(p=>p.dailyWorkId===record.id&&p.type==="작업 전").length,
-      afterPhotoCount: this.photos.list().filter(p=>p.dailyWorkId===record.id&&p.type==="작업 후").length,
+      beforePhotoCount: this.photos
+        .list()
+        .filter((p) => p.dailyWorkId === record.id && p.type === "작업 전")
+        .length,
+      afterPhotoCount: this.photos
+        .list()
+        .filter((p) => p.dailyWorkId === record.id && p.type === "작업 후")
+        .length,
       materialCount: this.usages.filter((u) => u.dailyWorkId === record.id)
         .length,
       materials: this.usages

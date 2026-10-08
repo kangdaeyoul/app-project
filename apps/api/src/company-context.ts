@@ -6,6 +6,8 @@ export interface CompanyIdentity {
   userId: string;
   userDisplayName?: string;
   accessibleSiteIds?: string[];
+  workerId?: string;
+  canEditSchedule?: boolean;
   memberships: CompanyMembership[];
 }
 export const SAMPLE_IDENTITY: CompanyIdentity = {

@@ -77,9 +77,10 @@ export class WorkersService {
       availability:
         this.repository.availability(w.id).find((a) => a.date === today)
           ?.status ?? w.defaultAvailability,
-      todaySiteCount: this.sites
-        .list()
-        .filter((s) => s.managerId === w.id && isSiteOnDate(s, today)).length,
+      todaySiteCount: new Set([
+        ...this.sites.list().filter(s=>!s.deletedAt&&s.managerId===w.id&&isSiteOnDate(s,today)).map(s=>s.id),
+        ...this.daily.list().filter(d=>d.workDate===today&&(d.managerId===w.id||d.participants.some(p=>p.workerId===w.id))).map(d=>d.siteId),
+      ]).size,
       monthlyWorkDays: new Set(
         this.daily.list().filter(t => (t.managerId === w.id || t.participants.some(p => p.workerId === w.id)) && t.workDate.startsWith(month) && t.workDate <= today && ["작업완료", "관리자확인완료"].includes(t.status)).map(t => t.workDate),
       ).size,
