@@ -35,7 +35,7 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
   intercept(execution: ExecutionContext, next: CallHandler) {
     const request = execution.switchToHttp().getRequest();
     const identity = this.identities.resolve(request);
-    if(identity.workerId){const controller=execution.getClass().name;if(!["AfterServiceController","WorkerScheduleController","PhotoController","CompanyController"].includes(controller)||controller==="CompanyController"&&request.method!=="GET")throw new ForbiddenException("작업진행자는 본인 배정 업무만 이용할 수 있습니다.");}
+    if(identity.workerId){const controller=execution.getClass().name;if(!["WorkInstructionController","AfterServiceController","WorkerScheduleController","PhotoController","CompanyController"].includes(controller)||controller==="CompanyController"&&request.method!=="GET")throw new ForbiddenException("작업진행자는 본인 배정 업무만 이용할 수 있습니다.");}
     const claim = request.headers["x-company-id"];
     if (claim && claim !== identity.companyId)
       throw new ForbiddenException("회사는 서버의 사용자 소속으로 결정됩니다.");

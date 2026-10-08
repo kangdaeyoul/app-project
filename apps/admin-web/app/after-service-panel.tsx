@@ -1,4 +1,5 @@
 "use client";
+import InstructionsPanel from './instructions-panel';
 import { useEffect, useState } from "react";
 import {
   AfterServiceInput,
@@ -763,7 +764,7 @@ export default function AfterServicePanel({
             </div>
           </section>
           <div className="tab-list" role="tablist">
-            {["처리기록", "사진", "비용", "연결기록", "결과보고서", "첨부파일"]
+            {["처리기록", "작업지시", "사진", "비용", "연결기록", "결과보고서", "첨부파일"]
               .filter((t) => t !== "비용" || detail.canFinance)
               .map((t) => (
                 <button
@@ -778,7 +779,7 @@ export default function AfterServicePanel({
               ))}
           </div>
           <section className="panel as-content">
-            {tab === "처리기록" ? (
+            {tab === "작업지시" ? <InstructionsPanel siteId={detail.siteId} asId={detail.id}/> : tab === "처리기록" ? (
               <>
                 {detail.works.length > 0 && (
                   <label>
