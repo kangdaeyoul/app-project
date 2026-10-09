@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +22,7 @@ const parse = (
   res.on("end", () => done(null, Buffer.concat(chunks)));
 };
 test("완료보고서: 기존 기록 자동 요약·합산, 수동 편집, 실제 PDF·사진 필터·저장·감사로그", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();
@@ -184,7 +185,7 @@ test("완료보고서: 기존 기록 자동 요약·합산, 수동 편집, 실�
   }
 });
 test("완료보고서: 입력 검증, 빈 현장, 비활성 작업자와 회사·현장 권한 격리", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

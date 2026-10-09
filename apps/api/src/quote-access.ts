@@ -7,5 +7,5 @@ export interface QuoteAdminAccess {
 }
 export class SampleQuoteAdminAccess implements QuoteAdminAccess {
   constructor(private readonly context: CompanyContext = new CompanyContext()) {}
-  assertAdmin() { this.context.assertMember(true); }
+  assertAdmin() { if(this.context.identity.authenticated&&this.context.identity.appRole==="staff"&&this.context.identity.permissions?.includes("writeQuotes"))this.context.assertMember();else this.context.assertMember(true); }
 }

@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -66,7 +67,7 @@ test("빠른입력 동일품목 누적, 규격 분리, 수정단가 보존, 자�
   assert.equal(priceToQuoteItem(p, false).saleUnitPrice, 0);
 });
 test("회사 즐겨찾기 순서·검증·권한·격리, 회사 기본값 및 표준작업 공통 합산", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

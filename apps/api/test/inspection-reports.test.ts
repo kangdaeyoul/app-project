@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -32,7 +33,7 @@ const item = (number: string) => ({
   afterPhotoIds: ["P002"],
 });
 test("점검지적사항 보고서: 회사별 초안 저장·수정·순서, 단일 PDF 표지+6/8장, 파일 저장·감사", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();
@@ -191,7 +192,7 @@ test("점검지적사항 보고서: 회사별 초안 저장·수정·순서, 단
   }
 });
 test("점검지적사항 보고서: 잘못된 사진·항목·날짜와 회사/현장 접근 차단, 삭제 사진 원본 보존", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();
@@ -331,7 +332,7 @@ test("점검지적사항 보고서: 잘못된 사진·항목·날짜와 회사/�
 });
 
 test("제출문서: 3가지 출력 모드·표지 제목·이행조치, 원본 번호별 위치 분리와 캡션 저장", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

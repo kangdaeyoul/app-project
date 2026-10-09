@@ -99,6 +99,7 @@ export class PhotoService {
         throw new BadRequestException("사진 설명과 등록자를 확인해 주세요.");
       fields[key] = value.trim();
     }
+    if(this.company.identity.authenticated)fields.uploadedBy=this.company.identity.userDisplayName??this.company.identity.userId;
     if (!fields.uploadedBy)
       throw new BadRequestException("등록자는 필수입니다.");
     const date = raw.capturedAt;

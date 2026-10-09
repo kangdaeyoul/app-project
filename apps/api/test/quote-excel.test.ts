@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import 'reflect-metadata';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +11,7 @@ import { QuoteExcelService } from '../src/quote-excel.service';
 import { QUOTE_PRINT_MODES } from '@jongno/shared';
 const text=(x:Uint8Array)=>strFromU8(x);
 test('실제 양식: 서식/이미지/인쇄 보존, 고객 금액, 숨김 모드 및 원가 차단',async()=>{
- const app=await NestFactory.create(AppModule,{logger:false});await app.init();
+ const app=await createTestApp(AppModule,{logger:false});await app.init();
  try{
  const quotes=app.get(QuotesService),excel=app.get(QuoteExcelService);
  const template=unzipSync(readFileSync('fixtures/quotes/jongno-2026.xlsx'));

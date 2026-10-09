@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -37,7 +38,7 @@ const measurements = {
   circuits: 10,
 };
 test("통합 표준작업: 전체 기본 작업군·실제산출·미등록 단가·시공조건·공유경로·승인·견적/출력/회사 보존", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

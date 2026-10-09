@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -29,7 +30,7 @@ async function workbook(rows: unknown[][]) {
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 async function setup() {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   return app;

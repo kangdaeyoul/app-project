@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -20,7 +21,7 @@ import {
 } from "../src/work-instructions";
 import { seoulToday } from "../src/date";
 test("작업지시: 전체/개인/A/S 발송·중복 방지·수신별 읽음·이벤트 분리·금융 비노출·회사 격리", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

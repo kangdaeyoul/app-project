@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import 'reflect-metadata';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,7 +9,7 @@ import { seoulToday } from '../src/date';
 import { SampleSitesRepository } from '../src/sites.repository';
 
 test('현장 등록·조회·수정과 대시보드가 같은 저장소를 사용한다', async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix('api'); await app.init();
   const http = app.getHttpServer();
   const today = seoulToday();
@@ -51,7 +52,7 @@ test('현장 등록·조회·수정과 대시보드가 같은 저장소를 사�
 });
 
 test('잘못된 날짜·금액·상태는 거부하며 누락 현장은 404이다', async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix('api'); await app.init();
   const http = app.getHttpServer();
   const input = { name: '검증', startDate: '2026-10-06', contractAmount: 0, status: '미배정' };

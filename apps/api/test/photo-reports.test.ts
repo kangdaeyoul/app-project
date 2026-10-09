@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -23,7 +24,7 @@ const parsePdf = (
 };
 const options = { showWorker: true, showNumber: true, showTime: true };
 test("사진대지 실제 PDF 3가지 형식, 임시저장/미리보기, 필터와 원본 보존", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();
@@ -158,7 +159,7 @@ test("사진대지 실제 PDF 3가지 형식, 임시저장/미리보기, 필터�
   }
 });
 test("사진대지 잘못된 범위/날짜/옵션/외부현장 사진 차단", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -30,7 +31,7 @@ const input = {
   autoPrice: true,
 };
 test("작업세트 생성·수정·복사·순서·삭제 및 조건·최신 단가·견적 합산·고객 출력·회사 격리", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

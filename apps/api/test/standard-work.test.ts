@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -14,7 +15,7 @@ const input = {
   overrides: {},
 };
 test("기본 작업군 및 기존 계산방식, 다중 구성품 수량·재사용·직접입력·버전·회사 격리 및 고객 출력", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();

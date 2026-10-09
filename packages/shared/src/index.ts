@@ -914,6 +914,7 @@ export const AUDIT_TARGETS = [
   "파일",
   "점검지적사항 보고서",
   "A/S",
+  "사용자",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 export type AuditTarget = (typeof AUDIT_TARGETS)[number];
@@ -1540,3 +1541,13 @@ export interface AfterServiceInput {
 }
 export interface AfterService extends AfterServiceInput {statusHistory?:{from:string;to:string;changedAt:string;actorId:string;actorName:string}[];generatedQuoteIds:string[];id:string;number:string;companyId:string;createdAt:string;updatedAt:string;deletedAt:string|null;attachments:{id:string;name:string;key:string;size:number;mimeType:string}[]}
 export interface AfterServiceView extends Omit<AfterService,'chargeAmount'> {chargeAmount?:number;relatedPhotos?:PhotoView[];relatedMaterials?:MaterialUsage[];siteName:string;customerName:string;address:string;contactName:string;phone:string;managerName:string;recurrenceCount:number;delayed:boolean;canEdit:boolean;canFinance:boolean;canClose:boolean;photos:PhotoView[];works:DailyWork[];financial?:{originalRevenue:number;originalCost:number;asCost:number;asRevenue:number;totalProfit:number};expenses?:Expense[]}
+
+// Authentication contracts are independent of the memory / future Supabase adapter.
+export type UserRole = 'admin' | 'staff' | 'worker' | 'customer';
+export type UserPermission = 'internalCosts' | 'siteFinance' | 'workerPayments' | 'editSchedule' | 'writeQuotes';
+export interface CurrentUser {
+  id:string; companyId:string; loginId:string; email:string; name:string;
+  displayName:string; role:UserRole; active:boolean; workerId:string|null;
+  siteIds:string[]; permissions:UserPermission[];
+}
+export type CurrentCompany = Company;

@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -22,7 +23,7 @@ const input = {
   end: "13:00",
 };
 test("스케줄: 기존 데이터 투영, 다중 현장, 휴무·중복 검증, 관리자 강제 저장, 사진·실제시간 보존", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   const http = app.getHttpServer();
@@ -139,7 +140,7 @@ test("스케줄: 기존 데이터 투영, 다중 현장, 휴무·중복 검증, 
   }
 });
 test("스케줄 회사 격리, 본인 일정만 조회, 직원 현장 범위와 수정/강제 권한", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   await app.init();
   const service = app.get(WorkerScheduleService),
     context = app.get(CompanyContext);

@@ -8,6 +8,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import {
@@ -85,6 +86,7 @@ export class QuotesService {
   private record(id: string) {
     const q = this.repository.find(id);
     if (!q) throw new NotFoundException("견적을 찾을 수 없습니다.");
+    if(this.context.identity.authenticated&&this.context.identity.appRole!=="admin"&&(!q.siteId||!this.context.identity.accessibleSiteIds?.includes(q.siteId)))throw new ForbiddenException("허용된 현장의 견적만 이용할 수 있습니다.");
     return q;
   }
   private view(q: Quote): QuoteView {
@@ -110,6 +112,7 @@ export class QuotesService {
       .list()
       .filter(
         (q) =>
+          (!this.context.identity.authenticated||this.context.identity.appRole==="admin"||!!q.siteId&&this.context.identity.accessibleSiteIds?.includes(q.siteId)) &&
           (!status || q.status === status) &&
           (!from || q.quoteDate >= from) &&
           (!to || q.quoteDate <= to) &&
@@ -380,6 +383,24 @@ export class QuotesService {
       throw new ConflictException(
         "계약전환된 견적은 복사하여 새 견적으로 수정해 주세요.",
       );
+    if(this.context.identity.authenticated&&this.context.identity.appRole!=="admin"){
+      const r=object(body);
+      if(typeof r.siteId!=="string"||!this.context.identity.accessibleSiteIds?.includes(r.siteId))throw new ForbiddenException("허용된 현장에 연결해야 합니다.");
+      if(!["작성중","제출완료","수정요청"].includes(r.status as string))throw new ForbiddenException("견적 승인과 계약전환은 관리자 업무입니다.");
+      r.internalGeneralCost=existing?.internalGeneralCost??0;r.internalSupportCost=existing?.internalSupportCost??0;
+      if (Array.isArray(r.sections)) {
+        for (const value of r.sections) {
+          const section = object(value);
+          if (!Array.isArray(section.items)) continue;
+          for (const [position, value] of section.items.entries()) {
+            const item = object(value);
+            const prior = existing?.sections.find(s => s.kind === section.kind)?.items[position];
+            for (const key of ["materialUnitCost", "laborUnitCost", "expenseUnitCost"] as const)
+              item[key] = prior?.[key] ?? 0;
+          }
+        }
+      }
+    }
     const input = this.input(body);
     const now = new Date().toISOString();
     const quote: Quote = {

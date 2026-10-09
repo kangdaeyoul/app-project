@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import { CompanyContext } from '../src/company-context';
 import { InvoicesService } from '../src/invoices.service';
 import { SampleInvoicesRepository } from '../src/invoices.repository';
@@ -33,7 +34,7 @@ test('월별 합계와 배정 상태는 샘플 현장과 일치한다', () => {
   assert.ok(dashboard.sites.every(s => s.startDate.startsWith('2026-10')));
 });
 test('HTTP API는 상태, 월 조회, 잘못된 월의 400 응답을 제공한다', async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix('api'); await app.init();
   try {
     await request(app.getHttpServer()).get('/api/health').expect(200).expect({status:'ok',mode:'sample'});

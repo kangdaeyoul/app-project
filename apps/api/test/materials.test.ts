@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -5,7 +6,7 @@ import request from "supertest";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../src/app.module";
 async function setup() {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   return app;

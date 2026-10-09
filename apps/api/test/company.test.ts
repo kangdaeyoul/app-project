@@ -1,3 +1,4 @@
+import { createTestApp } from "./test-app";
 import "reflect-metadata";
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -65,7 +66,7 @@ const identity: CompanyIdentity = {
   memberships: [{ companyId: "other", userId: "other-admin", role: "admin" }],
 };
 test("회사별 전체 저장소/자식 데이터/동일 ID/파일/출력 양식/권한 및 비동기 문맥 분리", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   await app.init();
   try {
     const context = app.get(CompanyContext);
@@ -306,7 +307,7 @@ test("회사별 전체 저장소/자식 데이터/동일 ID/파일/출력 양식
   }
 });
 test("HTTP 샘플 회사 유지, 회사 헤더/본문 위조 차단, 회사 설정 조회", async () => {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  const app = await createTestApp(AppModule, { logger: false });
   app.setGlobalPrefix("api");
   await app.init();
   try {
