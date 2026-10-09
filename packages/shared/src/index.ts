@@ -409,7 +409,7 @@ export interface SettlementList {
   };
 }
 export interface SiteFinance {
-  originalRevenue?:number; originalCost?:number; asCost?:number; asRevenue?:number;
+  originalRevenue?:number; originalCost?:number; asCost?:number; asRevenue?:number; asFreeCost?:number; asPaidCost?:number; asPendingCost?:number;
   siteId: string;
   contractAmount: number;
   collectedAmount: number;
@@ -1538,5 +1538,5 @@ export interface AfterServiceInput {
  previousId:string;quoteIds:string[];originalWorkIds:string[];inspectionIds:string[];originalPhotoIds:string[];materialUsageIds:string[];completionFileKeys:string[];workIds:string[];
  cause:string;action:string;testResult:string;completedDate:string;result:string;finalAction:string;normalOperation:boolean;needsVisit:boolean;needsQuote:boolean;resultConfirmed:boolean;chargeAmount:number;
 }
-export interface AfterService extends AfterServiceInput {generatedQuoteIds:string[];id:string;number:string;companyId:string;createdAt:string;updatedAt:string;deletedAt:string|null;attachments:{id:string;name:string;key:string;size:number;mimeType:string}[]}
-export interface AfterServiceView extends Omit<AfterService,'chargeAmount'> {chargeAmount?:number;siteName:string;customerName:string;address:string;contactName:string;phone:string;managerName:string;recurrenceCount:number;delayed:boolean;canEdit:boolean;canFinance:boolean;canClose:boolean;photos:PhotoView[];works:DailyWork[];financial?:{originalRevenue:number;originalCost:number;asCost:number;asRevenue:number;totalProfit:number};expenses?:Expense[]}
+export interface AfterService extends AfterServiceInput {statusHistory?:{from:string;to:string;changedAt:string;actorId:string;actorName:string}[];generatedQuoteIds:string[];id:string;number:string;companyId:string;createdAt:string;updatedAt:string;deletedAt:string|null;attachments:{id:string;name:string;key:string;size:number;mimeType:string}[]}
+export interface AfterServiceView extends Omit<AfterService,'chargeAmount'> {chargeAmount?:number;relatedPhotos?:PhotoView[];relatedMaterials?:MaterialUsage[];siteName:string;customerName:string;address:string;contactName:string;phone:string;managerName:string;recurrenceCount:number;delayed:boolean;canEdit:boolean;canFinance:boolean;canClose:boolean;photos:PhotoView[];works:DailyWork[];financial?:{originalRevenue:number;originalCost:number;asCost:number;asRevenue:number;totalProfit:number};expenses?:Expense[]}

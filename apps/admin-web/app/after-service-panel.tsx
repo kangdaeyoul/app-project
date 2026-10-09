@@ -1,5 +1,5 @@
 "use client";
-import InstructionsPanel from './instructions-panel';
+import InstructionsPanel from "./instructions-panel";
 import { useEffect, useState } from "react";
 import {
   AfterServiceInput,
@@ -124,7 +124,13 @@ export default function AfterServicePanel({
     [worker, setWorker] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
-    [contact, setContact] = useState("");
+    [contact, setContact] = useState(""),
+    [plannedFilter, setPlannedFilter] = useState(""),
+    [urgentFilter, setUrgentFilter] = useState("");
+  const [completion, setCompletion] = useState<Record<
+    string,
+    string | boolean
+  > | null>(null);
   const [workForm, setWorkForm] = useState<DailyWork | null>(null),
     [cause, setCause] = useState(""),
     [action, setAction] = useState(""),
@@ -205,8 +211,10 @@ export default function AfterServicePanel({
       setRevision((v) => v + 1);
       onChanged?.();
       if (detail) await open(detail.id);
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setSaving(false);
     }
@@ -397,6 +405,8 @@ export default function AfterServicePanel({
           .join(" ")
           .includes(search)) &&
       (!contact || [r.receivedBy, r.contactName].join(" ").includes(contact)) &&
+      (!plannedFilter || r.plannedDate === plannedFilter) &&
+      (!urgentFilter || r.urgent === (urgentFilter === "긴급")) &&
       (!status || r.status === status) &&
       (!billing || r.billing === billing) &&
       (!type || r.type === type) &&
@@ -654,6 +664,7 @@ export default function AfterServicePanel({
               </div>
               <button onClick={() => setDetail(null)}>목록</button>
             </div>
+            <p>{detail.address}</p>
             <h3>{detail.request}</h3>
             <p>
               {detail.plannedDate || "예정일 미정"} {detail.plannedStart}–
@@ -676,6 +687,7 @@ export default function AfterServicePanel({
               </p>
             )}
             <div className="as-actions">
+              <button onClick={() => setTab("작업지시")}>작업지시 확인</button>
               <button
                 disabled={saving || !detail.works.length}
                 onClick={() => perform(`/${detail.id}/start`)}
@@ -691,10 +703,47 @@ export default function AfterServicePanel({
                 사진 등록
               </button>
               <button
+                onClick={() => {
+                  setTab("처리기록");
+                }}
+              >
+                작업내용 입력
+              </button>
+              <button
+                onClick={() => {
+                  setTab("사진");
+                  setPhotoPhase("작업 후");
+                }}
+              >
+                작업 후 사진
+              </button>
+              <button onClick={() => setTab("처리기록")}>시험결과 입력</button>
+              <button
                 disabled={saving || !detail.works.length}
                 onClick={() => perform(`/${detail.id}/finish`)}
               >
                 작업 완료
+              </button>
+
+              <button
+                disabled={
+                  saving || !detail.works.length || detail.status === "종결"
+                }
+                onClick={() =>
+                  setCompletion({
+                    cause: detail.cause,
+                    finalAction: detail.finalAction || detail.action,
+                    testResult: detail.testResult,
+                    result: detail.result,
+                    notes: detail.notes,
+                    normalOperation: detail.normalOperation,
+                    needsVisit: detail.needsVisit,
+                    needsQuote: detail.needsQuote,
+                    completedDate: detail.completedDate || today(),
+                  })
+                }
+              >
+                완료처리 요청
               </button>
               {detail.canEdit && (
                 <button onClick={() => edit(detail)}>접수·완료정보 수정</button>
@@ -763,8 +812,89 @@ export default function AfterServicePanel({
               )}
             </div>
           </section>
+          {completion && (
+            <section className="panel as-completion">
+              <h3>완료처리 요청 · 관리자 확인 대기</h3>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (
+                    await perform(`/${detail.id}/complete-request`, completion)
+                  )
+                    setCompletion(null);
+                }}
+              >
+                <div className="form-grid">
+                  {[
+                    ["cause", "원인"],
+                    ["finalAction", "최종 조치내용"],
+                    ["testResult", "시험/확인내용"],
+                    ["result", "처리결과"],
+                    ["notes", "완료 비고"],
+                    ["completedDate", "완료일"],
+                  ].map(([k, l]) => (
+                    <label key={k}>
+                      {l}
+                      <input
+                        required={k !== "notes"}
+                        type={k === "completedDate" ? "date" : "text"}
+                        value={String(completion[k])}
+                        onChange={(e) =>
+                          setCompletion({ ...completion, [k]: e.target.value })
+                        }
+                      />
+                    </label>
+                  ))}
+                  {[
+                    ["normalOperation", "정상작동 확인"],
+                    ["needsVisit", "추가 방문 필요"],
+                    ["needsQuote", "추가 견적 필요"],
+                  ].map(([k, l]) => (
+                    <label key={k}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(completion[k])}
+                        onChange={(e) =>
+                          setCompletion({
+                            ...completion,
+                            [k]: e.target.checked,
+                          })
+                        }
+                      />
+                      {l}
+                    </label>
+                  ))}
+                </div>
+                <button disabled={saving} className="primary-button">
+                  관리자에게 완료요청
+                </button>
+                <button type="button" onClick={() => setCompletion(null)}>
+                  취소
+                </button>
+              </form>
+            </section>
+          )}
+          <details className="panel as-status-history">
+            <summary>상태 변경 이력</summary>
+            {detail.statusHistory?.map((h, i) => (
+              <p key={i}>
+                {h.from || "신규"} → {h.to} · {h.actorName} ·{" "}
+                {new Date(h.changedAt).toLocaleString("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                })}
+              </p>
+            ))}
+          </details>
           <div className="tab-list" role="tablist">
-            {["처리기록", "작업지시", "사진", "비용", "연결기록", "결과보고서", "첨부파일"]
+            {[
+              "처리기록",
+              "작업지시",
+              "사진",
+              "비용",
+              "연결기록",
+              "결과보고서",
+              "첨부파일",
+            ]
               .filter((t) => t !== "비용" || detail.canFinance)
               .map((t) => (
                 <button
@@ -779,7 +909,9 @@ export default function AfterServicePanel({
               ))}
           </div>
           <section className="panel as-content">
-            {tab === "작업지시" ? <InstructionsPanel siteId={detail.siteId} asId={detail.id}/> : tab === "처리기록" ? (
+            {tab === "작업지시" ? (
+              <InstructionsPanel siteId={detail.siteId} asId={detail.id} />
+            ) : tab === "처리기록" ? (
               <>
                 {detail.works.length > 0 && (
                   <label>
@@ -903,7 +1035,7 @@ export default function AfterServicePanel({
                             "작업중",
                             "작업완료",
                             "관리자확인완료",
-                          ].map((s) => (
+                          ].filter(s=>s!=="관리자확인완료"||detail.canClose).map((s) => (
                             <option key={s}>{s}</option>
                           ))}
                         </select>
@@ -1075,8 +1207,27 @@ export default function AfterServicePanel({
                   </p>
                 ))}
                 <p>점검지적: {detail.inspectionIds.join(", ") || "없음"}</p>
-                <p>사진: {detail.originalPhotoIds.join(", ") || "없음"}</p>
-                <p>사용자재: {detail.materialUsageIds.join(", ") || "없음"}</p>
+                <h4>연결 원공사 사진</h4>
+                <div className="as-photo-grid">
+                  {detail.relatedPhotos?.map((p) => (
+                    <button key={p.id} onClick={() => setPreviewPhoto(p.url)}>
+                      <img
+                        src={p.url}
+                        alt={p.description || p.originalFilename}
+                      />
+                      <span>
+                        {p.location} · {p.description}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <h4>연결 원공사 사용자재</h4>
+                {detail.relatedMaterials?.map((m) => (
+                  <p key={m.id}>
+                    {m.name} · {m.specification} · {m.quantity}
+                    {m.unit}
+                  </p>
+                ))}
                 <p>
                   완료보고서: {detail.completionFileKeys.join(", ") || "없음"}
                 </p>
@@ -1092,7 +1243,7 @@ export default function AfterServicePanel({
                     {[
                       "처리결과 + 전후사진",
                       "사진대지만",
-                      "처리결과 내역만",
+                      "처리결과만",
                     ].map((m) => (
                       <option key={m}>{m}</option>
                     ))}
@@ -1163,6 +1314,25 @@ export default function AfterServicePanel({
             )}
           </div>
           <div className="as-filters">
+            <label>
+              예정일
+              <input
+                type="date"
+                value={plannedFilter}
+                onChange={(e) => setPlannedFilter(e.target.value)}
+              />
+            </label>
+            <label>
+              긴급 여부
+              <select
+                value={urgentFilter}
+                onChange={(e) => setUrgentFilter(e.target.value)}
+              >
+                <option value="">전체</option>
+                <option>긴급</option>
+                <option>일반</option>
+              </select>
+            </label>
             <label>
               현장·고객 검색
               <input
@@ -1254,8 +1424,11 @@ export default function AfterServicePanel({
                     "고객명",
                     "접수일",
                     "요청내용",
+                    "발생 위치",
+                    "관련 설비",
                     "유형",
                     "우선순위",
+                    "긴급 여부",
                     "담당 작업진행자",
                     "예정일",
                     "처리상태",
@@ -1281,8 +1454,11 @@ export default function AfterServicePanel({
                     <td>{r.customerName}</td>
                     <td>{r.receivedDate}</td>
                     <td>{r.request}</td>
+                    <td>{r.location}</td>
+                    <td>{r.equipment}</td>
                     <td>{r.type}</td>
-                    <td>{r.urgent ? "긴급" : r.priority}</td>
+                    <td>{r.priority}</td>
+                    <td>{r.urgent ? "긴급" : "일반"}</td>
                     <td>{r.managerName}</td>
                     <td>
                       {r.plannedDate || "미정"} {r.plannedStart}

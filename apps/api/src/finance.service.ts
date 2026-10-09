@@ -315,8 +315,21 @@ export class FinanceService {
         .map((e) => e.totalAmount),
     );
 
+    const costFor = (billing: string) => {
+      const ids = new Set(
+        asRows.filter((a) => a.billing === billing).flatMap((a) => a.workIds),
+      );
+      return sum(
+        rows
+          .filter((e) => e.dailyWorkId && ids.has(e.dailyWorkId))
+          .map((e) => e.totalAmount),
+      );
+    };
     return {
       siteId,
+      asFreeCost: costFor("무상"),
+      asPaidCost: costFor("유상"),
+      asPendingCost: costFor("판단보류"),
       originalRevenue: site.contractAmount,
       originalCost: totalExpenses - asCost,
       asRevenue,

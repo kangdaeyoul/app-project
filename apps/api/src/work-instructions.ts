@@ -48,7 +48,19 @@ export interface NotificationEvent {
   companyId: string;
   instructionId: string;
   recipientWorkerId: string;
-  kind: "work_instruction";
+  kind:
+    | "work_instruction"
+    | "as_assigned"
+    | "as_urgent"
+    | "as_date_changed"
+    | "as_worker_changed"
+    | "as_completed"
+    | "as_review"
+    | "as_closed";
+  asId?: string;
+  siteId?: string;
+  title?: string;
+  readAt?: string | null;
   createdAt: string;
   deliveryStatus: "pending";
 }
@@ -58,6 +70,7 @@ export interface InstructionRepository {
   events(): NotificationEvent[];
   save(message: WorkInstruction): void;
   enqueue(event: NotificationEvent): void;
+  acknowledge(id: string): void;
 }
 @Injectable()
 export class MemoryInstructionRepository implements InstructionRepository {
@@ -85,6 +98,10 @@ export class MemoryInstructionRepository implements InstructionRepository {
     const i = rows.findIndex((r) => r.id === row.id);
     if (i < 0) rows.push(structuredClone(row));
     else rows[i] = structuredClone(row);
+  }
+  acknowledge(id: string) {
+    const e = this.partition().events.find((e) => e.id === id);
+    if (e && !e.readAt) e.readAt = new Date().toISOString();
   }
   enqueue(row: NotificationEvent) {
     if (row.companyId !== this.context.companyId)
@@ -344,9 +361,76 @@ export class WorkInstructionService {
         })),
     };
   }
+  emitAfterService(
+    row: import("@jongno/shared").AfterService,
+    before?: import("@jongno/shared").AfterService,
+  ) {
+    if (row.deletedAt) return;
+    const kinds: NotificationEvent["kind"][] = [];
+    if (row.managerId && (!before || !before.managerId))
+      kinds.push("as_assigned");
+    if (
+      row.urgent &&
+      (!before?.urgent || row.managerId !== before?.managerId) &&
+      row.managerId
+    )
+      kinds.push("as_urgent");
+    if (before && (row.plannedDate !== before.plannedDate||row.plannedStart!==before.plannedStart||row.plannedEnd!==before.plannedEnd))
+      kinds.push("as_date_changed");
+    if (
+      before &&
+      (row.managerId !== before.managerId ||
+        JSON.stringify([...row.participantIds].sort()) !==
+          JSON.stringify([...before.participantIds].sort()))
+    )
+      kinds.push("as_worker_changed");
+    if (before && row.status !== before.status) {
+      if (row.status === "처리완료") kinds.push("as_completed");
+      if (row.status === "재확인필요") kinds.push("as_review");
+      if (row.status === "종결") kinds.push("as_closed");
+    }
+    const labels: Record<string, string> = {
+      as_assigned: "A/S 신규 배정",
+      as_urgent: "긴급 A/S 배정",
+      as_date_changed: "A/S 예정일 변경",
+      as_worker_changed: "A/S 작업진행자 변경",
+      as_completed: "A/S 작업완료 · 관리자 확인 필요",
+      as_review: "A/S 재확인 요청",
+      as_closed: "A/S 종결",
+    };
+    for (const kind of kinds)
+      for (const workerId of new Set(
+        [row.managerId, ...row.participantIds].filter(Boolean),
+      ))
+        this.repo.enqueue({
+          id: randomUUID(),
+          companyId: row.companyId,
+          instructionId: "",
+          recipientWorkerId: workerId,
+          kind,
+          asId: row.id,
+          siteId: row.siteId,
+          title: labels[kind],
+          readAt: null,
+          createdAt: new Date().toISOString(),
+          deliveryStatus: "pending",
+        });
+  }
+  readNotification(id: string) {
+    const e = this.repo.events().find((e) => e.id === id);
+    if (!e) throw new NotFoundException();
+    if (e.kind === "work_instruction") return this.read(e.instructionId);
+    if (
+      !this.notifications().some((n) => n.id === id) ||
+      e.recipientWorkerId !== this.context.identity.workerId
+    )
+      throw new ForbiddenException();
+    this.repo.acknowledge(id);
+    return { read: true };
+  }
   notifications() {
     const workerId = this.context.identity.workerId;
-    return this.list().flatMap((m) =>
+    const instructions = this.list().flatMap((m) =>
       this.repo
         .events()
         .filter(
@@ -364,6 +448,34 @@ export class WorkInstructionService {
             m.recipients.find((r) => r.workerId === e.recipientWorkerId)
               ?.readAt ?? null,
         })),
+    );
+    const events = this.repo
+      .events()
+      .filter(
+        (e) =>
+          e.kind !== "work_instruction" &&
+          (!workerId || e.recipientWorkerId === workerId),
+      )
+      .filter((e) => {
+        const a = e.asId ? this.asRepo.find(e.asId) : undefined;
+        return (
+          !!a &&
+          !a.deletedAt &&
+          (this.admin()
+            ? this.scope(a.siteId)
+            : !!workerId &&
+              (a.managerId === workerId || a.participantIds.includes(workerId)))
+        );
+      })
+      .map((e) => ({
+        ...e,
+        important: e.kind === "as_urgent" || e.kind === "as_review",
+        canManage: this.admin(),
+        siteName: this.sites.find(e.siteId ?? "")?.name ?? "",
+        readAt: e.readAt ?? null,
+      }));
+    return [...instructions, ...events].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
     );
   }
 }
@@ -386,6 +498,9 @@ export class WorkInstructionController {
   }
   @Get("notifications") notifications() {
     return this.service.notifications();
+  }
+  @Post("notifications/:id/read") readEvent(@Param("id") id: string) {
+    return this.service.readNotification(id);
   }
   @Post() send(@Body() body: Record<string, unknown>) {
     return this.service.send(body);

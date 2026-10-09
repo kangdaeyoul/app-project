@@ -1,3 +1,4 @@
+import { WorkInstructionService } from "./work-instructions";
 import {
   AS_REPOSITORY,
   AfterServiceRepository,
@@ -35,6 +36,8 @@ export class WorkerScheduleService {
     @Inject(WORKERS_REPOSITORY) private workers: WorkersRepository,
     @Inject(SITES_REPOSITORY) private sites: SitesRepository,
     @Inject(DailyWorkService) private work: DailyWorkService,
+    @Inject(WorkInstructionService)
+    private notifications: WorkInstructionService,
   ) {}
   private role() {
     return this.context.identity.memberships.find(
@@ -228,7 +231,7 @@ export class WorkerScheduleService {
       throw new BadRequestException("작업진행자와 색상을 확인해 주세요.");
     return this.workers.update(id, { ...worker, color: body.color });
   }
-  assign(body: Record<string, unknown>) {
+  assign(body: Record<string, unknown>, emitNotifications = true) {
     this.edit();
     if (!body || Array.isArray(body))
       throw new BadRequestException("입력값을 확인해 주세요.");
@@ -277,7 +280,8 @@ export class WorkerScheduleService {
       : undefined;
     if (body.dailyWorkId && (!existing || existing.siteId !== site.id))
       throw new BadRequestException("일일작업 연결을 확인해 주세요.");
-    if (linkedAs && existing && !linkedAs.workIds.includes(existing.id)) throw new BadRequestException("A/S에 연결된 처리작업을 선택해 주세요.");
+    if (linkedAs && existing && !linkedAs.workIds.includes(existing.id))
+      throw new BadRequestException("A/S에 연결된 처리작업을 선택해 주세요.");
     const warnings: string[] = [];
     // Use all company work for conflict detection, including work outside staff view scope.
     for (const id of ids) {
@@ -352,7 +356,7 @@ export class WorkerScheduleService {
       endTime: existing?.endTime ?? "",
       status: existing?.status ?? "작업예정",
       urgent: body.urgent ?? existing?.urgent ?? false,
-      scheduleKind: body.kind ?? existing?.scheduleKind ?? "작업",
+      scheduleKind: body.kind === "A/S" && linkedAs ? "작업" : body.kind ?? existing?.scheduleKind ?? "작업",
       reviewRequired: body.reviewRequired ?? existing?.reviewRequired ?? false,
     };
     const saved = existing
@@ -360,11 +364,27 @@ export class WorkerScheduleService {
       : this.work.create(input);
     const asRecord =
       linkedAs ?? this.asRepo.list().find((a) => a.workIds.includes(saved.id));
-    if (asRecord)
-      this.asRepo.save({
+    if (asRecord) {
+      const updated = this.asRepo.save({
         ...asRecord,
         workIds: [...new Set([...asRecord.workIds, saved.id])],
         status: asRecord.status === "접수" ? "일정예정" : asRecord.status,
+        statusHistory: [
+          ...(asRecord.statusHistory ?? []),
+          ...(asRecord.status === "접수"
+            ? [
+                {
+                  from: asRecord.status,
+                  to: "일정예정",
+                  changedAt: new Date().toISOString(),
+                  actorId: this.context.identity.userId,
+                  actorName:
+                    this.context.identity.userDisplayName ??
+                    this.context.identity.userId,
+                },
+              ]
+            : []),
+        ],
         plannedDate: date,
         plannedStart: start,
         plannedEnd: end,
@@ -373,7 +393,9 @@ export class WorkerScheduleService {
         urgent: !!saved.urgent,
         updatedAt: new Date().toISOString(),
       });
-    if (!site.managerId)
+      if(emitNotifications)this.notifications.emitAfterService(updated, asRecord);
+    }
+    if (!site.managerId && !asRecord && emitNotifications)
       this.sites.update(site.id, {
         ...site,
         managerId,

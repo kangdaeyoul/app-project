@@ -1,3 +1,4 @@
+import { WorkInstructionService } from "./work-instructions";
 import {
   BadRequestException,
   ForbiddenException,
@@ -81,6 +82,8 @@ export class AfterServiceService {
     @Inject(FinanceService) private finance: FinanceService,
     @Inject(QuotesService) private quotes: QuotesService,
     @Inject(AuditRecorder) private audit: AuditRecorder,
+    @Inject(WorkInstructionService)
+    private notifications: WorkInstructionService,
   ) {}
   private role() {
     return this.context.identity.memberships.find(
@@ -135,6 +138,22 @@ export class AfterServiceService {
   ) {
     const saved = this.repo.save({
       ...row,
+      statusHistory: [
+        ...(before?.statusHistory ?? row.statusHistory ?? []),
+        ...(before?.status !== row.status
+          ? [
+              {
+                from: before?.status ?? "",
+                to: row.status,
+                changedAt: new Date().toISOString(),
+                actorId: this.context.identity.userId,
+                actorName:
+                  this.context.identity.userDisplayName ??
+                  this.context.identity.userId,
+              },
+            ]
+          : []),
+      ],
       updatedAt: new Date().toISOString(),
     });
     this.audit.record({
@@ -145,6 +164,7 @@ export class AfterServiceService {
       after: saved,
       siteIds: [row.siteId],
     });
+    this.notifications.emitAfterService(saved, before);
     return saved;
   }
   settings() {
@@ -313,6 +333,20 @@ export class AfterServiceService {
       canFinance: this.admin(),
       canClose: this.admin(),
       photos: this.photos.list(r.siteId).filter((p) => p.asRequestId === r.id),
+      relatedPhotos: this.photos
+        .list(r.siteId)
+        .filter((p) => r.originalPhotoIds.includes(p.id)),
+      relatedMaterials: this.daily
+        .list()
+        .filter(
+          (w) =>
+            w.siteId === r.siteId &&
+            (!own ||
+              w.managerId === this.context.identity.workerId ||
+              w.participants.some((p) => p.workerId === this.context.identity.workerId)),
+        )
+        .flatMap((w) => w.materials)
+        .filter((m) => r.materialUsageIds.includes(m.id)),
       works: r.workIds
         .map((id) => this.daily.find(id))
         .filter((w): w is NonNullable<typeof w> => !!w),
@@ -559,7 +593,7 @@ export class AfterServiceService {
         kind: "작업",
         urgent: value.urgent,
         force: raw.force,
-      });
+      },false);
       value.workIds = [...new Set([...value.workIds, assigned.work.id])];
       if (["접수", "확인중"].includes(value.status)) value.status = "일정예정";
     }
@@ -605,6 +639,7 @@ export class AfterServiceService {
     if (r.status === "종결") throw new ConflictException("종결된 A/S입니다.");
     const w = this.work.find(workId);
     const own = this.context.identity.workerId;
+    if(own&&body.status==="관리자확인완료")throw new ForbiddenException("관리자 확인은 관리자가 처리합니다.");
     if (
       own &&
       w.managerId !== own &&
@@ -653,6 +688,62 @@ export class AfterServiceService {
       throw new ForbiddenException();
     this.context.withOperationalWrite(() => this.work.clock(idWork, action));
     this.store({ ...r, status: action === "start" ? "작업중" : "확인중" }, r);
+    return this.detail(id);
+  }
+  requestCompletion(id: string, raw: Record<string, unknown>) {
+    const r = this.row(id);
+    this.operator(r);
+    if (r.status === "종결") throw new ConflictException("종결된 A/S입니다.");
+    if (!raw || typeof raw !== "object" || Array.isArray(raw))
+      throw new BadRequestException();
+    const w = r.workIds.at(-1) ? this.daily.find(r.workIds.at(-1)!) : undefined;
+    if (!w || (w.status !== "작업완료" && w.status !== "관리자확인완료"))
+      throw new BadRequestException("처리작업을 먼저 완료해 주세요.");
+    const own = this.context.identity.workerId;
+    if (
+      own &&
+      w.managerId !== own &&
+      !w.participants.some((p) => p.workerId === own)
+    )
+      throw new ForbiddenException();
+    const read = (
+      key: "cause" | "finalAction" | "testResult" | "result" | "notes",
+      required = true,
+    ) => {
+      const v = raw[key] ?? r[key];
+      if (typeof v !== "string" || v.length > 5000 || (required && !v.trim()))
+        throw new BadRequestException(
+          "원인, 최종 조치, 시험결과와 처리결과를 입력해 주세요.",
+        );
+      return v.trim();
+    };
+    const flags = {
+      normalOperation: raw.normalOperation ?? r.normalOperation,
+      needsVisit: raw.needsVisit ?? r.needsVisit,
+      needsQuote: raw.needsQuote ?? r.needsQuote,
+    };
+    if (Object.values(flags).some((v) => typeof v !== "boolean"))
+      throw new BadRequestException();
+    const completedDate = raw.completedDate ?? seoulToday();
+    if (typeof completedDate !== "string" || !validDate(completedDate))
+      throw new BadRequestException("완료일을 확인해 주세요.");
+    this.store(
+      {
+        ...r,
+        cause: read("cause"),
+        finalAction: read("finalAction"),
+        testResult: read("testResult"),
+        result: read("result"),
+        notes: read("notes", false),
+        normalOperation: flags.normalOperation === true,
+        needsVisit: flags.needsVisit === true,
+        needsQuote: flags.needsQuote === true,
+        completedDate,
+        status: "처리완료",
+        resultConfirmed: false,
+      },
+      r,
+    );
     return this.detail(id);
   }
   addPhotos(
@@ -819,7 +910,7 @@ export class AfterServiceService {
   ) {
     const r = this.row(id),
       v = this.detail(id);
-    const mode = body.mode ?? "처리결과 + 전후사진",
+    const mode = body.mode === "처리결과만" ? "처리결과 내역만" : body.mode ?? "처리결과 + 전후사진",
       date = body.date ?? seoulToday();
     if (
       !["처리결과 + 전후사진", "사진대지만", "처리결과 내역만"].includes(
@@ -984,6 +1075,12 @@ export class AfterServiceController {
   }
   @Post(":id/start") start(@Param("id") id: string) {
     return this.service.clock(id, "start");
+  }
+  @Post(":id/complete-request") complete(
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.service.requestCompletion(id, body);
   }
   @Post(":id/finish") finish(@Param("id") id: string) {
     return this.service.clock(id, "finish");

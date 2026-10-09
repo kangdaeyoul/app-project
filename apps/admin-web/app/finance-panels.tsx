@@ -82,7 +82,9 @@ export function SiteFinancePanel({ siteId }: { siteId: string }) {
         {[
           ["원공사 매출", data.originalRevenue??data.contractAmount],
           ["원공사 비용", data.originalCost??data.totalExpenses],
-          ["A/S 발생비용", data.asCost??0],
+          ["A/S 무상 발생비용", data.asFreeCost??0],
+          ["A/S 유상비용", data.asPaidCost??0],
+          ["A/S 판단보류 비용", data.asPendingCost??0],
           ["A/S 유상매출", data.asRevenue??0],
           ["회사 직접 자재비", data.directMaterials],
           ["작업진행자 자재대납", data.materialAdvances],

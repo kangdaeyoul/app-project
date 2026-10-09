@@ -39,6 +39,19 @@ export default function InstructionsPanel({
   onOpen?: (siteId: string, asId: string) => void;
   onChanged?: () => void;
 }) {
+  const [events, setEvents] = useState<
+    {
+      id: string;
+      asId: string;
+      siteId: string;
+      siteName: string;
+      title: string;
+      readAt: string | null;
+      important: boolean;
+      canManage: boolean;
+      createdAt: string;
+    }[]
+  >([]);
   const [rows, setRows] = useState<Message[]>([]),
     [workers, setWorkers] = useState<{ id: string; name: string }[]>([]),
     [canSend, setCanSend] = useState(false),
@@ -55,7 +68,22 @@ export default function InstructionsPanel({
     api<Message[]>(
       `?${new URLSearchParams({ ...(siteId ? { siteId } : {}), ...(asId ? { asId } : {}) })}`,
     )
-      .then(setRows)
+      .then((r) => {
+        setRows(r);
+        return api<typeof events>("/notifications").then((es) =>
+          setEvents(
+            es.filter(
+              (e) =>
+                (!siteId || e.siteId === siteId) &&
+                (!asId || e.asId === asId) &&
+                !(
+                  "instructionId" in e &&
+                  (e as { instructionId?: string }).instructionId
+                ),
+            ),
+          ),
+        );
+      })
       .catch((e) => setError(e.message));
   useEffect(() => {
     setSelected(null);
@@ -199,6 +227,33 @@ export default function InstructionsPanel({
         </form>
       )}
       <div className="instruction-list">
+        {events.map((e) => (
+          <button
+            key={e.id}
+            className={`instruction-card ${e.important && !e.readAt ? "instruction-important" : ""}`}
+            onClick={async () => {
+              try {
+                if (!e.canManage)
+                  await api(`/notifications/${e.id}/read`, { method: "POST" });
+                await load();
+                window.dispatchEvent(new Event("instructions-changed"));
+                onOpen?.(e.siteId, e.asId);
+              } catch (err) {
+                setError((err as Error).message);
+              }
+            }}
+          >
+            <span>
+              A/S 알림 · {e.readAt ? "읽음" : "안읽음"} · {e.siteName}
+            </span>
+            <strong>{e.title}</strong>
+            <small>
+              {new Date(e.createdAt).toLocaleString("ko-KR", {
+                timeZone: "Asia/Seoul",
+              })}
+            </small>
+          </button>
+        ))}
         {[...rows]
           .sort(
             (a, b) =>
@@ -217,7 +272,10 @@ export default function InstructionsPanel({
               </span>
               <strong>{r.title}</strong>
               <span>
-                {r.senderName} · {new Date(r.sentAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}
+                {r.senderName} ·{" "}
+                {new Date(r.sentAt).toLocaleString("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                })}
               </span>
               {r.canSend && (
                 <small>
@@ -227,7 +285,7 @@ export default function InstructionsPanel({
               )}
             </button>
           ))}
-        {!rows.length && <p className="empty">등록된 작업지시가 없습니다.</p>}
+        {!rows.length && !events.length && <p className="empty">등록된 작업지시가 없습니다.</p>}
       </div>
       {selected && (
         <section className="instruction-detail">
@@ -238,8 +296,10 @@ export default function InstructionsPanel({
           <p style={{ whiteSpace: "pre-wrap" }}>{selected.content}</p>
           <p>
             {selected.senderName} ·{" "}
-            {new Date(selected.sentAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})} · 첨부파일{" "}
-            {selected.hasAttachments ? "있음" : "없음"}
+            {new Date(selected.sentAt).toLocaleString("ko-KR", {
+              timeZone: "Asia/Seoul",
+            })}{" "}
+            · 첨부파일 {selected.hasAttachments ? "있음" : "없음"}
           </p>
           <h4>
             {selected.siteName}
@@ -264,7 +324,7 @@ export default function InstructionsPanel({
               <li key={r.workerId}>
                 {r.displayName} ·{" "}
                 {r.readAt
-                  ? `읽음 ${new Date(r.readAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul"})}`
+                  ? `읽음 ${new Date(r.readAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`
                   : "안읽음"}
               </li>
             ))}

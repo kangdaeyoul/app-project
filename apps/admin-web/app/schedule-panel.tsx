@@ -105,7 +105,7 @@ export default function SchedulePanel({
     setWorkDate(e.date);
     setStart(e.start || "09:00");
     setEnd(e.end || "17:00");
-    setKind(e.kind === "현장 예정" ? "작업" : e.kind);
+    setKind(e.asId || e.kind === "현장 예정" ? "작업" : e.kind);
     setIsUrgent(e.urgent);
     setReview(e.status === "확인필요");
     setWarnings([]);
