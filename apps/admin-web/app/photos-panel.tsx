@@ -34,10 +34,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export default function PhotosPanel({
   dailyWorkId,
+  fixedType,
   siteId,
   onChanged,
 }: {
   dailyWorkId?: string;
+  fixedType?: PhotoType;
   siteId?: string;
   onChanged?: () => void;
 }) {
@@ -62,7 +64,7 @@ export default function PhotosPanel({
     const q = new URLSearchParams();
     if (dailyWorkId) q.set("dailyWorkId", dailyWorkId);
     if (siteId) q.set("siteId", siteId);
-    if (type) q.set("type", type);
+    if (fixedType || type) q.set("type", fixedType || type);
     if (date) q.set("workDate", date);
     api<PhotoView[]>(`?${q}`, { signal: c.signal })
       .then(setPhotos)
@@ -73,7 +75,7 @@ export default function PhotosPanel({
         if (!c.signal.aborted) setLoading(false);
       });
     return () => c.abort();
-  }, [dailyWorkId, siteId, type, date, revision]);
+  }, [dailyWorkId, siteId, fixedType, type, date, revision]);
   useEffect(() => {
     if (preview) dialog.current?.showModal();
     else dialog.current?.close();
@@ -177,7 +179,7 @@ export default function PhotosPanel({
         </div>
         {dailyWorkId && (
           <div className="worker-actions">
-            {PHOTO_TYPES.map((t) => (
+            {PHOTO_TYPES.filter(t=>!fixedType||t===fixedType).map((t) => (
               <button
                 type="button"
                 className="secondary-button"
@@ -218,6 +220,7 @@ export default function PhotosPanel({
                   multiple
                   onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
                 />
+                <label className="camera-input">카메라로 촬영<input aria-label="카메라로 촬영" type="file" accept="image/*" capture="environment" onChange={e=>setFiles(Array.from(e.target.files ?? []))}/></label>
                 <small>PNG/JPEG/WebP · 장당 10MB · 한 번에 최대 20장</small>
                 {files.length > 0 && (
                   <small>{files.map((f) => f.name).join(", ")}</small>

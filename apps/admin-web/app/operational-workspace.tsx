@@ -297,7 +297,7 @@ export default function OperationalWorkspace() {
     </div>
   );
 }
-function WorkEditor({
+export function WorkEditor({
   work,
   onChanged,
 }: {
@@ -438,7 +438,7 @@ function WorkEditor({
     </section>
   );
 }
-function OwnSettlements() {
+export function OwnSettlements() {
   const [month, setMonth] = useState(() =>
       new Date().toISOString().slice(0, 7),
     ),
@@ -519,7 +519,7 @@ interface QuoteOptions {
   }[];
   customers: { id: string; name: string }[];
 }
-function StaffQuotes() {
+export function StaffQuotes() {
   const [rows, setRows] = useState<QuoteView[]>([]),
     [options, setOptions] = useState<QuoteOptions | null>(null),
     [form, setForm] = useState<any>(null),

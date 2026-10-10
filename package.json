@@ -12,7 +12,8 @@
     "dev": "npm run build -w @jongno/shared && concurrently -k -n API,WEB \"npm run dev -w @jongno/api\" \"npm run dev -w @jongno/admin-web\"",
     "build": "npm run build -w @jongno/shared && npm run build -w @jongno/api && npm run build -w @jongno/admin-web",
     "test": "npm run build -w @jongno/shared && npm run test -w @jongno/api",
-    "typecheck": "npm run build -w @jongno/shared && npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run build -w @jongno/shared && npm run typecheck --workspaces --if-present",
+    "start:preview": "node deploy/start-preview.cjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

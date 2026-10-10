@@ -105,12 +105,12 @@ class DailyWorkController {
 }
 @Controller('photos')
 class PhotoController {
-  constructor(@Inject(PhotoService)private readonly photos:PhotoService){}
+  constructor(@Inject(PhotoService)private readonly photos:PhotoService,@Inject(CompanyContext)private readonly company:CompanyContext){}
   @Get() list(@Query('siteId') siteId?:string,@Query('dailyWorkId') dailyWorkId?:string,@Query('type') type?:string,@Query('workDate') workDate?:string){return this.photos.list(siteId,dailyWorkId,type,workDate);}
-  @Post('upload') @UseInterceptors(FilesInterceptor('files',20,{limits:{fileSize:10*1024*1024,files:20,fields:8}})) upload(@Body() body:Record<string,unknown>,@UploadedFiles() files:UploadFile[]){return this.photos.create(body.dailyWorkId as string,body.type as string,body,files);}
-  @Put('order') order(@Body() body:{dailyWorkId:string;type:string;ids:unknown}){return this.photos.reorder(body.dailyWorkId,body.type,body.ids);}
-  @Put(':id') update(@Param('id') id:string,@Body() body:unknown){return this.photos.update(id,body);}
-  @Delete(':id') remove(@Param('id') id:string){return this.photos.remove(id);}
+  @Post('upload') @UseInterceptors(FilesInterceptor('files',20,{limits:{fileSize:10*1024*1024,files:20,fields:8}})) upload(@Body() body:Record<string,unknown>,@UploadedFiles() files:UploadFile[]){return this.company.withOperationalWrite(()=>this.photos.create(body.dailyWorkId as string,body.type as string,body,files));}
+  @Put('order') order(@Body() body:{dailyWorkId:string;type:string;ids:unknown}){return this.company.withOperationalWrite(()=>this.photos.reorder(body.dailyWorkId,body.type,body.ids));}
+  @Put(':id') update(@Param('id') id:string,@Body() body:unknown){return this.company.withOperationalWrite(()=>this.photos.update(id,body));}
+  @Delete(':id') remove(@Param('id') id:string){return this.company.withOperationalWrite(()=>this.photos.remove(id));}
   @Get(':id/file') file(@Param('id') id:string,@Res() response:{setHeader:(key:string,value:string)=>void;send:(buffer:Buffer)=>void}){const file=this.photos.file(id);response.setHeader('Content-Type',file.mimeType);response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Cache-Control','no-store');response.send(file.buffer);}
 }
 @Controller('sites/:siteId/photo-reports')

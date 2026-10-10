@@ -14,12 +14,14 @@ import AfterServicePanel from './after-service-panel';
 import FieldHelper from './field-helper';
 import { AuthProvider, useAuth, LoginScreen, SessionHeader } from './auth-provider';
 import UsersPanel,{CompanySettings} from './users-panel';
+import MobileWorkspace from './mobile-workspace';
+import PwaSupport,{useMobile} from './pwa-support';
 import OperationalWorkspace from './operational-workspace';
 import AuditPanel from './audit-panel';
 const money = (amount: number) => new Intl.NumberFormat('ko-KR').format(amount) + '원';
 const initialMonth = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7);
-export default function Home(){return <AuthProvider><AuthenticatedApp/></AuthProvider>}
-function AuthenticatedApp(){const {loading,user}=useAuth();if(loading)return <main className="login-page"><p role="status">로그인 상태를 확인하고 있습니다…</p></main>;if(!user)return <LoginScreen/>;return user.role==='admin'?<AdminWorkspace key={user.id}/>:<OperationalWorkspace key={user.id+user.role}/>;}
+export default function Home(){return <AuthProvider><PwaSupport/><AuthenticatedApp/></AuthProvider>}
+function AuthenticatedApp(){const {loading,user}=useAuth();const mobile=useMobile();if(loading)return <main className="login-page"><p role="status">로그인 상태를 확인하고 있습니다…</p></main>;if(!user)return <LoginScreen/>;if(mobile)return <MobileWorkspace key={user.id+user.role}/>;return user.role==='admin'?<AdminWorkspace key={user.id}/>:<OperationalWorkspace key={user.id+user.role}/>;}
 function AdminWorkspace() {
   const auth=useAuth();
   const [company, setCompany] = useState<Company>(auth.company);

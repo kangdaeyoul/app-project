@@ -36,6 +36,8 @@ interface StoredUser extends CurrentUser {
   passwordHash: string;
 }
 export interface AuthProvider {
+  readonly demoEnabled?: boolean;
+  demoLogin?(account: string): CurrentUser;
   authenticate(login: string, password: string): CurrentUser;
   resolve(request: unknown): CompanyIdentity;
   session(user: CurrentUser, remember: boolean): { token: string; ttl: number };
@@ -81,6 +83,10 @@ function publicUser(u: StoredUser): CurrentUser {
 export class MemoryAuthProvider
   implements AuthProvider, CompanyIdentityProvider
 {
+  readonly demoEnabled =
+    process.env.DEMO_LOGIN_ENABLED === "true" ||
+    (process.env.DEMO_LOGIN_ENABLED !== "false" &&
+      process.env.NODE_ENV !== "production");
   private users = new Map<string, StoredUser>();
   private sessions = new Map<string, Session>();
   private attempts = new Map<string, { count: number; until: number }>();
@@ -121,6 +127,7 @@ export class MemoryAuthProvider
         quoteNotes: "",
       },
     });
+    if (!this.demoEnabled) return;
     const seed = (
       id: string,
       loginId: string,
@@ -153,7 +160,22 @@ export class MemoryAuthProvider
     seed("sample-inactive", "inactive@jongno.test", "staff", null, false);
     seed("other-admin", "admin@demo.test", "admin", null, true, "demo-company");
   }
+  demoLogin(account: string) {
+    if (!this.demoEnabled)
+      throw new UnauthorizedException("데모 로그인이 비활성화되어 있습니다.");
+    const keys: Record<string, string> = {
+      admin: "admin@jongno.test",
+      staff: "staff@jongno.test",
+      worker1: "worker1@jongno.test",
+      worker2: "worker2@jongno.test",
+    };
+    if (!Object.hasOwn(keys, account))
+      throw new BadRequestException("데모 계정을 선택해 주세요.");
+    return this.authenticate(keys[account], "Jongno2026!");
+  }
   authenticate(login: string, password: string) {
+    if (!this.demoEnabled)
+      throw new UnauthorizedException("테스트 인증이 비활성화되어 있습니다.");
     if (
       typeof login !== "string" ||
       typeof password !== "string" ||
@@ -385,6 +407,7 @@ export class AuthController {
         logoUrl: this.company.settings().logoUrl,
       },
       sampleMode: true,
+      demoEnabled: this.auth.demoEnabled === true,
     };
   }
   @Post("login") login(
@@ -394,6 +417,26 @@ export class AuthController {
     if (body?.remember !== undefined && typeof body.remember !== "boolean")
       throw new BadRequestException();
     const user = this.auth.authenticate(body?.login, body?.password);
+    const { token, ttl } = this.auth.session(user, body.remember === true);
+    res.setHeader("Cache-Control", "no-store");
+    res.cookie("field_session", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.AUTH_SECURE_COOKIE === "true",
+      path: "/",
+      ...(body.remember ? { maxAge: ttl * 1000 } : {}),
+    });
+    return { user };
+  }
+  @Post("demo") demoLogin(
+    @Body() body: { account: string; remember?: boolean },
+    @Res({ passthrough: true }) res: any,
+  ) {
+    if (!this.auth.demoEnabled || !this.auth.demoLogin)
+      throw new UnauthorizedException("데모 로그인이 비활성화되어 있습니다.");
+    if (body?.remember !== undefined && typeof body.remember !== "boolean")
+      throw new BadRequestException();
+    const user = this.auth.demoLogin(body?.account);
     const { token, ttl } = this.auth.session(user, body.remember === true);
     res.setHeader("Cache-Control", "no-store");
     res.cookie("field_session", token, {

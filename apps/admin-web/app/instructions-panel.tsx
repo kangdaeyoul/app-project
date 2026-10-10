@@ -244,7 +244,7 @@ export default function InstructionsPanel({
             }}
           >
             <span>
-              A/S 알림 · {e.readAt ? "읽음" : "안읽음"} · {e.siteName}
+              {e.asId ? "A/S 알림" : "현장 알림"} · {e.readAt ? "읽음" : "안읽음"} · {e.siteName}
             </span>
             <strong>{e.title}</strong>
             <small>

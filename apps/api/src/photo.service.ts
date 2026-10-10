@@ -39,6 +39,10 @@ export class PhotoService {
     @Inject(AuditRecorder) private readonly audit: AuditRecorder,
   ) {}
   private allowed(p:PhotoRecord){const i=this.company.identity,w=this.work.find(p.dailyWorkId),a=p.asRequestId?this.asRepo.find(p.asRequestId):undefined;return i.workerId?(a?a.managerId===i.workerId||a.participantIds.includes(i.workerId):w?.managerId===i.workerId||w?.participants.some(p=>p.workerId===i.workerId)):i.accessibleSiteIds===undefined||i.memberships.some(m=>m.companyId===this.company.companyId&&m.userId===i.userId&&m.role==="admin")||i.accessibleSiteIds.includes(w?.siteId??p.asSiteId??"");}
+  private assertWork(id:string) {
+    if(!this.work.find(id))throw new NotFoundException("일일작업을 찾을 수 없습니다.");
+    if(!this.allowed({dailyWorkId:id} as PhotoRecord))throw new ForbiddenException("본인 배정 또는 허용된 작업만 이용할 수 있습니다.");
+  }
   private record(id: string) {
     const p = this.photos.find(id);
     if (!p) throw new NotFoundException("사진을 찾을 수 없습니다.");
@@ -158,8 +162,7 @@ export class PhotoService {
     files: UploadFile[],
     asContext?:{id:string;siteId:string;phase:string},
   ) {
-    if (!asContext && !this.work.find(dailyWorkId))
-      throw new NotFoundException("일일작업을 찾을 수 없습니다.");
+    if (!asContext) this.assertWork(dailyWorkId);
     if (
       !PHOTO_TYPES.includes(type as PhotoType) ||
       !Array.isArray(files) ||
@@ -223,8 +226,7 @@ export class PhotoService {
     return { deleted: true };
   }
   reorder(dailyWorkId: string, type: string, ids: unknown) {
-    if (!this.work.find(dailyWorkId))
-      throw new NotFoundException("일일작업을 찾을 수 없습니다.");
+    this.assertWork(dailyWorkId);
     if (
       !PHOTO_TYPES.includes(type as PhotoType) ||
       !Array.isArray(ids) ||

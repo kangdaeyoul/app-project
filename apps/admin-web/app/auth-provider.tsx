@@ -89,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 export function LoginScreen() {
   const { brand, refresh } = useAuth();
+  const [demoEnabled, setDemoEnabled] = useState(false);
   const [company, setCompany] = useState(DEFAULT_COMPANY.displayName),
     [login, setLogin] = useState(""),
     [password, setPassword] = useState(""),
@@ -99,7 +100,10 @@ export function LoginScreen() {
   useEffect(() => {
     fetch("/api/auth/config")
       .then((r) => r.json())
-      .then((v) => setCompany(v.company.displayName))
+      .then((v) => {
+        setCompany(v.company.displayName);
+        setDemoEnabled(v.demoEnabled === true);
+      })
       .catch(() => {});
   }, []);
   async function submit(e: React.FormEvent) {
@@ -193,6 +197,43 @@ export function LoginScreen() {
             {busy ? "로그인 중…" : "로그인"}
           </button>
         </form>
+        {demoEnabled && (
+          <section className="demo-login">
+            <h3>모바일 검증용 데모 로그인</h3>
+            <p>역할별 화면을 바로 확인하세요.</p>
+            <div>
+              {[
+                ["admin", "관리자"],
+                ["staff", "사내직원"],
+                ["worker1", "작업진행자 1"],
+                ["worker2", "작업진행자 2"],
+              ].map(([account, label]) => (
+                <button
+                  type="button"
+                  key={account}
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      await authApi("/auth/demo", {
+                        method: "POST",
+                        body: JSON.stringify({ account, remember }),
+                      });
+                      await refresh();
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {label}로 체험
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
         <p className="login-note">
           테스트 계정 안내는 README를 확인하세요.
           <br />

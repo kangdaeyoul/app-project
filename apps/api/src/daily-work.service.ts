@@ -1,4 +1,5 @@
-import { EXPENSES_REPOSITORY, ExpensesRepository } from './expenses.repository';
+import { WorkInstructionService } from "./work-instructions";
+import { EXPENSES_REPOSITORY, ExpensesRepository } from "./expenses.repository";
 import {
   BadRequestException,
   ConflictException,
@@ -28,6 +29,8 @@ import { seoulToday } from "./date";
 @Injectable()
 export class DailyWorkService {
   constructor(
+    @Inject(WorkInstructionService)
+    private readonly notifications: WorkInstructionService,
     @Inject(EXPENSES_REPOSITORY) private readonly expenses: ExpensesRepository,
     @Inject(DAILY_WORK_REPOSITORY)
     private readonly repository: DailyWorkRepository,
@@ -74,17 +77,42 @@ export class DailyWorkService {
     }
     for (const key of ["plannedStartTime", "plannedEndTime"] as const) {
       const time = raw[key] ?? existing?.[key] ?? "";
-      if (typeof time !== "string" || (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new BadRequestException("예정시간을 확인해 주세요.");
+      if (
+        typeof time !== "string" ||
+        (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))
+      )
+        throw new BadRequestException("예정시간을 확인해 주세요.");
       input[key] = time;
     }
-    if (input.plannedEndTime && (!input.plannedStartTime || String(input.plannedEndTime) <= String(input.plannedStartTime))) throw new BadRequestException("예정 종료시간은 시작시간 이후여야 합니다.");
-    for(const key of ["urgent", "reviewRequired"] as const) {
-      const flag=raw[key] ?? existing?.[key] ?? false;
-      if(typeof flag!=="boolean") throw new BadRequestException("일정 옵션을 확인해 주세요.");
-      input[key]=flag;
+    if (
+      input.plannedEndTime &&
+      (!input.plannedStartTime ||
+        String(input.plannedEndTime) <= String(input.plannedStartTime))
+    )
+      throw new BadRequestException(
+        "예정 종료시간은 시작시간 이후여야 합니다.",
+      );
+    for (const key of ["urgent", "reviewRequired"] as const) {
+      const flag = raw[key] ?? existing?.[key] ?? false;
+      if (typeof flag !== "boolean")
+        throw new BadRequestException("일정 옵션을 확인해 주세요.");
+      input[key] = flag;
     }
-    input.scheduleKind=raw.scheduleKind ?? existing?.scheduleKind ?? "작업";
-    if(!["작업","견적방문","현장확인"].includes(String(input.scheduleKind))) throw new BadRequestException("일정 종류를 확인해 주세요.");
+    input.scheduleKind = raw.scheduleKind ?? existing?.scheduleKind ?? "작업";
+    if (!["작업", "견적방문", "현장확인"].includes(String(input.scheduleKind)))
+      throw new BadRequestException("일정 종류를 확인해 주세요.");
+    const verification =
+      raw.verificationNotes ?? existing?.verificationNotes ?? "";
+    const confirmed =
+      raw.operationConfirmed ?? existing?.operationConfirmed ?? false;
+    if (
+      typeof verification !== "string" ||
+      verification.length > 5000 ||
+      typeof confirmed !== "boolean"
+    )
+      throw new BadRequestException("시험/확인 결과를 확인해 주세요.");
+    input.verificationNotes = verification.trim();
+    input.operationConfirmed = confirmed;
     const value = input as unknown as DailyWorkInput;
     if (!validDate(value.workDate))
       throw new BadRequestException("유효한 작업일자가 필요합니다.");
@@ -140,8 +168,14 @@ export class DailyWorkService {
       throw new BadRequestException(
         "완료 상태에는 시작시간과 종료시간이 필요합니다.",
       );
-    if (existing && existing.siteId !== site.id && this.expenses.list().some(e => e.dailyWorkId === existing.id))
-      throw new ConflictException('연결된 지출 기록이 있습니다. 지출의 일일작업 연결을 해제한 뒤 현장을 변경해 주세요.');
+    if (
+      existing &&
+      existing.siteId !== site.id &&
+      this.expenses.list().some((e) => e.dailyWorkId === existing.id)
+    )
+      throw new ConflictException(
+        "연결된 지출 기록이 있습니다. 지출의 일일작업 연결을 해제한 뒤 현장을 변경해 주세요.",
+      );
     const materials = this.validateMaterials(raw.materials, existing);
     const id = existing?.id ?? newDailyWorkId();
     const record: DailyWorkRecord = {
@@ -154,7 +188,7 @@ export class DailyWorkService {
           ? existing.managerDisplayName
           : manager.displayName,
     };
-    return this.repository.save(
+    const saved = this.repository.save(
       record,
       participants.map((w) => ({
         dailyWorkId: id,
@@ -165,6 +199,8 @@ export class DailyWorkService {
       })),
       materials,
     );
+    this.notifications.emitDailyWork(saved, existing);
+    return saved;
   }
   private validateMaterials(
     raw: unknown,

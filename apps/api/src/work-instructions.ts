@@ -49,6 +49,10 @@ export interface NotificationEvent {
   instructionId: string;
   recipientWorkerId: string;
   kind:
+    | "site_assigned"
+    | "schedule_changed"
+    | "work_urgent"
+    | "work_review"
     | "work_instruction"
     | "as_assigned"
     | "as_urgent"
@@ -57,6 +61,7 @@ export interface NotificationEvent {
     | "as_completed"
     | "as_review"
     | "as_closed";
+  dailyWorkId?: string;
   asId?: string;
   siteId?: string;
   title?: string;
@@ -375,7 +380,12 @@ export class WorkInstructionService {
       row.managerId
     )
       kinds.push("as_urgent");
-    if (before && (row.plannedDate !== before.plannedDate||row.plannedStart!==before.plannedStart||row.plannedEnd!==before.plannedEnd))
+    if (
+      before &&
+      (row.plannedDate !== before.plannedDate ||
+        row.plannedStart !== before.plannedStart ||
+        row.plannedEnd !== before.plannedEnd)
+    )
       kinds.push("as_date_changed");
     if (
       before &&
@@ -415,6 +425,54 @@ export class WorkInstructionService {
           createdAt: new Date().toISOString(),
           deliveryStatus: "pending",
         });
+  }
+  emitDailyWork(
+    row: import("@jongno/shared").DailyWork,
+    before?: import("@jongno/shared").DailyWork,
+  ) {
+    const previous = new Set(
+      before
+        ? [before.managerId, ...before.participants.map((p) => p.workerId)]
+        : [],
+    );
+    const recipients = new Set([
+      row.managerId,
+      ...row.participants.map((p) => p.workerId),
+    ]);
+    for (const recipientWorkerId of recipients) {
+      const kinds: NotificationEvent["kind"][] = [];
+      if (!previous.has(recipientWorkerId)) kinds.push("site_assigned");
+      if (
+        before &&
+        (before.workDate !== row.workDate ||
+          before.plannedStartTime !== row.plannedStartTime ||
+          before.plannedEndTime !== row.plannedEndTime)
+      )
+        kinds.push("schedule_changed");
+      if (row.urgent && !before?.urgent) kinds.push("work_urgent");
+      if (row.reviewRequired && !before?.reviewRequired)
+        kinds.push("work_review");
+      const titles = {
+        site_assigned: "신규 현장배정",
+        schedule_changed: "일정변경",
+        work_urgent: "긴급작업",
+        work_review: "관리자 재확인 요청",
+      };
+      for (const kind of kinds)
+        this.repo.enqueue({
+          id: randomUUID(),
+          companyId: this.context.companyId,
+          instructionId: "",
+          recipientWorkerId,
+          kind,
+          dailyWorkId: row.id,
+          siteId: row.siteId,
+          title: titles[kind as keyof typeof titles],
+          readAt: null,
+          createdAt: new Date().toISOString(),
+          deliveryStatus: "pending",
+        });
+    }
   }
   readNotification(id: string) {
     const e = this.repo.events().find((e) => e.id === id);
@@ -457,6 +515,17 @@ export class WorkInstructionService {
           (!workerId || e.recipientWorkerId === workerId),
       )
       .filter((e) => {
+        if (e.dailyWorkId) {
+          const d = this.daily.find(e.dailyWorkId);
+          return (
+            !!d &&
+            this.scope(d.siteId) &&
+            (this.admin() ||
+              (!!workerId &&
+                (d.managerId === workerId ||
+                  d.participants.some((p) => p.workerId === workerId))))
+          );
+        }
         const a = e.asId ? this.asRepo.find(e.asId) : undefined;
         return (
           !!a &&
@@ -469,7 +538,12 @@ export class WorkInstructionService {
       })
       .map((e) => ({
         ...e,
-        important: e.kind === "as_urgent" || e.kind === "as_review",
+        important: [
+          "as_urgent",
+          "as_review",
+          "work_urgent",
+          "work_review",
+        ].includes(e.kind),
         canManage: this.admin(),
         siteName: this.sites.find(e.siteId ?? "")?.name ?? "",
         readAt: e.readAt ?? null,

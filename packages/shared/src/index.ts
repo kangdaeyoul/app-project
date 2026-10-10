@@ -114,6 +114,8 @@ export const DAILY_WORK_STATUSES = [
 ] as const;
 export type DailyWorkStatus = (typeof DAILY_WORK_STATUSES)[number];
 export interface DailyWorkInput {
+  verificationNotes?: string;
+  operationConfirmed?: boolean;
   plannedStartTime?: string;
   plannedEndTime?: string;
   urgent?: boolean;

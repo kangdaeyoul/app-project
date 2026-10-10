@@ -68,6 +68,8 @@ export class OperationalController {
           endTime: body.endTime,
           status: body.status,
           materials: body.materials,
+          verificationNotes:body.verificationNotes,
+          operationConfirmed:body.operationConfirmed,
         }),
       ),
     );

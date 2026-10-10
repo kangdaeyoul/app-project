@@ -1109,6 +1109,7 @@ export default function AfterServicePanel({
                     />
                   </label>
                 </div>
+                <label>카메라로 촬영<input aria-label="A/S 카메라로 촬영" type="file" accept="image/*" capture="environment" onChange={e=>setFileList(Array.from(e.target.files??[]))}/></label>
                 <button
                   disabled={saving || !fileList.length}
                   onClick={() =>
