@@ -10,7 +10,7 @@ import {
   PAYMENT_METHODS,
   Site,
   WorkerSummary,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import InvoicesPanel from "./invoices-panel";
 import SiteMaterialsPanel from "./site-materials-panel";
 const money = (value: number) => value.toLocaleString("ko-KR") + "원";

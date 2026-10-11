@@ -8,13 +8,13 @@ import { readFileSync } from 'node:fs';
 import { AppModule } from '../src/app.module';
 import { QuotesService } from '../src/quotes.service';
 import { QuoteExcelService } from '../src/quote-excel.service';
-import { QUOTE_PRINT_MODES } from '@jongno/shared';
+import { QUOTE_PRINT_MODES } from '@jongro/shared';
 const text=(x:Uint8Array)=>strFromU8(x);
 test('실제 양식: 서식/이미지/인쇄 보존, 고객 금액, 숨김 모드 및 원가 차단',async()=>{
  const app=await createTestApp(AppModule,{logger:false});await app.init();
  try{
  const quotes=app.get(QuotesService),excel=app.get(QuoteExcelService);
- const template=unzipSync(readFileSync('fixtures/quotes/jongno-2026.xlsx'));
+ const template=unzipSync(readFileSync('fixtures/quotes/jongro-2026.xlsx'));
  for(const mode of QUOTE_PRINT_MODES){
  const data=unzipSync(excel.generate(quotes.excelCustomer('Q003',mode)));
  for(const path of ['xl/styles.xml','xl/drawings/drawing1.xml','xl/media/image1.png','xl/media/image2.jpeg','xl/printerSettings/printerSettings1.bin'])assert.deepEqual(data[path],template[path]);

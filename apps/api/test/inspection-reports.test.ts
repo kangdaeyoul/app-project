@@ -16,7 +16,7 @@ import {
   INSPECTION_REPORT_REPOSITORY,
   InspectionReportRepository,
 } from "../src/inspection-report.repository";
-import { DEFAULT_COMPANY, INSPECTION_REPORT_TITLE } from "@jongno/shared";
+import { DEFAULT_COMPANY, INSPECTION_REPORT_TITLE } from "@jongro/shared";
 const parse = (
   res: NodeJS.ReadableStream,
   done: (e: Error | null, b: Buffer) => void,

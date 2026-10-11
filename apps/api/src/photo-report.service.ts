@@ -16,7 +16,7 @@ import {
   PhotoReportOptions,
   PhotoView,
   InspectionItemInput,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { PhotoService } from "./photo.service";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";
 import {

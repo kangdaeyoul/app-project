@@ -13,7 +13,7 @@ import {
   StandardWork,
   StandardWorkRequest,
   WorkCompositeRequest,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { StandardWorkService } from "./standard-work.service";
 @Controller("standard-work")
 export class StandardWorkController {

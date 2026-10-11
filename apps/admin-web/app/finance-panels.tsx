@@ -10,7 +10,7 @@ import {
   SettlementSummary,
   Site,
   SiteFinance,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const money = (n: number) => n.toLocaleString("ko-KR") + "원";
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {

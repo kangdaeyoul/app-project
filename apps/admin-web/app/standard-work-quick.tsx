@@ -5,7 +5,7 @@ import {
   QuoteItemInput,
   WorkEstimateOptions,
   WorkSiteConditions,
-} from "@jongno/shared";
+} from "@jongro/shared";
 type Task = { id: string; templateId: string; quantity: number; route: string };
 type Section = { kind: "기계" | "전기"; items: QuoteItemInput[] };
 const numericFields: [keyof WorkEstimateOptions, string][] = [

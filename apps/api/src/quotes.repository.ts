@@ -4,7 +4,7 @@ import {
   QuoteInput,
   QuoteItemInput,
   QUOTE_SECTIONS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { seoulToday } from "./date";
 export const QUOTES_REPOSITORY = Symbol("QUOTES_REPOSITORY");
 export interface QuotesRepository {

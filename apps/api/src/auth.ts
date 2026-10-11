@@ -20,7 +20,7 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import { APP_BRAND, DEFAULT_COMPANY } from "@jongno/shared";
+import { APP_BRAND, DEFAULT_COMPANY } from "@jongro/shared";
 import { CompanyContext, CompanyIdentity } from "./company-context";
 import { CompanyIdentityProvider } from "./company-identity";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";
@@ -29,8 +29,8 @@ import {
   CurrentUser,
   UserRole,
   UserPermission as Permission,
-} from "@jongno/shared";
-export type { CurrentUser, UserRole } from "@jongno/shared";
+} from "@jongro/shared";
+export type { CurrentUser, UserRole } from "@jongro/shared";
 import { AuditRecorder } from "./audit-recorder";
 interface StoredUser extends CurrentUser {
   passwordHash: string;
@@ -46,7 +46,7 @@ export interface AuthProvider {
   list(): CurrentUser[];
   save(body: unknown, id?: string): CurrentUser;
   options(): {
-    companies: import("@jongno/shared").Company[];
+    companies: import("@jongro/shared").Company[];
     sites: { id: string; name: string }[];
     workers: { id: string; name: string; displayName: string }[];
   };
@@ -150,28 +150,28 @@ export class MemoryAuthProvider
         active,
         siteIds: role === "staff" ? ["S001", "S003"] : [],
         permissions: role === "staff" ? ["writeQuotes"] : [],
-        passwordHash: hash("Jongno2026!"),
+        passwordHash: hash("Jongro2026!"),
       });
     };
-    seed("sample-admin", "admin@jongno.test", "admin");
-    seed("sample-staff", "staff@jongno.test", "staff");
-    seed("sample-worker1", "worker1@jongno.test", "worker", "W001");
-    seed("sample-worker2", "worker2@jongno.test", "worker", "W004");
-    seed("sample-inactive", "inactive@jongno.test", "staff", null, false);
+    seed("sample-admin", "admin@jongro.test", "admin");
+    seed("sample-staff", "staff@jongro.test", "staff");
+    seed("sample-worker1", "worker1@jongro.test", "worker", "W001");
+    seed("sample-worker2", "worker2@jongro.test", "worker", "W004");
+    seed("sample-inactive", "inactive@jongro.test", "staff", null, false);
     seed("other-admin", "admin@demo.test", "admin", null, true, "demo-company");
   }
   demoLogin(account: string) {
     if (!this.demoEnabled)
       throw new UnauthorizedException("데모 로그인이 비활성화되어 있습니다.");
     const keys: Record<string, string> = {
-      admin: "admin@jongno.test",
-      staff: "staff@jongno.test",
-      worker1: "worker1@jongno.test",
-      worker2: "worker2@jongno.test",
+      admin: "admin@jongro.test",
+      staff: "staff@jongro.test",
+      worker1: "worker1@jongro.test",
+      worker2: "worker2@jongro.test",
     };
     if (!Object.hasOwn(keys, account))
       throw new BadRequestException("데모 계정을 선택해 주세요.");
-    return this.authenticate(keys[account], "Jongno2026!");
+    return this.authenticate(keys[account], "Jongro2026!");
   }
   authenticate(login: string, password: string) {
     if (!this.demoEnabled)

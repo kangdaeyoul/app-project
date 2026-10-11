@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { WorkComponent, WorkPrice, WorkQuantityRule } from "@jongno/shared";
+import { WorkComponent, WorkPrice, WorkQuantityRule } from "@jongro/shared";
 const sources: [WorkQuantityRule["source"], string][] = [
   ["quantity", "작업수량 비례"],
   ["locations", "설치 개소 기준"],

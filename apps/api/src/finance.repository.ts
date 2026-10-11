@@ -2,7 +2,7 @@ import {
   PaymentReceived,
   WorkerPayment,
   WorkerPaymentAllocation,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { seoulToday } from "./date";
 export const FINANCE_REPOSITORY = Symbol("FINANCE_REPOSITORY");
 export interface FinanceRepository {

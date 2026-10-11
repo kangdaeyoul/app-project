@@ -1,7 +1,7 @@
 "use client";
 import FieldHelper from "./field-helper";
 import { useEffect, useState } from "react";
-import { SCHEDULE_COLORS, ScheduleEvent, WorkerSchedule } from "@jongno/shared";
+import { SCHEDULE_COLORS, ScheduleEvent, WorkerSchedule } from "@jongro/shared";
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",

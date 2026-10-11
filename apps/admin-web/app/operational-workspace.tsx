@@ -6,7 +6,7 @@ import {
   Site,
   SettlementList,
   QuoteView,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { authApi, useAuth, SessionHeader } from "./auth-provider";
 import AfterServicePanel from "./after-service-panel";
 import SchedulePanel from "./schedule-panel";

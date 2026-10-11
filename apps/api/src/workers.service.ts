@@ -15,7 +15,7 @@ import {
   WorkerInput,
   WorkerSummary,
   isSiteOnDate,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { WORKERS_REPOSITORY, WorkersRepository } from "./workers.repository";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";
 import { DAILY_WORK_REPOSITORY, DailyWorkRepository } from "./daily-work.repository";

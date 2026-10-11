@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Site, SiteInput } from '@jongno/shared';
+import { Site, SiteInput } from '@jongro/shared';
 import { seoulToday } from './date';
 export const SITES_REPOSITORY = Symbol('SITES_REPOSITORY');
 export interface SitesRepository {

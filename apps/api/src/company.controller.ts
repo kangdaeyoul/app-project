@@ -6,7 +6,7 @@ import {
   Body,
   BadRequestException,
 } from "@nestjs/common";
-import { APP_BRAND } from "@jongno/shared";
+import { APP_BRAND } from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 @Controller("company")
 export class CompanyController {

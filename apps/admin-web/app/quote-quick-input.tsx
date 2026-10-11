@@ -6,7 +6,7 @@ import {
   QuoteItemInput,
   QuoteFavorites,
   priceToQuoteItem,
-} from "@jongno/shared";
+} from "@jongro/shared";
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const r = await fetch(
     "/api" + path,

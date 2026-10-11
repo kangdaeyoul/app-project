@@ -8,14 +8,14 @@ import {
   accumulateQuoteItems,
   priceToQuoteItem,
   DEFAULT_COMPANY,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { AppModule } from "../src/app.module";
 import { CompanyContext, SAMPLE_IDENTITY } from "../src/company-context";
 import { StandardWorkService } from "../src/standard-work.service";
 test("빠른입력 동일품목 누적, 규격 분리, 수정단가 보존, 자동/수동 정책 및 OFF", () => {
   const p = {
     id: "M1",
-    companyId: "jongno",
+    companyId: "jongro",
     name: "백관",
     specification: "25A",
     unit: "m",

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Company } from "@jongno/shared";
+import { Company } from "@jongro/shared";
 import {
   authApi,
   CurrentUser,

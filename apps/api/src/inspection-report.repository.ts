@@ -6,7 +6,7 @@ import {
   DEFAULT_COMPANY,
   INSPECTION_OUTPUT_MODES,
   INSPECTION_COVER_TITLES,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { seoulToday } from "./date";
 export const INSPECTION_REPORT_REPOSITORY = Symbol(
   "INSPECTION_REPORT_REPOSITORY",

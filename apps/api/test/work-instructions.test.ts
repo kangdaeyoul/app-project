@@ -14,7 +14,7 @@ import {
   SAMPLE_IDENTITY,
   CompanyIdentity,
 } from "../src/company-context";
-import { DEFAULT_COMPANY } from "@jongno/shared";
+import { DEFAULT_COMPANY } from "@jongro/shared";
 import {
   INSTRUCTION_REPOSITORY,
   InstructionRepository,

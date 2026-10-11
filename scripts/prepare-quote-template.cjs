@@ -26,4 +26,4 @@ const wb=parse(strFromU8(entries['xl/workbook.xml']));
 for(const name of ['extLst','mc:AlternateContent'])for(const e of Array.from(wb.getElementsByTagName(name)))e.parentNode.removeChild(e);
 entries['xl/workbook.xml']=strToU8(new XMLSerializer().serializeToString(wb));
 entries['docProps/core.xml']=strToU8('<?xml version="1.0" encoding="UTF-8"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>종로소방 견적서 양식</dc:title><dc:creator>주식회사 종로소방</dc:creator></cp:coreProperties>');
-fs.writeFileSync('apps/api/fixtures/quotes/jongno-2026.xlsx',zipSync(entries));
+fs.writeFileSync('apps/api/fixtures/quotes/jongro-2026.xlsx',zipSync(entries));

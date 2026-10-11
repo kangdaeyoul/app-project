@@ -7,7 +7,7 @@ import { join } from "node:path";
 import request from "supertest";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../src/app.module";
-import { PHOTO_REPORT_LAYOUTS, PhotoView } from "@jongno/shared";
+import { PHOTO_REPORT_LAYOUTS, PhotoView } from "@jongro/shared";
 import { reportRows } from "../src/photo-report.service";
 import {
   PHOTO_REPORT_STORAGE,

@@ -1,4 +1,4 @@
-import { AuditAction, AuditTarget } from "@jongno/shared";
+import { AuditAction, AuditTarget } from "@jongro/shared";
 import { AuditRecorder, auditValue } from "./audit-recorder";
 type Row = Record<string, any>;
 type Kind =

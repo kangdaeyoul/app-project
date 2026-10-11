@@ -1,4 +1,4 @@
-import { WorkPrice, MaterialPriceHistory } from "@jongno/shared";
+import { WorkPrice, MaterialPriceHistory } from "@jongro/shared";
 import { randomUUID } from "node:crypto";
 export function normalizedPrice(p: WorkPrice): WorkPrice {
   return {

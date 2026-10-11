@@ -7,7 +7,7 @@ import {
   PhotoReportOptions,
   PhotoView,
   Site,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const today = () =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(
     new Date(),

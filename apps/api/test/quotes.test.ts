@@ -12,7 +12,7 @@ import {
   QuoteView,
   calculateQuote,
   QUOTE_PRINT_MODES,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const parser = (
   res: NodeJS.ReadableStream,
   done: (err: Error | null, body: Buffer) => void,

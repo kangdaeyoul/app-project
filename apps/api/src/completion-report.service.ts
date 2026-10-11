@@ -10,7 +10,7 @@ import {
   CompletionReportInput,
   CompletionReportSource,
   SiteMaterialTotal,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import PDFDocument from "pdfkit";
 import { PDFDocument as MergePdf } from "pdf-lib";
 import { join } from "node:path";

@@ -8,7 +8,7 @@ import {
   WorkerDetail,
   WorkerInput,
   WorkerSummary,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const tabs = [
   "기본정보",
   "일정",

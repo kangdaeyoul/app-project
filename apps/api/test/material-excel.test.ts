@@ -13,7 +13,7 @@ import {
   DEFAULT_COMPANY,
   priceToQuoteItem,
   reapplyLatestQuotePrices,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const parser = (
   res: NodeJS.ReadableStream,
   done: (e: Error | null, b: Buffer) => void,

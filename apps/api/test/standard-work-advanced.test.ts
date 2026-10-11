@@ -9,7 +9,7 @@ import {
   DEFAULT_COMPANY,
   accumulateQuoteItems,
   priceToQuoteItem,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { CompanyContext, SAMPLE_IDENTITY } from "../src/company-context";
 import { StandardWorkService } from "../src/standard-work.service";
 const input = {

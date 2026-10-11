@@ -14,7 +14,7 @@ async function fixture() {
     const agent = request.agent(http);
     const res = await agent
       .post("/api/auth/login")
-      .send({ login: name, password: "Jongno2026!", remember })
+      .send({ login: name, password: "Jongro2026!", remember })
       .expect(201);
     assert.match(res.headers["set-cookie"][0], /HttpOnly/);
     assert.match(res.headers["set-cookie"][0], /SameSite=Lax/);
@@ -33,13 +33,13 @@ test("세션 인증: 익명/위조 신원/비활성 차단, 유지 쿠키, 로�
     await request(http).get("/api/auth/config").expect(200);
     await request(http)
       .post("/api/auth/login")
-      .send({ login: "inactive@jongno.test", password: "Jongno2026!" })
+      .send({ login: "inactive@jongro.test", password: "Jongro2026!" })
       .expect(401);
     await request(http)
       .post("/api/auth/login")
-      .send({ login: "worker1@jongno.test", password: "wrong" })
+      .send({ login: "worker1@jongro.test", password: "wrong" })
       .expect(401);
-    const a = await login("admin@jongno.test", true);
+    const a = await login("admin@jongro.test", true);
     assert.equal(
       (await a.get("/api/auth/me").expect(200)).body.user.role,
       "admin",
@@ -50,7 +50,7 @@ test("세션 인증: 익명/위조 신원/비활성 차단, 유지 쿠키, 로�
     await request(http)
       .post("/api/auth/login")
       .set("Origin", "https://outside.test")
-      .send({ login: "admin@jongno.test", password: "Jongno2026!" })
+      .send({ login: "admin@jongro.test", password: "Jongro2026!" })
       .expect(403);
   } finally {
     await app.close();
@@ -59,8 +59,8 @@ test("세션 인증: 익명/위조 신원/비활성 차단, 유지 쿠키, 로�
 test("사내직원: 허용 현장과 견적 작성, 원가/손익/지급 비노출 및 기존 견적 원가 보존", async () => {
   const { app, login } = await fixture();
   try {
-    const admin = await login("admin@jongno.test"),
-      staff = await login("staff@jongno.test");
+    const admin = await login("admin@jongro.test"),
+      staff = await login("staff@jongro.test");
     const sites = (await staff.get("/api/sites").expect(200)).body;
     assert.deepEqual(sites.map((s: any) => s.id).sort(), ["S001", "S003"]);
     for (const s of sites) {
@@ -114,8 +114,8 @@ test("사내직원: 허용 현장과 견적 작성, 원가/손익/지급 비노�
 test("작업진행자 2명: 본인 현장/일정/작업/정산만 허용, 타인 및 회사 손익 차단", async () => {
   const { app, login } = await fixture();
   try {
-    const a = await login("worker1@jongno.test"),
-      b = await login("worker2@jongno.test");
+    const a = await login("worker1@jongro.test"),
+      b = await login("worker2@jongro.test");
     const sites = (await a.get("/api/sites").expect(200)).body;
     assert.ok(sites.some((s: any) => s.id === "S001"));
     assert.ok(!sites.some((s: any) => s.id === "S003"));
@@ -175,8 +175,8 @@ test("회사 격리: 다른 회사 세션/본문/헤더와 파일·현장·사�
         (u: any) => u.companyId === "demo-company",
       ),
     );
-    await other.get("/api/sites").set("x-company-id", "jongno").expect(403);
-    await other.post("/api/sites").send({ companyId: "jongno" }).expect(403);
+    await other.get("/api/sites").set("x-company-id", "jongro").expect(403);
+    await other.post("/api/sites").send({ companyId: "jongro" }).expect(403);
     await other
       .put("/api/users/sample-admin")
       .send({ companyId: "demo-company" })
@@ -188,8 +188,8 @@ test("회사 격리: 다른 회사 세션/본문/헤더와 파일·현장·사�
 test("사용자 관리: 등록/수정/역할 변경 즉시 적용, 비활성 세션 차단, 마지막 관리자 보호", async () => {
   const { app, login } = await fixture();
   try {
-    const admin = await login("admin@jongno.test"),
-      staff = await login("staff@jongno.test");
+    const admin = await login("admin@jongro.test"),
+      staff = await login("staff@jongro.test");
     const users = (await admin.get("/api/users").expect(200)).body;
     assert.ok(
       users.every((u: any) => !("passwordHash" in u) && !("password" in u)),
@@ -227,11 +227,11 @@ test("사용자 관리: 등록/수정/역할 변경 즉시 적용, 비활성 세
         .send({
           ...original,
           id: undefined,
-          loginId: "new@jongno.test",
-          email: "new@jongno.test",
+          loginId: "new@jongro.test",
+          email: "new@jongro.test",
           name: "실제 이름",
           displayName: "표시 이름",
-          password: "Jongno2026!",
+          password: "Jongro2026!",
         })
         .expect(201)
     ).body;
@@ -247,8 +247,8 @@ test("사용자 관리: 등록/수정/역할 변경 즉시 적용, 비활성 세
 test("직원 추가권한: 현장 재무/지급액은 허용 현장에만, 권한 회수 즉시 차단", async () => {
   const { app, login } = await fixture();
   try {
-    const admin = await login("admin@jongno.test"),
-      staff = await login("staff@jongno.test");
+    const admin = await login("admin@jongro.test"),
+      staff = await login("staff@jongro.test");
     await staff.get("/api/operational/site-finance/S001").expect(403);
     const u = (await admin.get("/api/users").expect(200)).body.find(
       (u: any) => u.id === "sample-staff",
@@ -294,8 +294,8 @@ test("직원 추가권한: 현장 재무/지급액은 허용 현장에만, 권�
 test("작업진행자 실제 업무: 본인 시작/종료·수동시간·사용자재 저장, 배정 위조·관리자승인 차단", async () => {
   const { app, login } = await fixture();
   try {
-    const worker = await login("worker2@jongno.test"),
-      admin = await login("admin@jongno.test");
+    const worker = await login("worker2@jongro.test"),
+      admin = await login("admin@jongro.test");
     const started = (
       await worker.post("/api/operational/daily-work/D002/start").expect(201)
     ).body;

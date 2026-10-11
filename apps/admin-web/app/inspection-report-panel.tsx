@@ -8,7 +8,7 @@ import {
   INSPECTION_REPORT_TITLE,
   INSPECTION_OUTPUT_MODES,
   INSPECTION_COVER_TITLES,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import PdfPreview from "./pdf-preview";
 const newItem = (number: string): InspectionItemInput => ({
   number,

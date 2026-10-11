@@ -5,7 +5,7 @@ import {
   Site,
   WorkerSchedule,
   SCHEDULE_COLORS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { authApi, useAuth, SessionHeader } from "./auth-provider";
 import InstructionsPanel from "./instructions-panel";
 import AfterServicePanel from "./after-service-panel";

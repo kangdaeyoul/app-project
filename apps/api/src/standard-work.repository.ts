@@ -5,7 +5,7 @@ import {
   WorkComponent,
   MaterialPriceHistory,
   MaterialImportJob,
-} from "@jongno/shared";
+} from "@jongro/shared";
 export const STANDARD_WORK_REPOSITORY = Symbol("STANDARD_WORK_REPOSITORY");
 export interface StandardWorkRepository {
   list(): { prices: WorkPrice[]; templates: StandardWork[] };
@@ -48,7 +48,7 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
   constructor(seed = true) {
     if (seed) {
       this.seed();
-      registerDefaultWorks(this, "jongno");
+      registerDefaultWorks(this, "jongro");
       for (const name of [
         "유도등",
         "발신기",
@@ -95,7 +95,7 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
     else this.prices[i] = structuredClone(price);
   }
   private seed() {
-    const companyId = "jongno";
+    const companyId = "jongro";
     const price = (
       name: string,
       unit = "개",

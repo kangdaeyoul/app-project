@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { ForbiddenException, Injectable } from "@nestjs/common";
-import { Company, CompanyMembership, DEFAULT_COMPANY } from "@jongno/shared";
+import { Company, CompanyMembership, DEFAULT_COMPANY } from "@jongro/shared";
 export interface CompanyIdentity {
   authenticated?: boolean;
   appRole?: "admin" | "staff" | "worker" | "customer";

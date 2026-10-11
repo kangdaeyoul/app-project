@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { SiteMaterials } from "@jongno/shared";
+import { SiteMaterials } from "@jongro/shared";
 export default function SiteMaterialsPanel({ siteId }: { siteId: string }) {
   const [data, setData] = useState<SiteMaterials | null>(null);
   const [error, setError] = useState("");

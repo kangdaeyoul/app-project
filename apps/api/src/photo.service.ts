@@ -15,7 +15,7 @@ import {
   PhotoRecord,
   PhotoType,
   PhotoView,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { PHOTO_REPOSITORY, PhotoRepository } from "./photo.repository";
 import { FILE_STORAGE, FileStorage } from "./file-storage";
 import {

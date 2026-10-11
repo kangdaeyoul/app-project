@@ -13,9 +13,9 @@ import {
   QUOTE_PRINT_MODES,
   calculateQuote,
   quoteLineAmount,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import QuoteQuickInput from "./quote-quick-input";
-import { accumulateQuoteItems } from "@jongno/shared";
+import { accumulateQuoteItems } from "@jongro/shared";
 import StandardWorkPanel from "./standard-work-panel";
 import PdfPreview from "./pdf-preview";
 const today = () =>

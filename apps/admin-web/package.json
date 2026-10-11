@@ -1,5 +1,5 @@
 {
-  "name": "@jongno/admin-web",
+  "name": "@jongro/admin-web",
   "private": true,
   "version": "0.1.0",
   "scripts": {
@@ -11,7 +11,7 @@
     "prebuild": "node scripts/copy-pdf-worker.cjs"
   },
   "dependencies": {
-    "@jongno/shared": "*",
+    "@jongro/shared": "*",
     "next": "^16.0.0",
     "pdfjs-dist": "^6.4.299",
     "react": "^19.2.0",

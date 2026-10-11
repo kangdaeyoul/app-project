@@ -367,8 +367,8 @@ export class WorkInstructionService {
     };
   }
   emitAfterService(
-    row: import("@jongno/shared").AfterService,
-    before?: import("@jongno/shared").AfterService,
+    row: import("@jongro/shared").AfterService,
+    before?: import("@jongro/shared").AfterService,
   ) {
     if (row.deletedAt) return;
     const kinds: NotificationEvent["kind"][] = [];
@@ -427,8 +427,8 @@ export class WorkInstructionService {
         });
   }
   emitDailyWork(
-    row: import("@jongno/shared").DailyWork,
-    before?: import("@jongno/shared").DailyWork,
+    row: import("@jongro/shared").DailyWork,
+    before?: import("@jongro/shared").DailyWork,
   ) {
     const previous = new Set(
       before

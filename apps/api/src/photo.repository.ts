@@ -1,5 +1,5 @@
 import { seoulToday } from "./date";
-import { PhotoRecord } from "@jongno/shared";
+import { PhotoRecord } from "@jongro/shared";
 export const PHOTO_REPOSITORY = Symbol("PHOTO_REPOSITORY");
 export interface PhotoRepository {
   list(): PhotoRecord[];

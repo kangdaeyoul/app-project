@@ -5,7 +5,7 @@ import {
   AUDIT_TARGETS,
   AuditPage,
   AuditValue,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const labels: Record<string, string> = {
   id: "ID",
   siteId: "현장 ID",

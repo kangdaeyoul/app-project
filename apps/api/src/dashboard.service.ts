@@ -1,7 +1,7 @@
 import { InvoicesService } from './invoices.service';
 import { FinanceService, sum as sumMoney } from './finance.service';
 import { Inject, Injectable } from '@nestjs/common';
-import { Dashboard, isSiteOnDate } from '@jongno/shared';
+import { Dashboard, isSiteOnDate } from '@jongro/shared';
 import { SITES_REPOSITORY, SitesRepository } from './sites.repository';
 import { overlapsMonth, seoulToday, validateMonth } from './date';
 export { seoulToday } from './date';

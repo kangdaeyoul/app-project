@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import request from "supertest";
 import { NestFactory } from "@nestjs/core";
-import { AuditLog, DEFAULT_COMPANY } from "@jongno/shared";
+import { AuditLog, DEFAULT_COMPANY } from "@jongro/shared";
 import { AppModule } from "../src/app.module";
 import {
   CompanyContext,
@@ -64,7 +64,7 @@ test("주요 변경/자재/사진/파일/지급/계산서: 신뢰된 행위자, 
     ).body;
     const siteCreated = (await logs(http)).find((r) => r.targetId === site.id)!;
     assert.equal(siteCreated.action, "생성");
-    assert.equal(siteCreated.companyId, "jongno");
+    assert.equal(siteCreated.companyId, "jongro");
     assert.equal(siteCreated.userId, "sample-admin");
     assert.equal(siteCreated.userDisplayName, "샘플 관리자");
     assert.equal(siteCreated.reason, "관리자 등록 검증");
@@ -552,11 +552,11 @@ test("주요 변경/자재/사진/파일/지급/계산서: 신뢰된 행위자, 
     assert.ok(history.items.some((r: AuditLog) => r.targetId === expense.id));
     for (let i = 1; i < history.items.length; i++)
       assert.ok(history.items[i - 1].sequence > history.items[i].sequence);
-    const copyRows = app.get<AuditRepository>(AUDIT_REPOSITORY).list("jongno");
+    const copyRows = app.get<AuditRepository>(AUDIT_REPOSITORY).list("jongro");
     const first = copyRows[0];
     first.reason = "위조";
     assert.notEqual(
-      app.get<AuditRepository>(AUDIT_REPOSITORY).list("jongno")[0].reason,
+      app.get<AuditRepository>(AUDIT_REPOSITORY).list("jongro")[0].reason,
       "위조",
     );
   } finally {
@@ -604,11 +604,11 @@ test("날짜/사용자/현장/작업/대상 필터, 페이지, 무효 입력 및
         .expect(400);
     const count = app
       .get<AuditRepository>(AUDIT_REPOSITORY)
-      .list("jongno").length;
+      .list("jongro").length;
     await request(http).get("/api/photos/missing/file").expect(404);
     await request(http).get("/api/quotes/missing/excel").expect(404);
     assert.equal(
-      app.get<AuditRepository>(AUDIT_REPOSITORY).list("jongno").length,
+      app.get<AuditRepository>(AUDIT_REPOSITORY).list("jongro").length,
       count,
     );
   } finally {
@@ -636,10 +636,10 @@ test("회사 격리, 일반 사용자 현장 권한 및 내부 원가 차단, �
       ],
     };
     const member: CompanyIdentity = {
-      companyId: "jongno",
+      companyId: "jongro",
       userId: "member",
       userDisplayName: "현장 사용자",
-      memberships: [{ companyId: "jongno", userId: "member", role: "member" }],
+      memberships: [{ companyId: "jongro", userId: "member", role: "member" }],
       accessibleSiteIds: ["S001"],
     };
     app.get<CompanyIdentityProvider>(COMPANY_IDENTITY).resolve = (
@@ -688,7 +688,7 @@ test("회사 격리, 일반 사용자 현장 권한 및 내부 원가 차단, �
         .expect(201),
     ]);
     const first = await logs(http);
-    assert.ok(first.every((r) => r.companyId === "jongno"));
+    assert.ok(first.every((r) => r.companyId === "jongro"));
     assert.ok(
       first.some(
         (r) => r.userId === "member" && r.userDisplayName === "현장 사용자",

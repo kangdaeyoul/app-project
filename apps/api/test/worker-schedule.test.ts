@@ -7,7 +7,7 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../src/app.module";
 import { WorkerScheduleService } from "../src/worker-schedule";
 import { CompanyContext, SAMPLE_IDENTITY } from "../src/company-context";
-import { DEFAULT_COMPANY } from "@jongno/shared";
+import { DEFAULT_COMPANY } from "@jongro/shared";
 import {
   WORKERS_REPOSITORY,
   WorkersRepository,

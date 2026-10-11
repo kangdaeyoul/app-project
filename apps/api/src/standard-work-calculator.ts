@@ -7,7 +7,7 @@ import {
   QuoteItemInput,
   WorkSiteConditions,
   WorkCondition,
-} from "@jongno/shared";
+} from "@jongro/shared";
 export function validateEstimate(raw: unknown): WorkEstimateOptions {
   if (raw === undefined) return {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw))

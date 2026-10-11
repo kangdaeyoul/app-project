@@ -1,5 +1,5 @@
 import { ForbiddenException } from "@nestjs/common";
-import { CompanyOwned, DEFAULT_COMPANY } from "@jongno/shared";
+import { CompanyOwned, DEFAULT_COMPANY } from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 /** Adapter instances (including child collections) are owned by exactly one company.
  * PostgreSQL adapters must use company_id predicates and composite foreign keys.

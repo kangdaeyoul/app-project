@@ -4,7 +4,7 @@ import {
   COMPLETION_REPORT_TYPES,
   CompletionReportInput,
   CompletionReportSource,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import PdfPreview from "./pdf-preview";
 export default function CompletionReportPanel({ siteId }: { siteId: string }) {
   const [source, setSource] = useState<CompletionReportSource | null>(null);

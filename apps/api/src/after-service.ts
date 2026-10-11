@@ -30,7 +30,7 @@ import {
   AS_STATUSES,
   AS_TYPES,
   AS_PHOTO_PHASES,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import {
   AS_REPOSITORY,
   AfterServiceRepository,

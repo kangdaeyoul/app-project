@@ -13,7 +13,7 @@ import {
   MaterialImportJob,
   MaterialImportRow,
   MATERIAL_EXCEL_COLUMNS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 import {
   STANDARD_WORK_REPOSITORY,

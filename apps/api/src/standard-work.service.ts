@@ -26,7 +26,7 @@ import {
   WorkCondition,
   WorkSiteConditions,
   WORK_CONDITION_KEYS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 import {
   STANDARD_WORK_REPOSITORY,
@@ -208,7 +208,7 @@ export class StandardWorkService {
   }
   private quantityRule(value: unknown) {
     if (value === undefined) return undefined;
-    const r = value as import("@jongno/shared").WorkQuantityRule;
+    const r = value as import("@jongro/shared").WorkQuantityRule;
     if (
       !r ||
       typeof r !== "object" ||

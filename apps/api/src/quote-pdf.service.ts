@@ -2,7 +2,7 @@ import { CompanyContext } from './company-context';
 import { Inject, Injectable } from "@nestjs/common";
 import PDFDocument from "pdfkit";
 import { join } from "node:path";
-import { CustomerQuote, quoteLineAmount } from "@jongno/shared";
+import { CustomerQuote, quoteLineAmount } from "@jongro/shared";
 import { QuotesService } from "./quotes.service";
 @Injectable()
 export class QuotePdfService {

@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
-import { CustomerQuote } from '@jongno/shared';
+import { CustomerQuote } from '@jongro/shared';
 export type ExcelQuote = CustomerQuote & { contactName: string; phone: string; groups: number[][] };
 const parse = (xml: string) => new DOMParser().parseFromString(xml, 'application/xml');
 const xml = (d: ReturnType<typeof parse>) => strToU8(new XMLSerializer().serializeToString(d));

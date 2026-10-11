@@ -17,7 +17,7 @@ import {
   Param,
   Query,
 } from "@nestjs/common";
-import { ScheduleEvent, WorkerSchedule, WORKER_COLORS } from "@jongno/shared";
+import { ScheduleEvent, WorkerSchedule, WORKER_COLORS } from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 import {
   DAILY_WORK_REPOSITORY,

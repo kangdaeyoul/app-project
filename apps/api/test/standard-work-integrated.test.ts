@@ -15,7 +15,7 @@ import {
   QuoteItemInput,
   accumulateQuoteItems,
   priceToQuoteItem,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const base = {
   quantity: 1,
   lengths: { 배선: 0, 배관: 0 },
@@ -522,7 +522,7 @@ test("통합 표준작업: 전체 기본 작업군·실제산출·미등록 단�
         ...SAMPLE_IDENTITY,
         memberships: [
           {
-            companyId: "jongno",
+            companyId: "jongro",
             userId: SAMPLE_IDENTITY.userId,
             role: "member",
           },
@@ -547,7 +547,7 @@ test("통합 표준작업: 전체 기본 작업군·실제산출·미등록 단�
 test("기본+추가 노무 누적 및 공유경로 수동수량·시공조건 보호", () => {
   const item = priceToQuoteItem({
     id: "L",
-    companyId: "jongno",
+    companyId: "jongro",
     name: "전기공 노무",
     specification: "",
     unit: "인",

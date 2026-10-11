@@ -2,7 +2,7 @@ import {
   InspectionItemInput,
   PhotoView,
   INSPECTION_REPORT_TITLE,
-} from "@jongno/shared";
+} from "@jongro/shared";
 /** Submission table uses original inspection numbers, never row indices. */
 export function appendInspectionTables(
   doc: PDFKit.PDFDocument,

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Company, DEFAULT_COMPANY, MENU_ITEMS, Dashboard, isSiteOnDate } from '@jongno/shared';
+import { Company, DEFAULT_COMPANY, MENU_ITEMS, Dashboard, isSiteOnDate } from '@jongro/shared';
 import InstructionsPanel,{InstructionSiteView} from './instructions-panel';
 import QuotesPanel from './quotes-panel';
 import FinancePanel from './finance-panels';
@@ -35,7 +35,7 @@ function AdminWorkspace() {
   const [isWorker,setIsWorker]=useState(false);
   const [initialAsId,setInitialAsId]=useState<string|undefined>();
   useEffect(()=>{fetch("/api/after-service/options").then(r=>r.json()).then(o=>{if(o.isWorker){setIsWorker(true);setMenu("A/S 관리")}}).catch(()=>{})},[]);
-  const [asAlerts,setAsAlerts]=useState<import("@jongno/shared").AfterServiceView[]>([]);
+  const [asAlerts,setAsAlerts]=useState<import("@jongro/shared").AfterServiceView[]>([]);
   const [quoteId,setQuoteId]=useState<string|undefined>();
   useEffect(()=>{fetch("/api/after-service").then(r=>r.json()).then(r=>setAsAlerts(Array.isArray(r)?r:[])).catch(()=>{})},[menu]);
   const [workerId,setWorkerId]=useState<string|undefined>();

@@ -6,7 +6,7 @@ import {
   PhotoMetadata,
   PhotoType,
   PhotoView,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const emptyMeta = (): PhotoMetadata => ({
   location: "",
   description: "",

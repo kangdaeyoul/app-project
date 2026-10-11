@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import { NestFactory } from "@nestjs/core";
-import { DEFAULT_COMPANY, Company } from "@jongno/shared";
+import { DEFAULT_COMPANY, Company } from "@jongro/shared";
 import { AppModule } from "../src/app.module";
 import {
   CompanyContext,
@@ -89,10 +89,10 @@ test("회사별 전체 저장소/자식 데이터/동일 ID/파일/출력 양식
       originalExpense = expenses.list()[0];
     assert.equal(sites.list().length, 5);
     files.put("same-key", {
-      buffer: Buffer.from("jongno"),
+      buffer: Buffer.from("jongro"),
       mimeType: "text/plain",
     });
-    reports.put("same-report", Buffer.from("jongno"));
+    reports.put("same-report", Buffer.from("jongro"));
     await context.run(identity, async () => {
       for (const repo of [
         sites,
@@ -241,14 +241,14 @@ test("회사별 전체 저장소/자식 데이터/동일 ID/파일/출력 양식
           address: "",
           contactName: "",
           phone: "",
-          companyId: "jongno",
+          companyId: "jongro",
         } as never),
       );
     });
     assert.equal(quotes.find("Q001")!.siteName, originalQuote.siteName);
     assert.equal(photos.find("P001")!.dailyWorkId, "D001");
-    assert.equal(files.get("same-key")!.buffer.toString(), "jongno");
-    assert.equal(reports.get("same-report")!.toString(), "jongno");
+    assert.equal(files.get("same-key")!.buffer.toString(), "jongro");
+    assert.equal(reports.get("same-report")!.toString(), "jongro");
     assert.equal(finance.receipts()[0].amount, originalReceipt.amount);
     assert.throws(() =>
       context.run({ ...identity, memberships: [] }, () => sites.list()),
@@ -292,11 +292,11 @@ test("회사별 전체 저장소/자식 데이터/동일 ID/파일/출력 양식
       }),
       context.run(SAMPLE_IDENTITY, async () => {
         await new Promise((r) => setTimeout(r, 10));
-        assert.equal(context.companyId, "jongno");
-        assert.equal(files.get("same-key")!.buffer.toString(), "jongno");
+        assert.equal(context.companyId, "jongro");
+        assert.equal(files.get("same-key")!.buffer.toString(), "jongro");
       }),
     ]);
-    assert.equal(context.companyId, "jongno");
+    assert.equal(context.companyId, "jongro");
     assert.equal(
       expenses.find(originalExpense.id)!.totalAmount,
       originalExpense.totalAmount,
@@ -315,7 +315,7 @@ test("HTTP 샘플 회사 유지, 회사 헤더/본문 위조 차단, 회사 설�
     const settings = await request(http)
       .get("/api/company/current")
       .expect(200);
-    assert.equal(settings.body.company.id, "jongno");
+    assert.equal(settings.body.company.id, "jongro");
     assert.equal(settings.body.appBrand.provisional, true);
     await request(http)
       .get("/api/sites")

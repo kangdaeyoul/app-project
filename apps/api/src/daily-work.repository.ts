@@ -8,8 +8,8 @@ import {
   DailyWorkRecord,
   DailyWorkParticipant,
   DailyWork,
-} from "@jongno/shared";
-import { workMinutes } from "@jongno/shared";
+} from "@jongro/shared";
+import { workMinutes } from "@jongro/shared";
 import { seoulToday } from "./date";
 export const DAILY_WORK_REPOSITORY = Symbol("DAILY_WORK_REPOSITORY");
 export interface DailyWorkRepository {

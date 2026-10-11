@@ -1,4 +1,4 @@
-import { AuditLog } from "@jongno/shared";
+import { AuditLog } from "@jongro/shared";
 export const AUDIT_REPOSITORY = Symbol("AUDIT_REPOSITORY");
 export interface AuditRepository {
   append(record: AuditLog): void;

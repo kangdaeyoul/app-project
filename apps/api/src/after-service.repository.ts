@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { AfterService, AS_STATUSES } from "@jongno/shared";
+import { AfterService, AS_STATUSES } from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 export const AS_REPOSITORY = Symbol("AS_REPOSITORY");
 export interface AfterServiceRepository {

@@ -5,7 +5,7 @@ import {
   ExpenseLineItem,
   WorkerExpenseTotals,
   WorkerSettlement,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { seoulToday } from "./date";
 export const EXPENSES_REPOSITORY = Symbol("EXPENSES_REPOSITORY");
 export interface ExpensesRepository {

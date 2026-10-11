@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { APP_BRAND } from "@jongno/shared";
+import { APP_BRAND } from "@jongro/shared";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",

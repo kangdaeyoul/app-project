@@ -9,7 +9,7 @@ import {
   Site,
   WorkerSummary,
   workMinutes,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",

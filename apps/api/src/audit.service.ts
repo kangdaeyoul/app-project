@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from "@nestjs/common";
-import { AUDIT_ACTIONS, AUDIT_TARGETS, AuditPage } from "@jongno/shared";
+import { AUDIT_ACTIONS, AUDIT_TARGETS, AuditPage } from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 import { AUDIT_REPOSITORY, AuditRepository } from "./audit.repository";
 import { AUDIT_ACCESS, AuditAccess } from "./audit-access";

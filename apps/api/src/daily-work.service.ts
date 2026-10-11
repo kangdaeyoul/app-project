@@ -16,7 +16,7 @@ import {
   MaterialUsageInput,
   SiteMaterials,
   workMinutes,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import {
   DAILY_WORK_REPOSITORY,
   DailyWorkRepository,

@@ -5,7 +5,7 @@ import {
   WorkerInput,
   WorkerAvailability,
   WorkerWork,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { seoulToday } from "./date";
 export const WORKERS_REPOSITORY = Symbol("WORKERS_REPOSITORY");
 export interface WorkersRepository {

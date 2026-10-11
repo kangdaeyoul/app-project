@@ -1,5 +1,5 @@
 import { ForbiddenException, Inject, Injectable } from "@nestjs/common";
-import { AuditValue } from "@jongno/shared";
+import { AuditValue } from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 export const AUDIT_ACCESS = Symbol("AUDIT_ACCESS");
 export interface AuditAccess {

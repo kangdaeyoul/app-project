@@ -12,7 +12,7 @@ import {
 } from "../src/completion-report-storage";
 import { CompanyContext, SAMPLE_IDENTITY } from "../src/company-context";
 import { CompletionReportService } from "../src/completion-report.service";
-import { DEFAULT_COMPANY } from "@jongno/shared";
+import { DEFAULT_COMPANY } from "@jongro/shared";
 const parse = (
   res: NodeJS.ReadableStream,
   done: (e: Error | null, b: Buffer) => void,

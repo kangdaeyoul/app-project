@@ -13,7 +13,7 @@ import {
   INSPECTION_REPORT_TITLE,
   INSPECTION_OUTPUT_MODES,
   INSPECTION_COVER_TITLES,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import PDFDocument from "pdfkit";
 import { PhotoReportService } from "./photo-report.service";
 import { randomUUID } from "node:crypto";

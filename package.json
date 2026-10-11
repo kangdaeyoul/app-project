@@ -1,5 +1,5 @@
 {
-  "name": "jongno-fire-management",
+  "name": "jongro-fire-management",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -9,10 +9,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "npm run build -w @jongno/shared && concurrently -k -n API,WEB \"npm run dev -w @jongno/api\" \"npm run dev -w @jongno/admin-web\"",
-    "build": "npm run build -w @jongno/shared && npm run build -w @jongno/api && npm run build -w @jongno/admin-web",
-    "test": "npm run build -w @jongno/shared && npm run test -w @jongno/api",
-    "typecheck": "npm run build -w @jongno/shared && npm run typecheck --workspaces --if-present",
+    "dev": "npm run build -w @jongro/shared && concurrently -k -n API,WEB \"npm run dev -w @jongro/api\" \"npm run dev -w @jongro/admin-web\"",
+    "build": "npm run build -w @jongro/shared && npm run build -w @jongro/api && npm run build -w @jongro/admin-web",
+    "test": "npm run build -w @jongro/shared && npm run test -w @jongro/api",
+    "typecheck": "npm run build -w @jongro/shared && npm run typecheck --workspaces --if-present",
     "start:preview": "node deploy/start-preview.cjs"
   },
   "devDependencies": {

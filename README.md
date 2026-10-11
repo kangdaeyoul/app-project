@@ -31,21 +31,21 @@ npm run typecheck
 빌드 결과를 실행하려면 두 터미널에서 각각 다음 명령을 실행하세요.
 
 ```powershell
-npm run start -w @jongno/api
+npm run start -w @jongro/api
 ```
 
 ```powershell
-npm run start -w @jongno/admin-web
+npm run start -w @jongro/admin-web
 ```
 
 포트 3000과 4000은 비어 있어야 합니다. 기본 API 주소를 변경하려면 웹 프로세스의 `API_URL`을 설정하세요. API 포트는 `PORT`입니다. 웹의 API 프록시 주소는 빌드 시 반영되므로 운영 빌드 전에 지정합니다.
 
 ```powershell
 $env:API_URL = 'http://127.0.0.1:4100'
-npm run dev -w @jongno/admin-web
-# 다른 터미널에서 API를 실행합니다. 최초 실행 전 루트에서 npm run build -w @jongno/shared 실행
+npm run dev -w @jongro/admin-web
+# 다른 터미널에서 API를 실행합니다. 최초 실행 전 루트에서 npm run build -w @jongro/shared 실행
 $env:PORT = '4100'
-npm run dev -w @jongno/api
+npm run dev -w @jongro/api
 ```
 
 이 예시는 각 터미널의 환경변수를 분리하여 웹 3000/API 4100으로 실행합니다. 현재 인증 없는 샘플용이므로 외부 운영 서비스로 배포하기 전에 인증·권한 및 데이터 저장을 구현해야 합니다.
@@ -273,15 +273,15 @@ A/S 완료요청과 관리자 종결을 분리하고 배정·변경·완료·재
 
 ## 테스트 계정 로그인 / 사용자 권한
 
-API와 웹을 실행한 뒤 로그인 화면에서 아래 계정을 사용하세요. 공통 비밀번호는 `Jongno2026!`입니다. 실제 서비스 계정이 아닌 메모리 개발용 계정이며 서버 재시작 시 사용자 변경과 세션도 초기화됩니다.
+API와 웹을 실행한 뒤 로그인 화면에서 아래 계정을 사용하세요. 공통 비밀번호는 `Jongro2026!`입니다. 실제 서비스 계정이 아닌 메모리 개발용 계정이며 서버 재시작 시 사용자 변경과 세션도 초기화됩니다.
 
 | 계정 | 역할 | 기본 접근 범위 |
 | --- | --- | --- |
-| `admin@jongno.test` | 관리자 | 종로소방 전체 기능, 사용자 관리, 회사 설정, 감사로그 |
-| `staff@jongno.test` | 사내직원 | S001/S003 현장, 일정, 견적 작성, 작업/사진/보고서/A/S |
-| `worker1@jongno.test` | 작업진행자 | 김현장 소장(W001)의 배정 업무 및 본인 정산 |
-| `worker2@jongno.test` | 작업진행자 | 최기계 기사(W004)의 배정 업무 및 본인 정산 |
-| `inactive@jongno.test` | 비활성 | 로그인 차단 검증용 |
+| `admin@jongro.test` | 관리자 | 종로소방 전체 기능, 사용자 관리, 회사 설정, 감사로그 |
+| `staff@jongro.test` | 사내직원 | S001/S003 현장, 일정, 견적 작성, 작업/사진/보고서/A/S |
+| `worker1@jongro.test` | 작업진행자 | 김현장 소장(W001)의 배정 업무 및 본인 정산 |
+| `worker2@jongro.test` | 작업진행자 | 최기계 기사(W004)의 배정 업무 및 본인 정산 |
+| `inactive@jongro.test` | 비활성 | 로그인 차단 검증용 |
 | `admin@demo.test` | 다른 회사 관리자 | 별도 회사의 빈 데이터, 종로소방 조회 차단 검증용 |
 
 관리자 `사용자 관리`에서 계정 추가/수정, 역할, 활성 상태, 작업진행자 연결, 실제 이름과 표시 이름, 직원의 허용 현장과 추가 금액 조회 권한을 설정합니다. 회사 배정은 현재 관리자에게 관리 권한이 있는 회사만 선택할 수 있습니다. 마지막 활성 관리자는 비활성화하거나 다른 역할로 바꿀 수 없습니다. 고객 역할은 준비되어 있지만 현재 로그인과 업무 접근은 차단됩니다.

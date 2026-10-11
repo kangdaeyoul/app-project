@@ -5,7 +5,7 @@ import {
   MaterialImportJob,
   MaterialPriceHistory,
   MATERIAL_EXCEL_COLUMNS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch("/api" + path, init);
   const v = await r.json();

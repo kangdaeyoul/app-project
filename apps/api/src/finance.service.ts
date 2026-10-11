@@ -23,7 +23,7 @@ import {
   SettlementSummary,
   SiteFinance,
   WorkerPaymentAllocation,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { FINANCE_REPOSITORY, FinanceRepository } from "./finance.repository";
 import { EXPENSES_REPOSITORY, ExpensesRepository } from "./expenses.repository";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";

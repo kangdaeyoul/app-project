@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { NestFactory } from "@nestjs/core";
 import request from "supertest";
 import { AppModule } from "../src/app.module";
+import { seoulToday } from "../src/date";
 import { AUTH_PROVIDER, MemoryAuthProvider } from "../src/auth";
 import { readFileSync } from "node:fs";
 
@@ -42,7 +43,7 @@ test("PWA 데모 로그인: 역할별 세션, API 권한 및 비활성 설정", 
       assert.equal(auth.demoEnabled, false);
       assert.throws(() => auth.demoLogin("admin"));
       assert.throws(() =>
-        auth.authenticate("admin@jongno.test", "Jongno2026!"),
+        auth.authenticate("admin@jongro.test", "Jongro2026!"),
       );
       await disabled.close();
     } finally {
@@ -73,7 +74,7 @@ test("모바일 작업 확인내용 보존 및 신규 배정/일정변경 알림
         .post("/api/daily-work")
         .send({
           siteId: sites[0].id,
-          workDate: "2026-10-10",
+          workDate: seoulToday(),
           managerId: me.workerId,
           participantIds: [],
           startTime: "",

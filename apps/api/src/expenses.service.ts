@@ -16,7 +16,7 @@ import {
   ExpenseList,
   ExpenseRecord,
   PAYMENT_METHODS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import {
   EXPENSES_REPOSITORY,
   ExpensesRepository,

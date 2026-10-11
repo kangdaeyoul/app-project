@@ -3,7 +3,7 @@ import {
   WorkCondition,
   WORK_CONDITION_KEYS,
   WORK_CONDITION_LABELS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const boolKeys = [
   "reuseWiring",
   "reusePiping",

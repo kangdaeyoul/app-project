@@ -807,16 +807,16 @@ export interface Company {
   quoteTemplate: {
     id: string;
     storageKey: string;
-    kind: "jongno-2026" | "custom";
+    kind: "jongro-2026" | "custom";
   } | null;
   output: { photoReportTitle: string; footer: string; quoteNotes: string };
 }
 export const DEFAULT_COMPANY: Company = {
-  id: "jongno",
+  id: "jongro",
   name: "주식회사 종로소방",
   displayName: "종로소방",
   logoUrl: null,
-  sealKey: "companies/jongno/assets/seal",
+  sealKey: "companies/jongro/assets/seal",
   phone: "02-861-4119",
   fax: "02-2679-2006",
   email: "jongro5119@naver.com",
@@ -834,9 +834,9 @@ export const DEFAULT_COMPANY: Company = {
     email: "jongro5119@naver.com",
   },
   quoteTemplate: {
-    id: "jongno-2026",
-    kind: "jongno-2026",
-    storageKey: "companies/jongno/templates/jongno-2026.xlsx",
+    id: "jongro-2026",
+    kind: "jongro-2026",
+    storageKey: "companies/jongro/templates/jongro-2026.xlsx",
   },
   output: {
     photoReportTitle: "공사 사진대지",

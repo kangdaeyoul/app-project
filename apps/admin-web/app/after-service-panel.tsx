@@ -8,7 +8,7 @@ import {
   AS_PHOTO_PHASES,
   DailyWork,
   MaterialUsageInput,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import MaterialRows from "./material-rows";
 import ExpensesPanel from "./expenses-panel";
 const today = () =>

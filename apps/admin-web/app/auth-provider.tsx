@@ -1,9 +1,9 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-import { APP_BRAND, Company, DEFAULT_COMPANY } from "@jongno/shared";
+import { APP_BRAND, Company, DEFAULT_COMPANY } from "@jongro/shared";
 import FieldHelper from "./field-helper";
-import { CurrentUser, UserRole } from "@jongno/shared";
-export type { CurrentUser, UserRole } from "@jongno/shared";
+import { CurrentUser, UserRole } from "@jongro/shared";
+export type { CurrentUser, UserRole } from "@jongro/shared";
 interface AuthState {
   user: CurrentUser | null;
   company: Company;

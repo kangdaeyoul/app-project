@@ -7,7 +7,7 @@ import { NestFactory } from "@nestjs/core";
 import { AppModule } from "../src/app.module";
 import { CompanyContext, SAMPLE_IDENTITY } from "../src/company-context";
 import { StandardWorkService } from "../src/standard-work.service";
-import { DEFAULT_COMPANY, StandardWork } from "@jongno/shared";
+import { DEFAULT_COMPANY, StandardWork } from "@jongro/shared";
 const input = {
   quantity: 5,
   lengths: { 배선: 0, 배관: 0 },

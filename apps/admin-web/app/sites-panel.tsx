@@ -11,7 +11,7 @@ import PhotosPanel from './photos-panel';
 import ExpensesPanel from './expenses-panel';
 import DailyWorkPanel from './daily-work-panel';
 import { useEffect, useState } from 'react';
-import { SITE_STATUSES, Site, SiteInput, WorkerSummary } from '@jongno/shared';
+import { SITE_STATUSES, Site, SiteInput, WorkerSummary } from '@jongro/shared';
 
 const money = (value: number) => new Intl.NumberFormat('ko-KR').format(value) + '원';
 const tabs = ['개요', '일정', '일일작업', '사진', '자재·경비', '수금', '작업진행자 정산', '완료보고서', '보수결과보고서', 'A/S 이력', '작업지시', '파일', '변경이력'] as const;

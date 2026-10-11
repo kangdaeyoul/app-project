@@ -13,7 +13,7 @@ import {
   CompanyIdentityProvider,
 } from "../src/company-identity";
 import { AfterServiceService } from "../src/after-service";
-import { DEFAULT_COMPANY } from "@jongno/shared";
+import { DEFAULT_COMPANY } from "@jongro/shared";
 import { seoulToday } from "../src/date";
 const date = seoulToday();
 const input = {

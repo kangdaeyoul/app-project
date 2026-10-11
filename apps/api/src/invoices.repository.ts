@@ -3,7 +3,7 @@ import {
   PurchaseInvoice,
   SalesInvoice,
   WorkerInvoice,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import { seoulToday } from "./date";
 export const INVOICES_REPOSITORY = Symbol("INVOICES_REPOSITORY");
 export const emptyParty = (): BusinessParty => ({

@@ -1,5 +1,5 @@
 "use client";
-import { MaterialUsageInput } from "@jongno/shared";
+import { MaterialUsageInput } from "@jongro/shared";
 export default function MaterialRows({
   rows,
   onChange,

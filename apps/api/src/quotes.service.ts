@@ -23,7 +23,7 @@ import {
   QUOTE_PRINT_MODES,
   calculateQuote,
   QuoteView,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import {
   CUSTOMERS_REPOSITORY,
   CustomersRepository,
@@ -564,4 +564,4 @@ export class QuotesService {
     };
   }
 }
-import { quoteLineAmount as importAmount } from "@jongno/shared";
+import { quoteLineAmount as importAmount } from "@jongro/shared";

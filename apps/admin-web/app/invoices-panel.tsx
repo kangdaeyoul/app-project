@@ -12,7 +12,7 @@ import {
   SalesInvoiceView,
   WORKER_INVOICE_STATUSES,
   WorkerInvoiceView,
-} from "@jongno/shared";
+} from "@jongro/shared";
 const money = (n: number) => n.toLocaleString("ko-KR") + "원";
 const today = () =>
   new Intl.DateTimeFormat("en-CA", {

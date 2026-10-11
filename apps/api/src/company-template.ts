@@ -12,12 +12,12 @@ export class CompanyTemplateResolver {
   quotePath() {
     const company = this.context.settings();
     if (
-      company.id !== "jongno" ||
-      company.quoteTemplate?.kind !== "jongno-2026" ||
+      company.id !== "jongro" ||
+      company.quoteTemplate?.kind !== "jongro-2026" ||
       company.quoteTemplate.storageKey !==
-        "companies/jongno/templates/jongno-2026.xlsx"
+        "companies/jongro/templates/jongro-2026.xlsx"
     )
       throw new ConflictException("회사 전용 견적서 템플릿 등록이 필요합니다.");
-    return join(__dirname, "../fixtures/quotes/jongno-2026.xlsx");
+    return join(__dirname, "../fixtures/quotes/jongro-2026.xlsx");
   }
 }

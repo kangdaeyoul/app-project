@@ -16,7 +16,7 @@ import {
   SalesInvoiceView,
   WORKER_INVOICE_STATUSES,
   WorkerInvoiceView,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import {
   INVOICES_REPOSITORY,
   InvoicesRepository,

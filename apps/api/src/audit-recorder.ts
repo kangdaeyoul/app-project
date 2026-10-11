@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { ModuleRef } from "@nestjs/core";
-import { AuditAction, AuditTarget, AuditValue } from "@jongno/shared";
+import { AuditAction, AuditTarget, AuditValue } from "@jongro/shared";
 import { CompanyContext } from "./company-context";
 import { AUDIT_REPOSITORY, AuditRepository } from "./audit.repository";
 import { SITES_REPOSITORY, SitesRepository } from "./sites.repository";

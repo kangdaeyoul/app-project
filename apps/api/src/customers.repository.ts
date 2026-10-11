@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Customer } from "@jongno/shared";
+import { Customer } from "@jongro/shared";
 export const CUSTOMERS_REPOSITORY = Symbol("CUSTOMERS_REPOSITORY");
 export interface CustomersRepository {
   list(): Customer[];

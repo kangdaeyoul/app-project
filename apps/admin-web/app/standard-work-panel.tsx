@@ -9,7 +9,7 @@ import {
   WORK_COMPONENT_ROLES,
   WORK_QUANTITY_MODES,
   WORK_REUSE_FLAGS,
-} from "@jongno/shared";
+} from "@jongro/shared";
 async function api<T>(
   path: string,
   body?: unknown,

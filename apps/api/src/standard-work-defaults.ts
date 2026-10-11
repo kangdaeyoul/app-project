@@ -4,7 +4,7 @@ import {
   WorkComponent,
   WorkPrice,
   WorkQuantityRule,
-} from "@jongno/shared";
+} from "@jongro/shared";
 import type { StandardWorkRepository } from "./standard-work.repository";
 const electrical: [string, string[]][] = [
   ...[
@@ -243,7 +243,7 @@ export function registerDefaultWorks(
     for (const [equipment, types] of groups)
       for (const action of types) {
         const name = `${equipment} ${action}`,
-          seedKey = "jongno-integrated:" + name;
+          seedKey = "jongro-integrated:" + name;
         const existing =
           original.templates.find((t) => t.seedKey === seedKey) ??
           original.templates.find(
