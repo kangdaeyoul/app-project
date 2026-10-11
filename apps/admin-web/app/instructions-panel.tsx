@@ -1,4 +1,5 @@
 "use client";
+import FieldHelper from "./field-helper";
 import { useEffect, useState } from "react";
 type Message = {
   id: string;
@@ -152,7 +153,7 @@ export default function InstructionsPanel({
     }
   }
   return (
-    <section className="panel instructions-panel">
+    <section className="panel instructions-panel"><FieldHelper pose="notification" title="중요한 안내를 확인해 주세요." description="작업지시와 일정 변경을 확인하고 읽음 처리할 수 있습니다."/>
       <div className="panel-title">
         <div>
           <h2>
@@ -333,7 +334,7 @@ export default function InstructionsPanel({
             </button>
           ))}
         {!rows.length && !events.length && (
-          <p className="empty">등록된 작업지시가 없습니다.</p>
+          <FieldHelper pose="check" title="등록된 작업지시가 없습니다." description="새로운 안내가 도착하면 여기에서 확인할 수 있습니다."/>
         )}
       </div>
       {selected && (

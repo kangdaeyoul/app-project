@@ -1,4 +1,5 @@
 "use client";
+import FieldHelper from "./field-helper";
 import InstructionsPanel from "./instructions-panel";
 import { useEffect, useState } from "react";
 import {
@@ -1300,7 +1301,7 @@ export default function AfterServicePanel({
         <section className="panel as-list">
           <div className="panel-title">
             <div>
-              <h2>A/S 관리</h2>
+              <h2>A/S 관리</h2><FieldHelper pose="inspection" title="처리 대기 건을 확인해 주세요." description="요청내용과 위치를 확인하고 점검 결과를 남겨 주세요."/>
               <p>완료된 공사의 요청부터 결과확인·종결까지 관리하세요.</p>
             </div>
             {options?.canCreate && (
@@ -1494,7 +1495,7 @@ export default function AfterServicePanel({
               </button>
             ))}
           </div>
-          {!filtered.length && <p className="empty">등록된 A/S가 없습니다.</p>}
+          {!filtered.length && <FieldHelper pose="inspection" title="등록된 A/S가 없습니다." description="현장과 연결해 고객 요청을 등록할 수 있습니다."/>}
         </section>
       )}
       {previewPhoto && (

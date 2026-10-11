@@ -1,6 +1,6 @@
 /* Preview PWA: never cache authenticated pages, API responses, photos or reports. */
-const STATIC_CACHE='field-preview-static-v1';
-const STATIC_FILES=['/offline.html','/icons/app-192.png','/icons/app-512.png','/icons/app-180.png'];
+const STATIC_CACHE='field-preview-static-v2';
+const STATIC_FILES=['/characters/field-assistant.png','/offline.html','/icons/app-192.png','/icons/app-512.png','/icons/app-180.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(STATIC_CACHE).then(cache=>cache.addAll(STATIC_FILES)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('field-preview-static-')&&key!==STATIC_CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));});
 self.addEventListener('fetch',event=>{

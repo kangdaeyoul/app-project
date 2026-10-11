@@ -1,4 +1,5 @@
 "use client";
+import FieldHelper from "./field-helper";
 import { useEffect, useState } from "react";
 import {
   AvailabilityStatus,
@@ -174,6 +175,7 @@ export default function WorkerMobileSchedule({
   }
   return (
     <section className="worker-personal-calendar">
+{!compact&&<FieldHelper pose="calendar" title="이번 주 현장과 휴무를 확인해 보세요."/>}
       <div className="worker-schedule-summary">
         <span>
           월간 일정{" "}

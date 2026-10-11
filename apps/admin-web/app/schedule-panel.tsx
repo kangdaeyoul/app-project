@@ -243,7 +243,7 @@ export default function SchedulePanel({
     <section className="panel schedule-panel">
       <div className="panel-title">
         <div>
-          <h2>작업진행자 스케줄</h2>
+          <h2>작업진행자 스케줄</h2><FieldHelper pose="calendar" title="이번 주 배정 일정을 정리해 보세요."/>
           <p>누가, 언제, 어느 현장에서 일하는지 확인하고 배정하세요.</p>
         </div>
       </div>
