@@ -77,11 +77,12 @@ export default function QuotesPanel({
   onOpenSite,
   initialQuoteId,
 }: {
-  initialQuoteId?:string;
+  initialQuoteId?: string;
   onChanged: () => void;
   onOpenSite: (id: string) => void;
 }) {
   const [pendingItems, setPendingItems] = useState(0);
+  const [detailMode, setDetailMode] = useState(false);
   const [autoPriceDefault, setAutoPriceDefault] = useState(true);
   const [companyName, setCompanyName] = useState(DEFAULT_COMPANY.displayName);
   useEffect(() => {
@@ -160,7 +161,17 @@ export default function QuotesPanel({
       });
     return () => c.abort();
   }, [search, status, from, to, revision]);
-  useEffect(()=>{if(initialQuoteId)fetch(`/api/quotes/${initialQuoteId}`).then(async r=>{const b=await r.json();if(!r.ok)throw Error(b.message);return b}).then(open).catch(e=>setError(e.message))},[initialQuoteId]);
+  useEffect(() => {
+    if (initialQuoteId)
+      fetch(`/api/quotes/${initialQuoteId}`)
+        .then(async (r) => {
+          const b = await r.json();
+          if (!r.ok) throw Error(b.message);
+          return b;
+        })
+        .then(open)
+        .catch((e) => setError(e.message));
+  }, [initialQuoteId]);
   function open(q: QuoteView) {
     clearPreview();
     setSelected(q);
@@ -366,51 +377,85 @@ export default function QuotesPanel({
       ] as const)
     : [];
   return (
-    <div className="quotes-workspace">
+    <div
+      className={`quotes-workspace ${detailMode ? "quote-detail-mode" : "quote-simple-mode"}`}
+    >
       {form && (
         <>
-          <div className="quote-entry-options">
-            <label>
-              <input
-                type="checkbox"
-                checked={form.autoPrice ?? autoPriceDefault}
-                onChange={(e) => change({ autoPrice: e.target.checked })}
-              />
-              단가 자동입력
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.mergeDuplicates ?? true}
-                onChange={(e) => change({ mergeDuplicates: e.target.checked })}
-              />
-              중복 품목 자동합산
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={form.mergeAcrossSources ?? true}
-                onChange={(e) =>
-                  change({ mergeAcrossSources: e.target.checked })
-                }
-              />
-              자동·수동 입력 품목 병합
-            </label>
-          </div>
+          <details className="quote-settings">
+            <summary>입력 옵션 · 단가 자동입력 / 중복 합산</summary>
+            <div className="quote-entry-options">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.autoPrice ?? autoPriceDefault}
+                  onChange={(e) => change({ autoPrice: e.target.checked })}
+                />
+                단가 자동입력
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.mergeDuplicates ?? true}
+                  onChange={(e) =>
+                    change({ mergeDuplicates: e.target.checked })
+                  }
+                />
+                중복 품목 자동합산
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={form.mergeAcrossSources ?? true}
+                  onChange={(e) =>
+                    change({ mergeAcrossSources: e.target.checked })
+                  }
+                />
+                자동·수동 입력 품목 병합
+              </label>
+            </div>
+          </details>
+          {calc && (
+            <div className="quote-sticky-total" aria-label="견적 요약">
+              {rows
+                .filter(([label]) =>
+                  [
+                    "재료비",
+                    "노무비",
+                    "경비",
+                    "공급가액",
+                    "VAT",
+                    "총액",
+                  ].includes(label),
+                )
+                .map(([label, n]) => (
+                  <div key={label}>
+                    <span>{label}</span>
+                    <strong>{money(n)}</strong>
+                  </div>
+                ))}
+            </div>
+          )}
           {pendingItems > 0 && (
             <p role="status">선택한 품목을 추가하는 중입니다…</p>
           )}
           <QuoteQuickInput
             key={selected?.id ?? "new"}
+            totals={calc?.totals}
             onPendingChange={setPendingItems}
             autoPrice={form.autoPrice ?? autoPriceDefault}
             onAdd={(items, kind) => addItems(kind, items)}
           />
         </>
       )}
-      <StandardWorkPanel
-        onAdd={form ? (kind, items) => addItems(kind, items, true) : undefined}
-      />
+      <details className="quote-settings quote-management">
+        <summary>자재DB · 표준작업 관리</summary>
+        <StandardWorkPanel
+          onAdd={
+            form ? (kind, items) => addItems(kind, items, true) : undefined
+          }
+        />
+      </details>
 
       {form && (
         <label>
@@ -729,100 +774,112 @@ export default function QuotesPanel({
                       onChange={(e) => change({ siteName: e.target.value })}
                     />
                   </label>
-                  <label>
-                    주소
-                    <input
-                      maxLength={300}
-                      value={form.address}
-                      onChange={(e) => change({ address: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    견적일
-                    <input
-                      required
-                      type="date"
-                      value={form.quoteDate}
-                      onChange={(e) => change({ quoteDate: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    유효기간
-                    <input
-                      required
-                      type="date"
-                      min={form.quoteDate}
-                      value={form.validUntil}
-                      onChange={(e) => change({ validUntil: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    견적 상태
-                    <select
-                      aria-label="견적 상태"
-                      value={form.status}
-                      onChange={(e) =>
-                        change({
-                          status: e.target.value as QuoteInput["status"],
-                        })
-                      }
-                    >
-                      {QUOTE_STATUSES.filter(
-                        (s) => s !== "계약전환" || locked,
-                      ).map((s) => (
-                        <option key={s}>{s}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    고객가격 반올림
-                    <select
-                      aria-label="고객가격 반올림"
-                      value={form.rounding}
-                      onChange={(e) =>
-                        change({
-                          rounding: e.target.value as QuoteInput["rounding"],
-                        })
-                      }
-                    >
-                      <option>천원 반올림</option>
-                      <option>반올림 없음</option>
-                    </select>
-                  </label>
-                  <label>
-                    고객금액 표시
-                    <select
-                      aria-label="고객금액 표시"
-                      value={form.displayUnit}
-                      onChange={(e) =>
-                        change({
-                          displayUnit: e.target
-                            .value as QuoteInput["displayUnit"],
-                        })
-                      }
-                    >
-                      <option>만원</option>
-                      <option>원</option>
-                    </select>
-                  </label>
-                  <label className="full-width">
-                    공사내용
-                    <textarea
-                      rows={2}
-                      maxLength={5000}
-                      value={form.workContent}
-                      onChange={(e) => change({ workContent: e.target.value })}
-                    />
-                  </label>
-                  <label className="full-width">
-                    고객용 비고
-                    <textarea
-                      rows={2}
-                      maxLength={5000}
-                      value={form.notes}
-                      onChange={(e) => change({ notes: e.target.value })}
-                    />
-                  </label>
+                  <details className="quote-settings full-width">
+                    <summary>주소 · 날짜 · 출력 설정 · 비고</summary>
+                    <div className="form-grid">
+                      <label>
+                        주소
+                        <input
+                          maxLength={300}
+                          value={form.address}
+                          onChange={(e) => change({ address: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        견적일
+                        <input
+                          required
+                          type="date"
+                          value={form.quoteDate}
+                          onChange={(e) =>
+                            change({ quoteDate: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        유효기간
+                        <input
+                          required
+                          type="date"
+                          min={form.quoteDate}
+                          value={form.validUntil}
+                          onChange={(e) =>
+                            change({ validUntil: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        견적 상태
+                        <select
+                          aria-label="견적 상태"
+                          value={form.status}
+                          onChange={(e) =>
+                            change({
+                              status: e.target.value as QuoteInput["status"],
+                            })
+                          }
+                        >
+                          {QUOTE_STATUSES.filter(
+                            (s) => s !== "계약전환" || locked,
+                          ).map((s) => (
+                            <option key={s}>{s}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        고객가격 반올림
+                        <select
+                          aria-label="고객가격 반올림"
+                          value={form.rounding}
+                          onChange={(e) =>
+                            change({
+                              rounding: e.target
+                                .value as QuoteInput["rounding"],
+                            })
+                          }
+                        >
+                          <option>천원 반올림</option>
+                          <option>반올림 없음</option>
+                        </select>
+                      </label>
+                      <label>
+                        고객금액 표시
+                        <select
+                          aria-label="고객금액 표시"
+                          value={form.displayUnit}
+                          onChange={(e) =>
+                            change({
+                              displayUnit: e.target
+                                .value as QuoteInput["displayUnit"],
+                            })
+                          }
+                        >
+                          <option>만원</option>
+                          <option>원</option>
+                        </select>
+                      </label>
+                      <label className="full-width">
+                        공사내용
+                        <textarea
+                          rows={2}
+                          maxLength={5000}
+                          value={form.workContent}
+                          onChange={(e) =>
+                            change({ workContent: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label className="full-width">
+                        고객용 비고
+                        <textarea
+                          rows={2}
+                          maxLength={5000}
+                          value={form.notes}
+                          onChange={(e) => change({ notes: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                  </details>
                 </div>
                 <details className="quote-customer">
                   <summary>새 거래처 등록</summary>
@@ -864,6 +921,26 @@ export default function QuotesPanel({
               </fieldset>
             </section>
             <section className="panel quote-details">
+              <div
+                className="quote-mode-picker"
+                role="group"
+                aria-label="견적 편집 모드"
+              >
+                <button
+                  type="button"
+                  aria-pressed={!detailMode}
+                  onClick={() => setDetailMode(false)}
+                >
+                  간편모드
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={detailMode}
+                  onClick={() => setDetailMode(true)}
+                >
+                  상세모드
+                </button>
+              </div>
               <div className="tab-list" role="tablist" aria-label="견적 구성">
                 {["갑지: 총괄", "을지: 기계", "을지: 전기"].map((t) => (
                   <button
@@ -1031,7 +1108,7 @@ export default function QuotesPanel({
                           <article className="quote-item" key={index}>
                             <div className="panel-title">
                               <strong>
-                                {kind} 항목 {index + 1}
+                                {item.name || `${kind} 항목 ${index + 1}`}
                               </strong>
                               <button
                                 type="button"
