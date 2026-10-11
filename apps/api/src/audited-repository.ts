@@ -14,7 +14,7 @@ type Kind =
 const methods: Record<Kind, string[]> = {
   현장: ["create", "update", "archive"],
   견적: ["save", "remove"],
-  작업진행자: ["create", "update", "archive", "setAvailability"],
+  작업진행자: ["create", "update", "archive", "setAvailability", "removeAvailability"],
   일일작업: ["save"],
   사진: ["save", "remove", "reorder"],
   지출: ["save", "remove"],
@@ -86,7 +86,7 @@ export function auditedRepository<T extends object>(
                     .filter((a: Row) => a.paymentId === r.id),
                 }))
               : repo.receipts();
-          if (kind === "작업진행자" && property === "setAvailability")
+          if (kind === "작업진행자" && ["setAvailability", "removeAvailability"].includes(property))
             return [{ id: args[0], availability: repo.availability(args[0]) }];
           return repo.list();
         };
@@ -162,7 +162,7 @@ export function auditedRepository<T extends object>(
             action = kind === "현장" ? "삭제" : "비활성화";
           if (property === "reorder") action = "순서변경";
           if (old && value && old.status !== value.status) action = "상태변경";
-          if (kind === "작업진행자" && property === "setAvailability")
+          if (kind === "작업진행자" && ["setAvailability", "removeAvailability"].includes(property))
             action = "상태변경";
           if (
             kind === "견적" &&

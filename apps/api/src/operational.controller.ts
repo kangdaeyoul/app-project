@@ -1,5 +1,7 @@
 import {
   Body,
+  Delete,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -9,6 +11,8 @@ import {
   Put,
   Query,
 } from "@nestjs/common";
+import { WorkersService } from "./workers.service";
+import { WorkerScheduleService } from "./worker-schedule";
 import { CompanyContext } from "./company-context";
 import { PermissionService } from "./permission.service";
 import { SitesRepository, SITES_REPOSITORY } from "./sites.repository";
@@ -23,6 +27,8 @@ import { WorkersRepository, WORKERS_REPOSITORY } from "./workers.repository";
 @Controller("operational")
 export class OperationalController {
   constructor(
+    @Inject(WorkersService) private workerService: WorkersService,
+    @Inject(WorkerScheduleService) private schedule: WorkerScheduleService,
     @Inject(CompanyContext) private company: CompanyContext,
     @Inject(PermissionService) private policy: PermissionService,
     @Inject(SITES_REPOSITORY) private sites: SitesRepository,
@@ -32,6 +38,61 @@ export class OperationalController {
     @Inject(QuotesService) private quotes: QuotesService,
     @Inject(WORKERS_REPOSITORY) private workers: WorkersRepository,
   ) {}
+  private ownWorker() {
+    const id = this.company.identity.workerId;
+    if (!id || this.company.identity.appRole !== "worker")
+      throw new ForbiddenException(
+        "본인 작업진행자 계정만 이용할 수 있습니다.",
+      );
+    this.workerService.find(id);
+    return id;
+  }
+  @Get("availability") availability() {
+    const id = this.ownWorker(),
+      worker = this.workerService.find(id);
+    return {
+      worker: {
+        id,
+        name: worker.name,
+        displayName: worker.displayName,
+        phone: worker.phone,
+        role: worker.role,
+        defaultAvailability: worker.defaultAvailability,
+      },
+      availability: this.workers.availability(id),
+    };
+  }
+  @Put("availability/:date") setOwnAvailability(
+    @Param("date") date: string,
+    @Body() body: any,
+  ) {
+    const id = this.ownWorker();
+    if (
+      (body?.workerId && body.workerId !== id) ||
+      (body?.companyId && body.companyId !== this.company.companyId)
+    )
+      throw new ForbiddenException("본인 회사와 휴무만 변경할 수 있습니다.");
+    const events = this.schedule.list(date, date).events;
+    if (
+      body?.status !== "근무가능" &&
+      events.length &&
+      body?.confirmConflict !== true
+    )
+      throw new ConflictException(
+        "해당 날짜에 이미 배정된 일정이 있습니다. 휴무로 변경하시겠습니까?",
+      );
+    return this.company.withOperationalWrite(() =>
+      this.workerService.setAvailability(id, date, body),
+    );
+  }
+  @Delete("availability/:date") removeOwnAvailability(
+    @Param("date") date: string,
+  ) {
+    const id = this.ownWorker();
+    return this.company.withOperationalWrite(() =>
+      this.workerService.removeAvailability(id, date),
+    );
+  }
   @Get("sites") list() {
     return this.sites
       .list()
@@ -68,8 +129,8 @@ export class OperationalController {
           endTime: body.endTime,
           status: body.status,
           materials: body.materials,
-          verificationNotes:body.verificationNotes,
-          operationConfirmed:body.operationConfirmed,
+          verificationNotes: body.verificationNotes,
+          operationConfirmed: body.operationConfirmed,
         }),
       ),
     );

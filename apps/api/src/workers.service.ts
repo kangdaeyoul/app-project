@@ -123,6 +123,12 @@ export class WorkersService {
     this.find(id);
     return this.repository.archive(id)!;
   }
+  removeAvailability(id: string, date: string) {
+    this.active(id);
+    if (!validDate(date)) throw new BadRequestException("유효한 날짜가 필요합니다.");
+    this.repository.removeAvailability(id, date);
+    return { date, removed: true };
+  }
   setAvailability(id: string, date: string, body: unknown) {
     this.active(id);
     if (!validDate(date))

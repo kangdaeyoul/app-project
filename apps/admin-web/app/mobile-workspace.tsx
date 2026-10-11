@@ -13,6 +13,7 @@ import QuotesPanel from "./quotes-panel";
 import CompletionReportPanel from "./completion-report-panel";
 import PhotosPanel from "./photos-panel";
 import MaterialRows from "./material-rows";
+import WorkerMobileSchedule from "./worker-mobile-schedule";
 import SchedulePanel from "./schedule-panel";
 import { OwnSettlements, StaffQuotes } from "./operational-workspace";
 import FieldHelper from "./field-helper";
@@ -32,7 +33,7 @@ export default function MobileWorkspace() {
   const admin = user?.role === "admin",
     worker = user?.role === "worker";
   const menus = worker
-    ? ["오늘 일정", "내 현장", "A/S", "작업지시", "더보기"]
+    ? ["홈", "일정", "내 현장", "알림", "더보기"]
     : admin
       ? ["홈", "일정", "현장", "견적", "더보기"]
       : ["홈", "일정", "내 현장", "작업", "더보기"];
@@ -47,6 +48,7 @@ export default function MobileWorkspace() {
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0),
     [dirty, setDirty] = useState(false);
+  const [siteStatus, setSiteStatus] = useState("진행중");
   const reload = () => setRevision((v) => v + 1);
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -122,7 +124,11 @@ export default function MobileWorkspace() {
   const site = sites.find((s) => s.id === selected),
     siteWorks = works.filter((w) => w.siteId === selected),
     unread = events.filter((e) => !e.readAt).length;
-  const todayWorks = works.filter((w) => w.workDate === today()),
+  const todayWorks = works.filter(
+      (w) =>
+        w.workDate === today() &&
+        !asRows.some((a) => a.workIds?.includes(w.id)),
+    ),
     todayAs = asRows.filter(
       (a) =>
         a.plannedDate === today() && !["종결", "처리완료"].includes(a.status),
@@ -135,9 +141,42 @@ export default function MobileWorkspace() {
         {w.workDate} · {w.startTime || w.plannedStartTime || "시간 미정"} ~{" "}
         {w.endTime || w.plannedEndTime || "미정"}
       </p>
+      <p>{sites.find((s) => s.id === w.siteId)?.address || "주소 미등록"}</p>
       <p>{w.content}</p>
       <button className="primary" onClick={() => openWork(w)}>
         작업시작 · 사진등록 · 완료요청
+      </button>
+    </article>
+  );
+  const openAs = (id: string) => {
+    setAsId(id);
+    setMenu("A/S");
+  };
+  const ownCalendar = (compact = false) => (
+    <WorkerMobileSchedule
+      compact={compact}
+      onSite={openSite}
+      onWork={(id) => {
+        const w = works.find((w) => w.id === id);
+        if (w) openWork(w);
+      }}
+      onAs={openAs}
+      onChanged={reload}
+    />
+  );
+  const renderAs = (a: any) => (
+    <article className="mobile-card schedule-mobile-card" key={a.id}>
+      <span className="badge">A/S · {a.status}</span>
+      {a.urgent && <span className="urgent-tag">긴급</span>}
+      <h3>{a.siteName || sites.find((s) => s.id === a.siteId)?.name}</h3>
+      <p>
+        {a.plannedDate} · {a.plannedStart || "시간 미정"} ~{" "}
+        {a.plannedEnd || "미정"}
+      </p>
+      <p>{sites.find((s) => s.id === a.siteId)?.address}</p>
+      <p>{a.request}</p>
+      <button className="primary" onClick={() => openAs(a.id)}>
+        A/S 작업 시작 · 처리 화면
       </button>
     </article>
   );
@@ -151,8 +190,8 @@ export default function MobileWorkspace() {
           <strong>{company.displayName}</strong>
         </div>
         <button
-          aria-label={`알림센터 미확인 ${unread}건`}
-          onClick={() => navigate("작업지시")}
+          aria-label={`알림 미확인 ${unread}건`}
+          onClick={() => navigate(worker ? "알림" : "작업지시")}
         >
           알림 <b>{unread}</b>
         </button>
@@ -181,6 +220,7 @@ export default function MobileWorkspace() {
           />
         ) : menu === "홈" || (worker && menu === "오늘 일정") ? (
           <>
+            <p className="worker-today-label">{today()} · 오늘 할 일</p>
             <FieldHelper title={`${user?.displayName}님, 오늘도 안전하게.`} />
             <div className="mobile-stats">
               <button onClick={() => navigate("일정")}>
@@ -189,7 +229,7 @@ export default function MobileWorkspace() {
               <button onClick={() => navigate("A/S")}>
                 오늘 A/S <strong>{todayAs.length}</strong>
               </button>
-              <button onClick={() => navigate("작업지시")}>
+              <button onClick={() => navigate(worker ? "알림" : "작업지시")}>
                 미확인 작업지시 <strong>{unread}</strong>
               </button>
               <button onClick={() => navigate("A/S")}>
@@ -215,35 +255,63 @@ export default function MobileWorkspace() {
                 <MobileReview sites={sites} />
               </>
             )}
-            <h2>오늘 일정</h2>
+            <h2>오늘 현장</h2>
             {todayWorks.length ? (
               todayWorks.map(renderWork)
             ) : (
               <p className="mobile-card">오늘 배정된 작업이 없습니다.</p>
             )}
-            <h2>다음 현장</h2>
-            {works
-              .filter((w) => w.workDate > today())
-              .sort((a, b) => a.workDate.localeCompare(b.workDate))
-              .slice(0, 2)
-              .map(renderWork)}
+            <h2>오늘 A/S</h2>
+            {todayAs.length ? (
+              todayAs.map(renderAs)
+            ) : (
+              <p className="mobile-card">오늘 예정된 A/S가 없습니다.</p>
+            )}
+            <h2>다음 일정</h2>
+            {[
+              ...works
+                .filter((w) => w.workDate > today())
+                .map((w) => ({ date: w.workDate, kind: "work", item: w })),
+              ...asRows
+                .filter(
+                  (a) =>
+                    a.plannedDate > today() &&
+                    !["종결", "처리완료"].includes(a.status),
+                )
+                .map((a) => ({ date: a.plannedDate, kind: "as", item: a })),
+            ]
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .slice(0, 3)
+              .map((e) =>
+                e.kind === "as" ? renderAs(e.item) : renderWork(e.item),
+              )}
+            {worker && (
+              <button onClick={() => navigate("일정")}>
+                월간 일정 · 휴무일 확인
+              </button>
+            )}
           </>
         ) : menu === "일정" || menu === "오늘 일정" ? (
-          <MobileSchedule
-            onSite={openSite}
-            onWork={(id) => {
-              const w = works.find((w) => w.id === id);
-              if (w) openWork(w);
-            }}
-          />
+          worker ? (
+            ownCalendar()
+          ) : (
+            <MobileSchedule
+              onSite={openSite}
+              onWork={(id) => {
+                const w = works.find((w) => w.id === id);
+                if (w) openWork(w);
+              }}
+            />
+          )
         ) : menu === "배정관리" && admin ? (
           <SchedulePanel
             onOpenSite={openSite}
             onOpenWorker={() => {}}
             onChanged={reload}
           />
-        ) : menu === "작업지시" ? (
+        ) : menu === "작업지시" || menu === "알림" ? (
           <InstructionsPanel
+            unified={worker}
             onOpen={(s, a) => {
               if (a) {
                 setAsId(a);
@@ -263,23 +331,47 @@ export default function MobileWorkspace() {
           <StaffQuotes />
         ) : menu === "내 정산" && worker ? (
           <OwnSettlements />
+        ) : menu === "휴무/근무가능 설정" && worker ? (
+          ownCalendar()
+        ) : menu === "내 정보" && worker ? (
+          <WorkerProfile />
+        ) : menu === "설정" ? (
+          <div className="mobile-card">
+            <h2>앱 설정</h2>
+            <p>회사: {company.displayName}</p>
+            <button onClick={() => navigate("홈 화면 설치 안내")}>
+              홈 화면 설치 안내
+            </button>
+            <button onClick={() => navigate("내 정보")}>내 정보 확인</button>
+          </div>
         ) : menu === "작업" ? (
           <>{works.map(renderWork)}</>
         ) : menu === "더보기" ? (
           <div className="mobile-actions">
-            {[
-              "홈 화면 설치 안내",
-              "작업지시",
-              "일정",
-              "작업",
-              "A/S",
-              ...(worker ? ["내 정산"] : []),
-              ...(admin
-                ? ["배정관리", "견적"]
-                : user?.permissions.includes("writeQuotes")
-                  ? ["견적"]
-                  : []),
-            ].map((m) => (
+            {(worker
+              ? [
+                  "내 정산",
+                  "내 정보",
+                  "휴무/근무가능 설정",
+                  "설정",
+                  "A/S",
+                  "작업",
+                  "홈 화면 설치 안내",
+                ]
+              : [
+                  "홈 화면 설치 안내",
+                  "작업지시",
+                  "일정",
+                  "작업",
+                  "A/S",
+                  ...(worker ? ["내 정산"] : []),
+                  ...(admin
+                    ? ["배정관리", "견적"]
+                    : user?.permissions.includes("writeQuotes")
+                      ? ["견적"]
+                      : []),
+                ]
+            ).map((m) => (
               <button key={m} onClick={() => navigate(m)}>
                 {m}
               </button>
@@ -358,18 +450,42 @@ export default function MobileWorkspace() {
                 )}
               </>
             ) : (
-              sites.map((s) => (
-                <button
-                  className="mobile-card site-link"
-                  key={s.id}
-                  onClick={() => openSite(s.id)}
+              <>
+                {worker && ownCalendar(true)}
+                <div
+                  className="mobile-segments"
+                  role="group"
+                  aria-label="내 현장 상태"
                 >
-                  <span className="badge">{s.status}</span>
-                  <h2>{s.name}</h2>
-                  <p>{s.address}</p>
-                  <p>{s.description}</p>
-                </button>
-              ))
+                  {["진행중", "완료"].map((v) => (
+                    <button
+                      key={v}
+                      aria-pressed={siteStatus === v}
+                      onClick={() => setSiteStatus(v)}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+                {sites
+                  .filter((s) =>
+                    siteStatus === "완료"
+                      ? s.status === "완료"
+                      : s.status !== "완료",
+                  )
+                  .map((s) => (
+                    <button
+                      className="mobile-card site-link"
+                      key={s.id}
+                      onClick={() => openSite(s.id)}
+                    >
+                      <span className="badge">{s.status}</span>
+                      <h2>{s.name}</h2>
+                      <p>{s.address}</p>
+                      <p>{s.description}</p>
+                    </button>
+                  ))}
+              </>
             )}
           </>
         ) : null}
@@ -387,6 +503,48 @@ export default function MobileWorkspace() {
         ))}
       </nav>
     </div>
+  );
+}
+function WorkerProfile() {
+  const [data, setData] = useState<{
+      worker: {
+        name: string;
+        displayName: string;
+        phone: string;
+        role: string;
+      };
+    } | null>(null),
+    [error, setError] = useState("");
+  useEffect(() => {
+    authApi<typeof data>("/operational/availability")
+      .then(setData)
+      .catch((e) => setError(e.message));
+  }, []);
+  return (
+    <section className="mobile-card">
+      <h2>내 정보</h2>
+      {error && <p role="alert">{error}</p>}
+      {data && (
+        <dl className="info-grid">
+          <div>
+            <dt>이름</dt>
+            <dd>{data.worker.name}</dd>
+          </div>
+          <div>
+            <dt>표시 이름</dt>
+            <dd>{data.worker.displayName}</dd>
+          </div>
+          <div>
+            <dt>연락처</dt>
+            <dd>{data.worker.phone || "미등록"}</dd>
+          </div>
+          <div>
+            <dt>역할</dt>
+            <dd>{data.worker.role}</dd>
+          </div>
+        </dl>
+      )}
+    </section>
   );
 }
 function MobileSchedule({

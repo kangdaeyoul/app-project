@@ -33,15 +33,19 @@ export default function InstructionsPanel({
   asId,
   onOpen,
   onChanged,
+  unified = false,
 }: {
   siteId?: string;
   asId?: string;
+  unified?: boolean;
   onOpen?: (siteId: string, asId: string) => void;
   onChanged?: () => void;
 }) {
+  const [filter, setFilter] = useState("전체");
   const [events, setEvents] = useState<
     {
       id: string;
+      kind?: string;
       asId: string;
       siteId: string;
       siteName: string;
@@ -151,7 +155,13 @@ export default function InstructionsPanel({
     <section className="panel instructions-panel">
       <div className="panel-title">
         <div>
-          <h2>{siteId ? "작업지시 / 공지" : "알림센터 · 작업지시"}</h2>
+          <h2>
+            {siteId
+              ? "작업지시 / 공지"
+              : unified
+                ? "알림"
+                : "알림센터 · 작업지시"}
+          </h2>
           <p>
             중요한 미확인 지시를 먼저 확인하세요.{" "}
             {rows.filter((r) => r.important && r.unread).length}건
@@ -226,35 +236,72 @@ export default function InstructionsPanel({
           </button>
         </form>
       )}
+      {unified && (
+        <div className="mobile-segments" role="group" aria-label="알림 분류">
+          {["전체", "작업지시", "일정", "A/S"].map((v) => (
+            <button
+              key={v}
+              aria-pressed={filter === v}
+              onClick={() => setFilter(v)}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="instruction-list">
-        {events.map((e) => (
-          <button
-            key={e.id}
-            className={`instruction-card ${e.important && !e.readAt ? "instruction-important" : ""}`}
-            onClick={async () => {
-              try {
-                if (!e.canManage)
-                  await api(`/notifications/${e.id}/read`, { method: "POST" });
-                await load();
-                window.dispatchEvent(new Event("instructions-changed"));
-                onOpen?.(e.siteId, e.asId);
-              } catch (err) {
-                setError((err as Error).message);
-              }
-            }}
-          >
-            <span>
-              {e.asId ? "A/S 알림" : "현장 알림"} · {e.readAt ? "읽음" : "안읽음"} · {e.siteName}
-            </span>
-            <strong>{e.title}</strong>
-            <small>
-              {new Date(e.createdAt).toLocaleString("ko-KR", {
-                timeZone: "Asia/Seoul",
-              })}
-            </small>
-          </button>
-        ))}
+        {events
+          .filter(
+            (e) =>
+              !unified ||
+              filter === "전체" ||
+              (filter === "A/S" && e.asId) ||
+              (filter === "일정" && !e.asId),
+          )
+          .map((e) => (
+            <button
+              key={e.id}
+              className={`instruction-card ${e.important && !e.readAt ? "instruction-important" : ""}`}
+              onClick={async () => {
+                try {
+                  if (!e.canManage)
+                    await api(`/notifications/${e.id}/read`, {
+                      method: "POST",
+                    });
+                  await load();
+                  window.dispatchEvent(new Event("instructions-changed"));
+                  onOpen?.(e.siteId, e.asId);
+                } catch (err) {
+                  setError((err as Error).message);
+                }
+              }}
+            >
+              <span>
+                {e.kind?.includes("urgent")
+                  ? "긴급 알림"
+                  : e.kind?.includes("review")
+                    ? "관리자 재확인 요청"
+                    : e.asId
+                      ? "A/S 알림"
+                      : "일정 알림"}{" "}
+                · {e.readAt ? "읽음" : "안읽음"} · {e.siteName}
+              </span>
+              <strong>{e.title}</strong>
+              <small>
+                {new Date(e.createdAt).toLocaleString("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                })}
+              </small>
+            </button>
+          ))}
         {[...rows]
+          .filter(
+            (r) =>
+              !unified ||
+              filter === "전체" ||
+              filter === "작업지시" ||
+              (filter === "A/S" && r.asId),
+          )
           .sort(
             (a, b) =>
               Number(b.important && b.unread) - Number(a.important && a.unread),
@@ -285,7 +332,9 @@ export default function InstructionsPanel({
               )}
             </button>
           ))}
-        {!rows.length && !events.length && <p className="empty">등록된 작업지시가 없습니다.</p>}
+        {!rows.length && !events.length && (
+          <p className="empty">등록된 작업지시가 없습니다.</p>
+        )}
       </div>
       {selected && (
         <section className="instruction-detail">

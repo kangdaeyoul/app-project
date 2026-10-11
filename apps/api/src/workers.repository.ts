@@ -16,6 +16,7 @@ export interface WorkersRepository {
   archive(id: string): Worker | undefined;
   availability(id: string): WorkerAvailability[];
   setAvailability(id: string, entry: WorkerAvailability): void;
+  removeAvailability(id: string, date: string): void;
   work(id: string): WorkerWork[];
 }
 export class SampleWorkersRepository implements WorkersRepository {
@@ -163,6 +164,9 @@ export class SampleWorkersRepository implements WorkersRepository {
         { ...entry },
       ].sort((a, b) => a.date.localeCompare(b.date)),
     );
+  }
+  removeAvailability(id: string, date: string) {
+    this.overrides.set(id, this.availability(id).filter(a => a.date !== date));
   }
   work(id: string) {
     return (this.records[id] ?? []).map((w) => ({ ...w }));
