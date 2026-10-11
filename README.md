@@ -346,3 +346,7 @@ npm run start:preview
 모바일 관리자는 **더보기**에서 정산/실적관리/자재단가/사용자 관리/회사 설정에 접근할 수 있습니다. 작업진행자에게 회사 금액이나 다른 작업진행자 데이터는 노출하지 않습니다. 현재 사용자·신청·실적·양식 및 업무 원장은 메모리이므로 API 재시작 시 초기화됩니다. Supabase Auth/영구 저장소는 아직 연결하지 않았습니다.
 
 캐릭터 적용 화면과 8개 포즈의 사용 규칙은 [현장 도우미 가이드](docs/field-assistant.md)를 확인하세요. 검증 화면: [실적관리](docs/screenshots/performance-pc.png), [범용 Excel 가져오기](docs/screenshots/universal-excel-pc.png), [모바일 월간 정산](docs/screenshots/monthly-iphone.png).
+
+### 테스트 로그인 점검
+
+로그인 화면에 `로그인 점검 버전: 2026-10-11 v2`가 표시되는지 확인하세요. 표시되지 않으면 최신 코드를 받은 뒤 기존 웹/API를 종료하고 `npm run build`, `npm run start:preview`로 다시 실행하세요. 이메일은 `admin@jongro.test`, 초기 비밀번호는 `Jongro2026!`입니다. 초기 테스트 계정은 기존 공통 비밀번호도 호환하지만, 사용자 관리나 내 정보에서 비밀번호를 변경하면 호환은 해제됩니다. 비활성·잠금 계정은 계속 차단합니다.

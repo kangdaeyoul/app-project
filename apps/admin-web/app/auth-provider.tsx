@@ -203,7 +203,8 @@ export function LoginScreen() {
         {demoEnabled && (
           <section className="demo-login">
             <h3>모바일 검증용 데모 로그인</h3>
-            <p>역할별 화면을 바로 확인하세요.</p>
+            <small>로그인 점검 버전: 2026-10-11 v2</small>
+            <p>역할별 화면을 바로 확인하세요. 초기 테스트 비밀번호: <strong>Jongro2026!</strong></p>
             <div>
               {[
                 ["admin", "관리자"],

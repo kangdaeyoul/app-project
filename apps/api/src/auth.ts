@@ -193,7 +193,12 @@ export class MemoryAuthProvider
       (u) => u.loginId.toLowerCase() === key || u.email.toLowerCase() === key,
     );
     // Equal-cost verification also runs for unknown accounts.
-    const valid = verify(password, u?.passwordHash ?? this.dummyHash);
+    const currentValid = verify(password, u?.passwordHash ?? this.dummyHash);
+    // Preserve the original demo password only while a seeded account remains unchanged.
+    const legacyDemoValid = !currentValid && this.demoEnabled &&
+      !!u && ["sample-admin", "sample-staff", "sample-worker1", "sample-worker2", "sample-inactive"].includes(u.id) &&
+      password === "Jongno2026!" && verify("Jongro2026!", u.passwordHash);
+    const valid = currentValid || legacyDemoValid;
     if (
       !u ||
       !valid ||
@@ -225,7 +230,12 @@ export class MemoryAuthProvider
         until: now + 300000,
       });
       throw new UnauthorizedException(
-        "로그인할 수 없습니다. 계정 정보와 활성 상태를 확인해 주세요.",
+        this.demoEnabled && u?.id.startsWith("sample-")
+          ? !valid ? "테스트 계정 비밀번호가 일치하지 않습니다. 초기 공통 비밀번호는 Jongro2026!입니다. 비밀번호를 변경했다면 변경한 비밀번호를 입력해 주세요."
+            : !u.active ? "비활성 또는 승인대기 계정입니다. 관리자에게 활성 상태를 확인해 주세요."
+            : u.locked ? "잠긴 계정입니다. 관리자에게 잠금 해제를 요청해 주세요."
+            : "승인되지 않은 계정입니다. 관리자에게 확인해 주세요."
+          : "로그인할 수 없습니다. 계정 정보와 활성 상태를 확인해 주세요.",
       );
     }
     this.attempts.delete(key);
@@ -606,6 +616,7 @@ export class AuthController {
       },
       sampleMode: true,
       demoEnabled: this.auth.demoEnabled === true,
+      loginRevision: "demo-login-2026-10-11-v2",
     };
   }
   @Post("login") login(

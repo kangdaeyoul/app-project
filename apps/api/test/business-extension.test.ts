@@ -296,3 +296,18 @@ test("범용 XLS/XLSX 매핑·단가이력·중복정책·양식 재사용·회�
     await app.close();
   }
 });
+
+test("초기 데모 비밀번호 호환은 변경된 비밀번호를 우회하지 않는다", async () => {
+  const { app, http, login } = await fixture();
+  try {
+    for (const role of ["admin", "staff", "worker1", "worker2"]) {
+      await login(`${role}@jongro.test`, "Jongno2026!");
+      await login(`${role}@jongro.test`, "Jongro2026!");
+    }
+    await request(http).post("/api/auth/login").send({login:"inactive@jongro.test",password:"Jongno2026!"}).expect(401);
+    const admin = await login();
+    await admin.put("/api/auth/profile").send({currentPassword:"Jongro2026!",password:"ChangedPass123!"}).expect(200);
+    await request(http).post("/api/auth/login").send({login:"admin@jongro.test",password:"Jongno2026!"}).expect(401);
+    await login("admin@jongro.test", "ChangedPass123!");
+  } finally { await app.close(); }
+});
