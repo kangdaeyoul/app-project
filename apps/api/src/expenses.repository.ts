@@ -29,6 +29,7 @@ export function expenseTotals(rows: Expense[]): ExpenseTotals {
     labor: rows
       .filter((e) => e.type === "작업비")
       .reduce((n, e) => n + e.totalAmount, 0),
+    outsourcing: rows.filter(e=>e.type === "외주비").reduce((n,e)=>n+e.totalAmount,0),
     other: rows
       .filter((e) => e.type === "기타경비")
       .reduce((n, e) => n + e.totalAmount, 0),

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@e965/xlsx": "^0.20.3",
     "@jongro/shared": "*",
     "@nestjs/common": "^11.1.0",
     "@nestjs/core": "^11.1.0",

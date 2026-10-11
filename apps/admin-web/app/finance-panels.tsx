@@ -1,4 +1,6 @@
 "use client";
+import {CollectionsReport,MonthlySettlementReport} from "./business-panels";
+import ExpensesPanel from "./expenses-panel";
 import AuditPanel from "./audit-panel";
 import InvoicesPanel, { SalesInvoiceSummary } from "./invoices-panel";
 import { useEffect, useState } from "react";
@@ -87,6 +89,7 @@ export function SiteFinancePanel({ siteId }: { siteId: string }) {
           ["A/S 판단보류 비용", data.asPendingCost??0],
           ["A/S 유상매출", data.asRevenue??0],
           ["회사 직접 자재비", data.directMaterials],
+          ["외주비", data.outsourcing??0],
           ["작업진행자 자재대납", data.materialAdvances],
           ["작업비", data.labor],
           ["기타경비", data.other],
@@ -403,6 +406,7 @@ export function SettlementsPanel({
   const [full, setFull] = useState(false);
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState(today);
+  const [paymentMethod,setPaymentMethod]=useState("계좌이체");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("");
   useEffect(() => {
@@ -440,6 +444,7 @@ export function SettlementsPanel({
           siteId: selected.siteId,
           workerId: selected.workerId,
           paymentDate: date,
+          paymentMethod,
           amount,
           fullPayment: full,
           notes,
@@ -552,6 +557,7 @@ export function SettlementsPanel({
               {selected.siteName} · 미지급 {money(selected.unpaidAmount)}
             </p>
             <div className="form-grid">
+              <label>지급방법<select aria-label="지급방법" value={paymentMethod} onChange={e=>setPaymentMethod(e.target.value)}>{["계좌이체","현금","카드","기타"].map(v=><option key={v}>{v}</option>)}</select></label>
               <label>
                 지급일 *
                 <input
@@ -746,7 +752,7 @@ export function SettlementsPanel({
               <tbody>
                 {data.payments.map((p) => (
                   <tr key={p.id}>
-                    <td>{p.paymentDate}</td>
+                    <td>{p.paymentDate} · {p.paymentMethod??"계좌이체"}</td>
                     <td>
                       {data.rows.find((r) => r.workerId === p.workerId)
                         ?.workerDisplayName ?? p.workerId}
@@ -819,7 +825,7 @@ export default function FinancePanel({
         role="tablist"
         aria-label="정산 업무"
       >
-        {["작업진행자 지급", "수금·미수", "현장손익", "세금계산서·증빙", ...(canAudit?["감사로그"]:[])].map(
+        {["작업진행자 지급", "수금·미수", "매입·경비", "세금계산서·증빙", "현장손익", "월간 정산", ...(canAudit?["감사로그"]:[])].map(
           (t) => (
             <button
               key={t}
@@ -839,9 +845,9 @@ export default function FinancePanel({
           <button onClick={() => setRevision((v) => v + 1)}>다시 시도</button>
         </div>
       )}
-      {tab === "감사로그" ? <AuditPanel/> : tab === "세금계산서·증빙" ? (
+      {tab === "월간 정산" ? <MonthlySettlementReport/> : tab === "매입·경비" ? <ExpensesPanel onChanged={onChanged}/> : tab === "감사로그" ? <AuditPanel/> : tab === "세금계산서·증빙" ? (
         <InvoicesPanel onChanged={onChanged} />
-      ) : tab === "작업진행자 지급" ? (
+      ) : tab === "수금·미수" ? <CollectionsReport onChanged={onChanged}/> : tab === "작업진행자 지급" ? (
         <SettlementsPanel onChanged={onChanged} />
       ) : (
         <>

@@ -615,6 +615,7 @@ export default function ExpensesPanel({
                   ["직접 자재구매 합계", data.totals.directMaterials],
                   ["작업진행자 대납 합계", data.totals.workerAdvances],
                   ["작업비 합계", data.totals.labor],
+                  ["외주비 합계", data.totals.outsourcing??0],
                   ["기타경비 합계", data.totals.other],
                   ["총 현장지출", data.totals.total],
                 ].map(([label, value]) => (
@@ -637,7 +638,7 @@ export default function ExpensesPanel({
               role="tablist"
               aria-label="자재·경비 구분"
             >
-              {["사용자재", "구매자재", "작업비", "기타경비"].map((t) => (
+              {["사용자재", "구매자재", "작업비", "외주비", "기타경비"].map((t) => (
                 <button
                   type="button"
                   role="tab"

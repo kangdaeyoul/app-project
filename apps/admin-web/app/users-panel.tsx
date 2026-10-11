@@ -154,6 +154,11 @@ export default function UsersPanel() {
                 ))}
               </select>
             </label>
+            <label>가입 상태<select aria-label="가입 상태" value={form.approvalStatus??"승인"} onChange={e=>setForm({...form,approvalStatus:e.target.value as CurrentUser["approvalStatus"],active:e.target.value==="승인"})}>{["승인대기","승인","거절","비활성"].map(v=><option key={v}>{v}</option>)}</select></label>
+            <label>휴대전화<input value={form.phone??""} onChange={e=>change("phone",e.target.value)}/></label>
+            <label><input type="checkbox" checked={form.locked??false} onChange={e=>change("locked",e.target.checked)}/>계정 잠금</label>
+            <label><input type="checkbox" checked={form.passwordResetRequired??false} onChange={e=>change("passwordResetRequired",e.target.checked)}/>비밀번호 초기화 필요</label>
+            {form.requestedCompany&&<p>신청 회사: {form.requestedCompany}</p>}
             <label>
               회사 배정
               <select
@@ -278,7 +283,7 @@ export default function UsersPanel() {
                   <small>{u.email}</small>
                 </td>
                 <td>{ROLE_LABELS[u.role]}</td>
-                <td>{u.active ? "활성" : "비활성"}</td>
+                <td>{u.approvalStatus??(u.active?"승인":"비활성")} · {u.locked?"잠금":u.active?"활성":"비활성"}{u.passwordResetRequired&&" · 비밀번호 초기화 필요"}</td>
                 <td>
                   {options?.workers.find((w) => w.id === u.workerId)
                     ?.displayName ?? "—"}

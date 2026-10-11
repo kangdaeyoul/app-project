@@ -235,6 +235,7 @@ export const EXPENSE_TYPES = [
   "회사 직접 자재구매",
   "작업진행자 대납 자재구매",
   "작업비",
+  "외주비",
   "기타경비",
 ] as const;
 export const PAYMENT_METHODS = [
@@ -303,6 +304,7 @@ export interface Expense extends ExpenseRecord {
   invoiceReceiptStatus?: (typeof PURCHASE_INVOICE_STATUSES)[number];
 }
 export interface ExpenseTotals {
+  outsourcing?: number;
   directMaterials: number;
   workerAdvances: number;
   labor: number;
@@ -342,6 +344,7 @@ export interface PaymentReceived extends PaymentReceivedInput {
   createdAt: string;
 }
 export interface WorkerPaymentInput {
+  paymentMethod?: "계좌이체"|"현금"|"카드"|"기타";
   paymentDate: string;
   siteId: string;
   workerId: string;
@@ -350,6 +353,7 @@ export interface WorkerPaymentInput {
   notes: string;
 }
 export interface WorkerPayment {
+  paymentMethod?: "계좌이체"|"현금"|"카드"|"기타";
   id: string;
   paymentDate: string;
   siteId: string;
@@ -411,6 +415,7 @@ export interface SettlementList {
   };
 }
 export interface SiteFinance {
+  outsourcing?: number;
   originalRevenue?:number; originalCost?:number; asCost?:number; asRevenue?:number; asFreeCost?:number; asPaidCost?:number; asPendingCost?:number;
   siteId: string;
   contractAmount: number;
@@ -1548,6 +1553,7 @@ export interface AfterServiceView extends Omit<AfterService,'chargeAmount'> {cha
 export type UserRole = 'admin' | 'staff' | 'worker' | 'customer';
 export type UserPermission = 'internalCosts' | 'siteFinance' | 'workerPayments' | 'editSchedule' | 'writeQuotes';
 export interface CurrentUser {
+  phone?:string; approvalStatus?:"승인대기"|"승인"|"거절"|"비활성"; requestedCompany?:string; locked?:boolean; passwordResetRequired?:boolean; appliedAt?:string;
   id:string; companyId:string; loginId:string; email:string; name:string;
   displayName:string; role:UserRole; active:boolean; workerId:string|null;
   siteIds:string[]; permissions:UserPermission[];

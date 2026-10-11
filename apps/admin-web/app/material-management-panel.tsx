@@ -1,4 +1,5 @@
 "use client";
+import UniversalMaterialImport from "./universal-material-import";
 import { useEffect, useRef, useState } from "react";
 import {
   WorkPrice,
@@ -95,6 +96,7 @@ export default function MaterialManagementPanel() {
   return (
     <section className="panel standard-work-panel material-management">
       <h2>자재단가 관리</h2>
+<UniversalMaterialImport onApplied={()=>void refresh()}/>
       <div className="worker-actions">
         <button
           type="button"

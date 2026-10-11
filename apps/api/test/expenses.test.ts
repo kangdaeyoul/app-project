@@ -46,6 +46,7 @@ test("지출 등록·수정·삭제, 현장 집계, 사용자재 보존, 작업�
       directMaterials: 110000,
       workerAdvances: 187000,
       labor: 350000,
+      outsourcing: 0,
       other: 22000,
       total: 669000,
     });

@@ -48,6 +48,7 @@ test("예시 현장 수금·미수·차익과 수금 다건 등록/수정/삭제
       directMaterials: 820000,
       materialAdvances: 310000,
       labor: 1200000,
+      outsourcing: 0,
       other: 120000,
       totalExpenses: 2450000,
       siteProfit: 3050000,

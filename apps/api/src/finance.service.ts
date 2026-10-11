@@ -238,7 +238,7 @@ export class FinanceService {
         materialAdvances: sum(
           group.filter((i) => i.category === "자재대납").map((i) => i.amount),
         ),
-        other: sum(
+      other: sum(
           group.filter((i) => i.category === "기타정산").map((i) => i.amount),
         ),
         totalPayable,
@@ -350,6 +350,7 @@ export class FinanceService {
       labor: sum(
         rows.filter((e) => e.type === "작업비").map((e) => e.totalAmount),
       ),
+      outsourcing: sum(rows.filter(e=>e.type === "외주비").map(e=>e.totalAmount)),
       other: sum(
         rows.filter((e) => e.type === "기타경비").map((e) => e.totalAmount),
       ),
@@ -366,6 +367,8 @@ export class FinanceService {
     if (!this.workers.find(workerId))
       throw new NotFoundException("작업진행자를 찾을 수 없습니다.");
     const date = text(raw, "paymentDate", true);
+    const paymentMethod = raw.paymentMethod ?? "계좌이체";
+    if (!["계좌이체","현금","카드","기타"].includes(paymentMethod as string)) throw new BadRequestException("지급방법을 확인하세요.");
     if (!validDate(date))
       throw new BadRequestException("지급일을 확인해 주세요.");
     if (raw.fullPayment !== undefined && typeof raw.fullPayment !== "boolean")
@@ -402,6 +405,7 @@ export class FinanceService {
       siteId,
       workerId,
       paymentDate: date,
+      paymentMethod: paymentMethod as "계좌이체"|"현금"|"카드"|"기타",
       amount: value,
       notes,
       createdAt: new Date().toISOString(),

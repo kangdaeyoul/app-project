@@ -45,6 +45,8 @@ export interface AuthProvider {
   logout(request: unknown): void;
   list(): CurrentUser[];
   save(body: unknown, id?: string): CurrentUser;
+  register(body: unknown): { status: string };
+  updateProfile(body: unknown): CurrentUser;
   options(): {
     companies: import("@jongro/shared").Company[];
     sites: { id: string; name: string }[];
@@ -88,6 +90,7 @@ export class MemoryAuthProvider
     (process.env.DEMO_LOGIN_ENABLED !== "false" &&
       process.env.NODE_ENV !== "production");
   private users = new Map<string, StoredUser>();
+  private dummyHash = hash(randomBytes(32).toString("hex"));
   private sessions = new Map<string, Session>();
   private attempts = new Map<string, { count: number; until: number }>();
   constructor(
@@ -174,8 +177,6 @@ export class MemoryAuthProvider
     return this.authenticate(keys[account], "Jongro2026!");
   }
   authenticate(login: string, password: string) {
-    if (!this.demoEnabled)
-      throw new UnauthorizedException("테스트 인증이 비활성화되어 있습니다.");
     if (
       typeof login !== "string" ||
       typeof password !== "string" ||
@@ -192,11 +193,33 @@ export class MemoryAuthProvider
       (u) => u.loginId.toLowerCase() === key || u.email.toLowerCase() === key,
     );
     // Equal-cost verification also runs for unknown accounts.
-    const valid = verify(
-      password,
-      u?.passwordHash ?? this.users.get("sample-admin")!.passwordHash,
-    );
-    if (!u || !valid || !u.active || u.role === "customer") {
+    const valid = verify(password, u?.passwordHash ?? this.dummyHash);
+    if (
+      !u ||
+      !valid ||
+      !u.active ||
+      u.locked ||
+      (u.approvalStatus && u.approvalStatus !== "승인") ||
+      u.role === "customer"
+    ) {
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.AUTH_DIAGNOSTICS === "true"
+      )
+        console.warn(
+          "[auth] login rejected:",
+          !u
+            ? "account missing (demo seed disabled or unknown login)"
+            : !valid
+              ? "password mismatch"
+              : !u.active
+                ? "inactive or awaiting approval"
+                : u.locked
+                  ? "account locked"
+                  : u.role === "customer"
+                    ? "customer access not enabled"
+                    : "approval required",
+        );
       this.attempts.set(key, {
         count: attempt && attempt.until > now ? attempt.count + 1 : 1,
         until: now + 300000,
@@ -236,6 +259,8 @@ export class MemoryAuthProvider
       !s ||
       s.expiresAt <= Date.now() ||
       !u?.active ||
+      u.locked ||
+      (u.approvalStatus && u.approvalStatus !== "승인") ||
       u.role === "customer"
     ) {
       this.sessions.delete(token);
@@ -336,8 +361,18 @@ export class MemoryAuthProvider
       throw new BadRequestException("이미 사용 중인 로그인 정보입니다.");
     if (
       existing?.role === "admin" &&
-      (!b.active || b.role !== "admin") &&
-      !this.list().some((u) => u.id !== id && u.active && u.role === "admin")
+      (!b.active ||
+        b.locked ||
+        (b.approvalStatus && b.approvalStatus !== "승인") ||
+        b.role !== "admin") &&
+      !this.list().some(
+        (u) =>
+          u.id !== id &&
+          u.active &&
+          !u.locked &&
+          (!u.approvalStatus || u.approvalStatus === "승인") &&
+          u.role === "admin",
+      )
     )
       throw new BadRequestException(
         "활성 관리자를 한 명 이상 유지해야 합니다.",
@@ -350,6 +385,11 @@ export class MemoryAuthProvider
           b.password.length > 200))
     )
       throw new BadRequestException("비밀번호는 8~200자로 입력해 주세요.");
+    if (
+      b.approvalStatus &&
+      !["승인대기", "승인", "거절", "비활성"].includes(b.approvalStatus)
+    )
+      throw new BadRequestException("가입 상태를 확인하세요.");
     const u: StoredUser = {
       id: id ?? randomUUID(),
       companyId: this.company.companyId,
@@ -362,6 +402,17 @@ export class MemoryAuthProvider
       workerId: b.role === "worker" ? b.workerId! : null,
       siteIds: [...new Set(b.siteIds)],
       permissions: [...new Set(b.permissions)],
+      phone:
+        typeof b.phone === "string"
+          ? b.phone.trim().slice(0, 30)
+          : (existing?.phone ?? ""),
+      approvalStatus: b.approvalStatus ?? existing?.approvalStatus ?? "승인",
+      requestedCompany: existing?.requestedCompany,
+      appliedAt: existing?.appliedAt,
+      locked: b.locked === true,
+      passwordResetRequired: b.password
+        ? false
+        : b.passwordResetRequired === true,
       passwordHash: b.password ? hash(b.password) : existing!.passwordHash,
     };
     this.users.set(u.id, u);
@@ -373,6 +424,147 @@ export class MemoryAuthProvider
       after: publicUser(u),
       siteIds: [...new Set([...(existing?.siteIds ?? []), ...u.siteIds])],
       reason: "사용자 계정과 역할 관리 (비밀번호 제외)",
+    });
+    return publicUser(u);
+  }
+  register(raw: unknown) {
+    const b = raw as Record<string, unknown>;
+    if (
+      !b ||
+      typeof b !== "object" ||
+      Array.isArray(b) ||
+      !["staff", "worker", "customer"].includes(String(b.role))
+    )
+      throw new BadRequestException("가입 유형을 확인해 주세요.");
+    for (const k of ["name", "email", "phone", "companyName", "password"])
+      if (
+        typeof b[k] !== "string" ||
+        !String(b[k]).trim() ||
+        String(b[k]).length > 200
+      )
+        throw new BadRequestException("가입 신청 정보를 확인해 주세요.");
+    const email = String(b.email).trim().toLowerCase();
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      String(b.password).length < 8
+    )
+      throw new BadRequestException(
+        "이메일과 8자 이상의 비밀번호를 입력하세요.",
+      );
+    if (
+      [...this.users.values()].some(
+        (u) =>
+          u.email.toLowerCase() === email || u.loginId.toLowerCase() === email,
+      )
+    )
+      throw new BadRequestException("이미 등록된 이메일입니다.");
+    const id = randomUUID();
+    this.users.set(id, {
+      id,
+      companyId: this.company.signupCompany(String(b.companyName)),
+      loginId: email,
+      email,
+      name: String(b.name).trim(),
+      displayName: String(b.name).trim(),
+      phone: String(b.phone).trim(),
+      requestedCompany: String(b.companyName).trim(),
+      role: b.role as UserRole,
+      active: false,
+      approvalStatus: "승인대기",
+      locked: false,
+      passwordResetRequired: false,
+      workerId: null,
+      siteIds: [],
+      permissions: [],
+      passwordHash: hash(String(b.password)),
+      appliedAt: new Date().toISOString(),
+    });
+    return { status: "승인대기" };
+  }
+  updateProfile(raw: unknown) {
+    const old = this.users.get(this.company.identity.userId);
+    if (!old) throw new UnauthorizedException();
+    const b = raw as Record<string, unknown>;
+    if (
+      !b ||
+      typeof b !== "object" ||
+      Array.isArray(b) ||
+      Object.keys(b).some(
+        (k) =>
+          ![
+            "name",
+            "displayName",
+            "phone",
+            "email",
+            "password",
+            "currentPassword",
+          ].includes(k),
+      )
+    )
+      throw new ForbiddenException(
+        "회사·역할·접근범위는 본인이 변경할 수 없습니다.",
+      );
+    const u = { ...old };
+    for (const k of ["name", "displayName", "phone", "email"] as const) {
+      if (b[k] === undefined) continue;
+      if (
+        typeof b[k] !== "string" ||
+        String(b[k]).length > 200 ||
+        (k !== "phone" && !String(b[k]).trim())
+      )
+        throw new BadRequestException("내 정보를 확인해 주세요.");
+      u[k] = String(b[k]).trim();
+    }
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(u.email) ||
+      [...this.users.values()].some(
+        (v) =>
+          v.id !== u.id &&
+          (v.email.toLowerCase() === u.email.toLowerCase() ||
+            v.loginId.toLowerCase() === u.email.toLowerCase()),
+      )
+    )
+      throw new BadRequestException("사용 가능한 이메일을 입력하세요.");
+    if (b.password) {
+      if (
+        typeof b.currentPassword !== "string" ||
+        b.currentPassword.length > 200 ||
+        !verify(b.currentPassword, old.passwordHash)
+      )
+        throw new UnauthorizedException("현재 비밀번호를 확인하세요.");
+      if (
+        typeof b.password !== "string" ||
+        b.password.length < 8 ||
+        b.password.length > 200
+      )
+        throw new BadRequestException("새 비밀번호는 8~200자로 입력하세요.");
+      u.passwordHash = hash(b.password);
+      u.passwordResetRequired = false;
+      for (const [token, session] of this.sessions)
+        if (session.userId === u.id) this.sessions.delete(token);
+    }
+    if (old.loginId === old.email) u.loginId = u.email;
+    if (u.workerId) {
+      const w = this.workers.find(u.workerId);
+      if (w && !w.deletedAt)
+        this.company.withOperationalWrite(() =>
+          this.workers.update(w.id, {
+            ...w,
+            name: u.name,
+            displayName: u.displayName,
+            phone: u.phone ?? "",
+          }),
+        );
+    }
+    this.users.set(u.id, u);
+    this.audit.record({
+      targetType: "사용자",
+      targetId: u.id,
+      action: "수정",
+      before: publicUser(old),
+      after: publicUser(u),
+      siteIds: u.siteIds,
+      reason: "본인 정보 수정 (비밀번호 제외)",
     });
     return publicUser(u);
   }
@@ -397,6 +589,12 @@ export class AuthController {
     @Inject(AUTH_PROVIDER) private auth: AuthProvider,
     @Inject(CompanyContext) private company: CompanyContext,
   ) {}
+  @Post("signup") signup(@Body() body: unknown) {
+    return this.auth.register(body);
+  }
+  @Put("profile") profile(@Body() body: unknown) {
+    return this.auth.updateProfile(body);
+  }
   @Get("config") config() {
     return {
       appBrand: APP_BRAND,

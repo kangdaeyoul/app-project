@@ -58,7 +58,7 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
     }
     if (
       (controller === "AuthController" &&
-        ["config", "login", "demoLogin"].includes(handler)) ||
+        ["config", "login", "demoLogin", "signup"].includes(handler)) ||
       (controller === "AppController" && handler === "health")
     )
       return next.handle();

@@ -25,8 +25,13 @@ export const SAMPLE_IDENTITY: CompanyIdentity = {
 @Injectable()
 export class CompanyContext {
   private readonly operational = new AsyncLocalStorage<boolean>();
-  get operationalWrite(){return this.operational.getStore()===true}
-  withOperationalWrite<T>(work:()=>T):T {this.assertMember();return this.operational.run(true,work)}
+  get operationalWrite() {
+    return this.operational.getStore() === true;
+  }
+  withOperationalWrite<T>(work: () => T): T {
+    this.assertMember();
+    return this.operational.run(true, work);
+  }
   private readonly local = new AsyncLocalStorage<CompanyIdentity>();
   private readonly companies = new Map<string, Company>([
     [DEFAULT_COMPANY.id, structuredClone(DEFAULT_COMPANY)],
@@ -66,6 +71,16 @@ export class CompanyContext {
     if (company.id !== this.companyId)
       throw new ForbiddenException("현재 회사의 설정만 변경할 수 있습니다.");
     this.companies.set(company.id, structuredClone(company));
+  }
+  signupCompany(name: string) {
+    const normalized = name.replace(/\s+/g, "");
+    return (
+      [...this.companies.values()].find((c) =>
+        [c.name, c.displayName].some(
+          (n) => n.replace(/\s+/g, "") === normalized,
+        ),
+      )?.id ?? DEFAULT_COMPANY.id
+    );
   }
   // Server-only provisioning port; deliberately has no public company-registration route.
   register(company: Company) {

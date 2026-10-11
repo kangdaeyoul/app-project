@@ -1,4 +1,5 @@
 "use client";
+import PersonalProfile,{SignupForm} from "./account-forms";
 import { createContext, useContext, useEffect, useState } from "react";
 import { APP_BRAND, Company, DEFAULT_COMPANY } from "@jongro/shared";
 import FieldHelper from "./field-helper";
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function LoginScreen() {
   const { brand, refresh } = useAuth();
   const [demoEnabled, setDemoEnabled] = useState(false);
+  const [signup,setSignup]=useState(false);
   const [company, setCompany] = useState(DEFAULT_COMPANY.displayName),
     [login, setLogin] = useState(""),
     [password, setPassword] = useState(""),
@@ -145,7 +147,7 @@ export function LoginScreen() {
         <div className="eyebrow">환영합니다</div>
         <h2>{company}</h2>
         <p>회사 계정으로 로그인해 업무를 시작하세요.</p>
-        <form onSubmit={submit}>
+        {signup ? <SignupForm companyName={company} onBack={()=>setSignup(false)}/> : <form onSubmit={submit}>
           <label>
             이메일 또는 아이디
             <input
@@ -196,7 +198,8 @@ export function LoginScreen() {
           <button className="primary login-submit" disabled={busy}>
             {busy ? "로그인 중…" : "로그인"}
           </button>
-        </form>
+        </form>}
+        {!signup&&<button type="button" onClick={()=>setSignup(true)}>가입 신청</button>}
         {demoEnabled && (
           <section className="demo-login">
             <h3>모바일 검증용 데모 로그인</h3>
@@ -251,12 +254,15 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 export function SessionHeader() {
   const { user, logout } = useAuth();
+  const [profile,setProfile]=useState(false);
   return (
     <div className="session-controls">
       <span>
         {user?.displayName} · {user && ROLE_LABELS[user.role]}
       </span>
+      <button onClick={()=>setProfile(true)}>내 정보</button>
       <button onClick={logout}>로그아웃</button>
+      {profile&&<div className="account-profile-dialog" role="dialog" aria-modal="true" aria-label="내 정보"><button onClick={()=>setProfile(false)}>닫기</button><PersonalProfile/></div>}
     </div>
   );
 }
