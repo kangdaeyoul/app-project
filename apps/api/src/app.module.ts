@@ -32,6 +32,8 @@ import { CompanyController } from './company.controller';
 import { QuoteExcelService } from './quote-excel.service';
 import { QUOTE_ADMIN_ACCESS, SampleQuoteAdminAccess } from './quote-access';
 import { QuotesService } from './quotes.service';
+import { QuoteAssetsController } from './quote-assets.controller';
+import {quoteDocumentFilename} from '@jongro/shared';
 import { QuotePdfService } from './quote-pdf.service';
 import { PhotoReportService } from './photo-report.service';
 import { InvoicesService } from './invoices.service';
@@ -49,11 +51,15 @@ class CustomersController {
   constructor(@Inject(QuotesService) private readonly quotes: QuotesService) {}
   @Get() list(){return this.quotes.customersList();}
   @Post() create(@Body() body:unknown){return this.quotes.createCustomer(body);}
+  @Get(":id") detail(@Param("id")id:string){return this.quotes.customerDetails(id);}
+  @Put(":id") update(@Param("id")id:string,@Body()body:unknown){return this.quotes.updateCustomer(id,body);}
+  @Delete(":id") remove(@Param("id")id:string){return this.quotes.removeCustomer(id);}
 }
 @Controller('quotes')
 class QuotesController {
   constructor(@Inject(QuotesService)private readonly quotes:QuotesService,@Inject(QuotePdfService)private readonly pdf:QuotePdfService,@Inject(QuoteExcelService)private readonly excel:QuoteExcelService){}
-  @Get() list(@Query('search') search?:string,@Query('status') status?:string,@Query('from') from?:string,@Query('to') to?:string){return this.quotes.list(search,status,from,to);}
+  @Get() list(@Query('search') search?:string,@Query('status') status?:string,@Query('from') from?:string,@Query('to') to?:string,@Query('trade')trade?:string,@Query('sort')sort?:string){return this.quotes.list(search,status,from,to,trade,sort);}
+  @Get('index') index(@Query('search')search?:string,@Query('status')status?:string,@Query('from')from?:string,@Query('to')to?:string,@Query('trade')trade?:string,@Query('sort')sort?:string){return this.quotes.index(search,status,from,to,trade,sort);}
   @Get(':id') find(@Param('id') id:string){return this.quotes.find(id);}
   @Get(':id/customer') customer(@Param('id') id:string,@Query('mode') mode?:string){return this.quotes.customer(id,mode);}
   @Post() create(@Body() body:unknown){return this.quotes.save(body);}
@@ -64,8 +70,8 @@ class QuotesController {
   @Get(':id/excel') excelDownload(@Param('id') id:string,@Query('mode') mode:string='전체 상세',@Res() response:{setHeader:(key:string,value:string)=>void;send:(buffer:Buffer)=>void}) {
     const q=this.quotes.excelCustomer(id,mode);
     response.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    response.setHeader('Content-Disposition', `attachment; filename="quote.xlsx"; filename*=UTF-8''${encodeURIComponent(q.siteName.replace(/[\\/:*?"<>|\r\n]/g,'_')+'_견적서_'+q.quoteDate+'.xlsx')}`);
-    response.send(this.excel.generate(q));
+    response.setHeader('Content-Disposition', `attachment; filename="quote.xlsx"; filename*=UTF-8''${encodeURIComponent(quoteDocumentFilename(q.siteName,q.quoteDate,'xlsx'))}`);
+    response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.send(this.excel.generate(q));
   }
   @Get(':id/pdf') async print(@Param('id') id:string,@Query('mode') mode:string='전체 상세',@Query('preview') preview:string|undefined,@Res() response:{setHeader:(key:string,value:string)=>void;send:(buffer:Buffer)=>void}){
     const p=await this.pdf.render(id,mode);response.setHeader('Content-Type','application/pdf');response.setHeader('Content-Disposition',`${preview==='true'?'inline':'attachment'}; filename="quote.pdf"; filename*=UTF-8''${encodeURIComponent(p.filename)}`);response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.send(p.buffer);
@@ -162,5 +168,5 @@ class InvoicesController {
  @Put('purchases/:expenseId') savePurchase(@Param('expenseId') expenseId:string,@Body() body:unknown){return this.invoices.savePurchase(expenseId,body);}
  @Put('workers/:siteId/:workerId') saveWorker(@Param('siteId') siteId:string,@Param('workerId') workerId:string,@Body() body:unknown){return this.invoices.saveWorker(siteId,workerId,body);}
 }
-@Module({ controllers: [MaterialCatalogController,UniversalMaterialExcelController,BusinessReportsController,OperationalController,AuthController,UsersController,WorkInstructionController,AfterServiceController,WorkerScheduleController,MaterialExcelController, StandardWorkController, InspectionReportController, CompletionReportController, AuditController, CompanyController, CustomersController, QuotesController, PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [MaterialPersistence,UniversalMaterialExcelService,BusinessReportsService,PermissionService,MemoryAuthProvider,{provide:AUTH_PROVIDER,useExisting:MemoryAuthProvider},WorkInstructionService,{provide:INSTRUCTION_REPOSITORY,useClass:MemoryInstructionRepository},AfterServiceService,{provide:AS_REPOSITORY,useClass:MemoryAfterServiceRepository},WorkerScheduleService,MaterialExcelService, StandardWorkService, InspectionReportService, CompletionReportService, AuditService, AuditRecorder, {provide:AUDIT_REPOSITORY,useClass:MemoryAuditRepository},{provide:AUDIT_ACCESS,useClass:CompanyAuditAccess},{provide: COMPANY_IDENTITY,useExisting:MemoryAuthProvider},{provide:APP_INTERCEPTOR,useClass:CompanyIdentityInterceptor},{provide:APP_INTERCEPTOR,useClass:MaterialTransactionInterceptor},{provide:APP_INTERCEPTOR,useClass:AuditFilesInterceptor}, CompanyTemplateResolver, CompanyContext, {provide: QUOTE_ADMIN_ACCESS,inject:[CompanyContext],useFactory:(context:CompanyContext)=>new SampleQuoteAdminAccess(context)}, QuotesService, QuotePdfService, QuoteExcelService, ...COMPANY_DATA_PROVIDERS, PhotoReportService, InvoicesService, FinanceService, ExpensesService, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, ] })
+@Module({ controllers: [QuoteAssetsController,MaterialCatalogController,UniversalMaterialExcelController,BusinessReportsController,OperationalController,AuthController,UsersController,WorkInstructionController,AfterServiceController,WorkerScheduleController,MaterialExcelController, StandardWorkController, InspectionReportController, CompletionReportController, AuditController, CompanyController, CustomersController, QuotesController, PhotoReportController, AppController, SitesController, WorkersController, DailyWorkController, PhotoController, ExpensesController, FinanceController, InvoicesController], providers: [MaterialPersistence,UniversalMaterialExcelService,BusinessReportsService,PermissionService,MemoryAuthProvider,{provide:AUTH_PROVIDER,useExisting:MemoryAuthProvider},WorkInstructionService,{provide:INSTRUCTION_REPOSITORY,useClass:MemoryInstructionRepository},AfterServiceService,{provide:AS_REPOSITORY,useClass:MemoryAfterServiceRepository},WorkerScheduleService,MaterialExcelService, StandardWorkService, InspectionReportService, CompletionReportService, AuditService, AuditRecorder, {provide:AUDIT_REPOSITORY,useClass:MemoryAuditRepository},{provide:AUDIT_ACCESS,useClass:CompanyAuditAccess},{provide: COMPANY_IDENTITY,useExisting:MemoryAuthProvider},{provide:APP_INTERCEPTOR,useClass:CompanyIdentityInterceptor},{provide:APP_INTERCEPTOR,useClass:MaterialTransactionInterceptor},{provide:APP_INTERCEPTOR,useClass:AuditFilesInterceptor}, CompanyTemplateResolver, CompanyContext, {provide: QUOTE_ADMIN_ACCESS,inject:[CompanyContext],useFactory:(context:CompanyContext)=>new SampleQuoteAdminAccess(context)}, QuotesService, QuotePdfService, QuoteExcelService, ...COMPANY_DATA_PROVIDERS, PhotoReportService, InvoicesService, FinanceService, ExpensesService, DashboardService, SitesService, WorkersService, DailyWorkService, PhotoService, ] })
 export class AppModule {}

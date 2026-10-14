@@ -1,3 +1,4 @@
+import {companyBranding} from "./quote-presentation";
 import { PermissionService } from "./permission.service";
 import {
   BadRequestException,
@@ -625,7 +626,7 @@ export class AuthController {
         id: this.company.settings().id,
         name: this.company.settings().name,
         displayName: this.company.settings().displayName,
-        logoUrl: this.company.settings().logoUrl,
+        logoUrl: companyBranding(this.company.settings()).logoUrl,
       },
       sampleMode: true,
       demoEnabled: this.auth.demoEnabled === true,
@@ -674,7 +675,7 @@ export class AuthController {
   @Get("me") me() {
     return {
       user: this.auth.current(),
-      company: this.company.settings(),
+      company: companyBranding(this.company.settings()),
       appBrand: APP_BRAND,
     };
   }

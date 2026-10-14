@@ -1,4 +1,8 @@
-import {AS_REPOSITORY,AfterServiceRepository} from "./after-service.repository";
+import {
+  AS_REPOSITORY,
+  AfterServiceRepository,
+} from "./after-service.repository";
+import { cleanCompanyProfile, companyPresentation } from "./quote-presentation";
 import { CompanyContext } from "./company-context";
 import { AuditRecorder } from "./audit-recorder";
 import { QUOTE_ADMIN_ACCESS, QuoteAdminAccess } from "./quote-access";
@@ -23,6 +27,8 @@ import {
   QUOTE_PRINT_MODES,
   calculateQuote,
   QuoteView,
+  QuoteListRow,
+  quotePublicNotes,
 } from "@jongro/shared";
 import {
   CUSTOMERS_REPOSITORY,
@@ -61,7 +67,8 @@ function money(v: unknown) {
 }
 @Injectable()
 export class QuotesService {
-  constructor(@Inject(AS_REPOSITORY)private asRepo:AfterServiceRepository,
+  constructor(
+    @Inject(AS_REPOSITORY) private asRepo: AfterServiceRepository,
     @Inject(QUOTES_REPOSITORY) private readonly repository: QuotesRepository,
     @Inject(CUSTOMERS_REPOSITORY)
     private readonly customers: CustomersRepository,
@@ -70,8 +77,87 @@ export class QuotesService {
     @Inject(AuditRecorder) private readonly audit: AuditRecorder,
     @Inject(CompanyContext) private readonly context: CompanyContext,
   ) {}
+  freezeCompanySnapshots() {
+    for (const q of this.repository.list())
+      if (!q.companySnapshot || !q.customerSnapshot) {
+        const c = this.customers.find(q.customerId);
+        this.repository.save({
+          ...q,
+          companySnapshot:
+            q.companySnapshot ?? companyPresentation(this.context.settings()),
+          customerSnapshot: q.customerSnapshot ?? {
+            name: q.customerName,
+            recipient: q.customerName,
+            address: c?.address ?? "",
+            contactName: c?.contactName ?? "",
+            phone: c?.phone ?? "",
+            registrationNumber: c?.registrationNumber ?? "",
+          },
+        });
+      }
+  }
   customersList() {
-    return this.customers.list();
+    const quotes = this.repository
+      .list()
+      .filter(
+        (q) =>
+          !this.context.identity.authenticated ||
+          this.context.identity.appRole === "admin" ||
+          (!!q.siteId &&
+            this.context.identity.accessibleSiteIds?.includes(q.siteId)),
+      );
+    return this.customers.list().map((c) => ({
+      ...c,
+      quoteCount: quotes.filter((q) => q.customerId === c.id).length,
+      recentQuoteDate:
+        quotes
+          .filter((q) => q.customerId === c.id)
+          .map((q) => q.quoteDate)
+          .sort()
+          .at(-1) ?? "",
+    }));
+  }
+  customerDetails(id: string) {
+    this.access.assertAdmin();
+    const c = this.customers.find(id);
+    if (!c || c.deletedAt)
+      throw new NotFoundException("거래처를 찾을 수 없습니다.");
+    return {
+      ...c,
+      quotes: this.list().filter((q) => q.customerId === id),
+      sites: this.sites
+        .list()
+        .filter(
+          (s) =>
+            s.clientId === id &&
+            (!this.context.identity.authenticated ||
+              this.context.identity.appRole === "admin" ||
+              this.context.identity.accessibleSiteIds?.includes(s.id)),
+        ),
+    };
+  }
+  updateCustomer(id: string, body: unknown) {
+    this.context.assertMember(true);
+    if (!this.customers.find(id))
+      throw new NotFoundException("거래처를 찾을 수 없습니다.");
+    const raw = object(body);
+    const value = {
+      name: text(raw, "name", 300, true),
+      address: text(raw, "address"),
+      contactName: text(raw, "contactName"),
+      phone: text(raw, "phone"),
+      registrationNumber: text(raw, "registrationNumber", 100),
+    };
+    this.freezeCompanySnapshots();
+    return this.customers.update(id, value);
+  }
+  removeCustomer(id: string) {
+    this.context.assertMember(true);
+    if (!this.customers.find(id))
+      throw new NotFoundException("거래처를 찾을 수 없습니다.");
+    this.freezeCompanySnapshots();
+    this.customers.remove(id);
+    return { deleted: true };
   }
   createCustomer(body: unknown) {
     this.access.assertAdmin();
@@ -81,22 +167,59 @@ export class QuotesService {
       address: text(raw, "address"),
       contactName: text(raw, "contactName"),
       phone: text(raw, "phone"),
+      registrationNumber: text(raw, "registrationNumber", 100),
     });
   }
   private record(id: string) {
     const q = this.repository.find(id);
     if (!q) throw new NotFoundException("견적을 찾을 수 없습니다.");
-    if(this.context.identity.authenticated&&this.context.identity.appRole!=="admin"&&(!q.siteId||!this.context.identity.accessibleSiteIds?.includes(q.siteId)))throw new ForbiddenException("허용된 현장의 견적만 이용할 수 있습니다.");
+    if (
+      this.context.identity.authenticated &&
+      this.context.identity.appRole !== "admin" &&
+      (!q.siteId ||
+        !this.context.identity.accessibleSiteIds?.includes(q.siteId))
+    )
+      throw new ForbiddenException("허용된 현장의 견적만 이용할 수 있습니다.");
     return q;
   }
   private view(q: Quote): QuoteView {
+    const currentCustomer = this.customers.find(q.customerId);
+    q = {
+      ...q,
+      quoteNumber: q.quoteNumber ?? q.id,
+      workPeriod: q.workPeriod ?? "",
+      companySnapshot:
+        q.companySnapshot ?? companyPresentation(this.context.settings()),
+      customerSnapshot: q.customerSnapshot ?? {
+        name: q.customerName,
+        recipient: q.customerName,
+        registrationNumber: currentCustomer?.registrationNumber ?? "",
+        address: currentCustomer?.address ?? "",
+        contactName: currentCustomer?.contactName ?? "",
+        phone: currentCustomer?.phone ?? "",
+      },
+    };
     try {
-      return { ...q, ...calculateQuote(q) };
+      return {
+        ...q,
+        ...calculateQuote(q),
+        quoteContactName:
+          q.companySnapshot?.contactName ||
+          q.customerSnapshot?.contactName ||
+          "",
+      };
     } catch {
       throw new BadRequestException("견적 금액 범위를 초과했습니다.");
     }
   }
-  list(search = "", status = "", from = "", to = "") {
+  list(
+    search = "",
+    status = "",
+    from = "",
+    to = "",
+    trade = "",
+    sort = "updated",
+  ) {
     this.access.assertAdmin();
     if (
       [search, status, from, to].some((v) => typeof v !== "string") ||
@@ -107,17 +230,32 @@ export class QuotesService {
       (from && to && from > to)
     )
       throw new BadRequestException("견적 검색 조건을 확인해 주세요.");
+    if (
+      !["", "기계", "전기", "기계+전기"].includes(trade) ||
+      !["created", "updated", "amount", "client"].includes(sort)
+    )
+      throw new BadRequestException("견적 정렬/공종 필터를 확인하세요.");
     const needle = search.trim().toLowerCase();
     return this.repository
       .list()
       .filter(
         (q) =>
-          (!this.context.identity.authenticated||this.context.identity.appRole==="admin"||!!q.siteId&&this.context.identity.accessibleSiteIds?.includes(q.siteId)) &&
+          (!this.context.identity.authenticated ||
+            this.context.identity.appRole === "admin" ||
+            (!!q.siteId &&
+              this.context.identity.accessibleSiteIds?.includes(q.siteId))) &&
           (!status || q.status === status) &&
+          (!trade ||
+            ["기계", "전기"]
+              .filter((k) =>
+                q.sections.some((s) => s.kind === k && s.items.length),
+              )
+              .join("+") === trade) &&
           (!from || q.quoteDate >= from) &&
           (!to || q.quoteDate <= to) &&
           [
             q.id,
+            q.quoteNumber ?? "",
             q.siteName,
             q.customerName,
             q.address,
@@ -128,8 +266,50 @@ export class QuotesService {
             .toLowerCase()
             .includes(needle),
       )
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-      .map((q) => this.view(q));
+      .sort((a, b) =>
+        sort === "created"
+          ? b.createdAt.localeCompare(a.createdAt)
+          : sort === "amount"
+            ? calculateQuote(b).totals.totalAmount -
+              calculateQuote(a).totals.totalAmount
+            : sort === "client"
+              ? a.customerName.localeCompare(b.customerName, "ko")
+              : b.updatedAt.localeCompare(a.updatedAt),
+      )
+      .map((q) => {
+        const view = this.view(q);
+        const { companySnapshot, ...withoutImages } = view;
+        return withoutImages;
+      });
+  }
+  index(
+    search = "",
+    status = "",
+    from = "",
+    to = "",
+    trade = "",
+    sort = "updated",
+  ): QuoteListRow[] {
+    return this.list(search, status, from, to, trade, sort).map((q) => ({
+      id: q.id,
+      quoteNumber: q.quoteNumber,
+      customerId: q.customerId,
+      customerName: q.customerName,
+      siteName: q.siteName,
+      workContent: q.workContent,
+      quoteDate: q.quoteDate,
+      validUntil: q.validUntil,
+      createdAt: q.createdAt,
+      updatedAt: q.updatedAt,
+      status: q.status,
+      siteId: q.siteId,
+      convertedSiteId: q.convertedSiteId,
+      quoteContactName: q.quoteContactName ?? "",
+      totals: q.totals,
+      sections: q.sections
+        .filter((s) => s.items.length)
+        .map((s) => ({ kind: s.kind, itemCount: s.items.length })),
+    }));
   }
   find(id: string) {
     this.access.assertAdmin();
@@ -168,7 +348,7 @@ export class QuotesService {
     };
   }
   private customerItems(q: QuoteView, items: QuoteItemInput[]) {
-    items = items.filter(i=>i.name.trim());
+    items = items.filter((i) => i.name.trim());
     if (!q.groupComponents) return items;
     const result: QuoteItemInput[] = [];
     for (const i of items) {
@@ -214,10 +394,15 @@ export class QuotesService {
       workQuantity: r.workQuantity as number,
     };
   }
-  private input(body: unknown): QuoteInput {
+  private input(body: unknown, existing?: Quote): QuoteInput {
     const r = object(body),
-      customerId = text(r, "customerId", 300, true);
-    if (!this.customers.find(customerId))
+      customerId = text(r, "customerId", 300);
+    if (
+      customerId &&
+      (!this.customers.find(customerId) ||
+        this.customers.find(customerId)?.deletedAt) &&
+      existing?.customerId !== customerId
+    )
       throw new BadRequestException("거래처를 선택해 주세요.");
     const siteId = r.siteId ?? null;
     if (siteId !== null && typeof siteId !== "string")
@@ -248,7 +433,9 @@ export class QuotesService {
       r.sections.length < 1 ||
       r.sections.length > 2
     )
-      throw new BadRequestException("기계 또는 전기 을지를 추가해 주세요.");
+      throw new BadRequestException(
+        "기계 또는 전기 상세 내역서를 추가해 주세요.",
+      );
     const sections = r.sections.map((value) => {
       const s = object(value);
       if (
@@ -256,7 +443,9 @@ export class QuotesService {
         !Array.isArray(s.items) ||
         s.items.length > 100
       )
-        throw new BadRequestException("을지 구분과 항목 수를 확인해 주세요.");
+        throw new BadRequestException(
+          "상세 내역서 구분과 항목 수를 확인해 주세요.",
+        );
       return {
         kind: s.kind as "기계" | "전기",
         items: s.items.map((value) => {
@@ -325,10 +514,11 @@ export class QuotesService {
       !sections.some((s) => s.items.length)
     )
       throw new BadRequestException(
-        "을지 중복 없이 견적항목을 1건 이상 입력해 주세요.",
+        "상세 내역서 중복 없이 견적항목을 1건 이상 입력해 주세요.",
       );
     if (
       r.status !== "작성중" &&
+      r.status !== "검토중" &&
       r.status !== "수정요청" &&
       sections.some((s) =>
         s.items.some(
@@ -353,6 +543,33 @@ export class QuotesService {
       mergeDuplicates: this.option(r, "mergeDuplicates", true),
       mergeAcrossSources: this.option(r, "mergeAcrossSources", true),
       groupComponents: r.groupComponents === true,
+      companySnapshot: cleanCompanyProfile(
+        r.companySnapshot ?? companyPresentation(this.context.settings()),
+        this.context.settings(),
+      ),
+      customerSnapshot: (() => {
+        const c = this.customers.find(customerId),
+          v =
+            r.customerSnapshot === undefined
+              ? {
+                  name: c?.name ?? "",
+                  recipient: c?.name ?? "",
+                  address: c?.address ?? "",
+                  contactName: c?.contactName ?? "",
+                  phone: c?.phone ?? "",
+                  registrationNumber: c?.registrationNumber ?? "",
+                }
+              : object(r.customerSnapshot);
+        return {
+          name: text(v, "name"),
+          recipient: text(v, "recipient"),
+          address: text(v, "address"),
+          contactName: text(v, "contactName"),
+          phone: text(v, "phone"),
+          registrationNumber: text(v, "registrationNumber"),
+        };
+      })(),
+      workPeriod: text(r, "workPeriod", 300),
       customerId,
       siteId: siteId || null,
       siteName: text(r, "siteName", 300, true),
@@ -377,6 +594,21 @@ export class QuotesService {
     }
     return input;
   }
+  private readonly quoteSequences = new Map<string, number>();
+  private nextQuoteNumber(date: string) {
+    const prefix = `Q-${date.replaceAll("-", "")}-`;
+    const max = this.repository
+      .list()
+      .filter((q) => q.quoteNumber?.startsWith(prefix))
+      .reduce(
+        (m, q) => Math.max(m, Number(q.quoteNumber!.slice(prefix.length)) || 0),
+        0,
+      );
+    const key = this.context.companyId + ":" + prefix;
+    const next = Math.max(max, this.quoteSequences.get(key) ?? 0) + 1;
+    this.quoteSequences.set(key, next);
+    return prefix + String(next).padStart(4, "0");
+  }
   save(body: unknown, id?: string) {
     this.access.assertAdmin();
     const existing = id ? this.record(id) : undefined;
@@ -384,30 +616,92 @@ export class QuotesService {
       throw new ConflictException(
         "계약전환된 견적은 복사하여 새 견적으로 수정해 주세요.",
       );
-    if(this.context.identity.authenticated&&this.context.identity.appRole!=="admin"){
-      const r=object(body);
-      if(typeof r.siteId!=="string"||!this.context.identity.accessibleSiteIds?.includes(r.siteId))throw new ForbiddenException("허용된 현장에 연결해야 합니다.");
-      if(!["작성중","제출완료","수정요청"].includes(r.status as string))throw new ForbiddenException("견적 승인과 계약전환은 관리자 업무입니다.");
-      r.internalGeneralCost=existing?.internalGeneralCost??0;r.internalSupportCost=existing?.internalSupportCost??0;
+    if (
+      this.context.identity.authenticated &&
+      this.context.identity.appRole !== "admin"
+    ) {
+      const r = object(body);
+      if (
+        typeof r.siteId !== "string" ||
+        !this.context.identity.accessibleSiteIds?.includes(r.siteId)
+      )
+        throw new ForbiddenException("허용된 현장에 연결해야 합니다.");
+      if (
+        !["작성중", "검토중", "제출완료", "수정요청"].includes(
+          r.status as string,
+        )
+      )
+        throw new ForbiddenException(
+          "견적 승인과 계약전환은 관리자 업무입니다.",
+        );
+      r.internalGeneralCost = existing?.internalGeneralCost ?? 0;
+      r.internalSupportCost = existing?.internalSupportCost ?? 0;
+      const base =
+        existing?.companySnapshot ??
+        companyPresentation(this.context.settings());
+      const requested =
+        r.companySnapshot === undefined ? base : object(r.companySnapshot);
+      r.companySnapshot = {
+        ...requested,
+        companyId: this.context.companyId,
+        name: base.name,
+        representative: base.representative,
+        registrationNumber: base.registrationNumber,
+        bankInfo: base.bankInfo,
+        logo: base.logo,
+        seal: base.seal,
+      };
       if (Array.isArray(r.sections)) {
         for (const value of r.sections) {
           const section = object(value);
           if (!Array.isArray(section.items)) continue;
           for (const [position, value] of section.items.entries()) {
             const item = object(value);
-            const prior = existing?.sections.find(s => s.kind === section.kind)?.items[position];
-            for (const key of ["materialUnitCost", "laborUnitCost", "expenseUnitCost"] as const)
+            const prior = existing?.sections.find(
+              (s) => s.kind === section.kind,
+            )?.items[position];
+            for (const key of [
+              "materialUnitCost",
+              "laborUnitCost",
+              "expenseUnitCost",
+            ] as const)
               item[key] = prior?.[key] ?? 0;
           }
         }
       }
     }
-    const input = this.input(body);
+    const raw = { ...object(body) };
+    const reference =
+      existing ??
+      (typeof raw.id === "string" ? this.repository.find(raw.id) : undefined);
+    if (
+      reference &&
+      raw.customerId !== reference.customerId &&
+      (raw.customerSnapshot === undefined ||
+        JSON.stringify(raw.customerSnapshot) ===
+          JSON.stringify(this.view(reference).customerSnapshot))
+    )
+      delete raw.customerSnapshot;
+    if (existing) {
+      raw.companySnapshot ??=
+        existing.companySnapshot ??
+        companyPresentation(this.context.settings());
+      if (raw.customerId === existing.customerId)
+        raw.customerSnapshot ??= this.view(existing).customerSnapshot;
+    }
+    const input = this.input(raw, existing);
     const now = new Date().toISOString();
     const quote: Quote = {
       ...input,
       id: id ?? randomUUID(),
-      customerName: this.customers.find(input.customerId)!.name,
+      quoteNumber:
+        existing?.quoteNumber ??
+        existing?.id ??
+        this.nextQuoteNumber(input.quoteDate),
+      customerName:
+        input.customerSnapshot?.name ??
+        this.customers.find(input.customerId)?.name ??
+        "",
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
       convertedSiteId: null,
@@ -417,10 +711,11 @@ export class QuotesService {
   }
   copy(id: string) {
     this.access.assertAdmin();
-    const source = this.record(id);
+    const source = this.find(id);
     const copy = {
       ...source,
       id: randomUUID(),
+      quoteNumber: this.nextQuoteNumber(seoulToday()),
       siteName: source.siteName.slice(0, 295) + " (복사)",
       status: "작성중" as const,
       convertedSiteId: null,
@@ -454,8 +749,34 @@ export class QuotesService {
     if (q.convertedSiteId) return this.sites.find(q.convertedSiteId);
     if (q.status !== "승인")
       throw new ConflictException("승인된 견적만 현장으로 전환할 수 있습니다.");
-    const asRequest=this.asRepo.list().find(a=>a.generatedQuoteIds?.includes(q.id));
-    if(asRequest){if(asRequest.billing!=="유상")throw new ConflictException("유상 A/S만 계약전환할 수 있습니다.");const asUpdated=this.asRepo.save({...asRequest,chargeAmount:this.view(q).totals.totalAmount,updatedAt:new Date().toISOString()});this.audit.record({targetType:"A/S",targetId:asRequest.id,action:"수정",before:asRequest,after:asUpdated,siteIds:[asRequest.siteId],reason:"A/S 견적 계약전환"});this.repository.save({...q,status:"계약전환",convertedSiteId:asRequest.siteId,updatedAt:new Date().toISOString()});return this.sites.find(asRequest.siteId);}
+    const asRequest = this.asRepo
+      .list()
+      .find((a) => a.generatedQuoteIds?.includes(q.id));
+    if (asRequest) {
+      if (asRequest.billing !== "유상")
+        throw new ConflictException("유상 A/S만 계약전환할 수 있습니다.");
+      const asUpdated = this.asRepo.save({
+        ...asRequest,
+        chargeAmount: this.view(q).totals.totalAmount,
+        updatedAt: new Date().toISOString(),
+      });
+      this.audit.record({
+        targetType: "A/S",
+        targetId: asRequest.id,
+        action: "수정",
+        before: asRequest,
+        after: asUpdated,
+        siteIds: [asRequest.siteId],
+        reason: "A/S 견적 계약전환",
+      });
+      this.repository.save({
+        ...q,
+        status: "계약전환",
+        convertedSiteId: asRequest.siteId,
+        updatedAt: new Date().toISOString(),
+      });
+      return this.sites.find(asRequest.siteId);
+    }
     const r = object(body),
       startDate = text(r, "startDate"),
       endDate = text(r, "endDate");
@@ -464,12 +785,17 @@ export class QuotesService {
       (endDate && (!validDate(endDate) || endDate < startDate))
     )
       throw new BadRequestException("공사기간을 확인해 주세요.");
-    const customer = this.customers.find(q.customerId)!;
+    const customer = q.customerSnapshot ??
+      this.customers.find(q.customerId) ?? {
+        name: q.customerName,
+        contactName: "",
+        phone: "",
+      };
     // Both operations are synchronous in this adapter. PostgreSQL must wrap these in a transaction with a quote row lock and unique convertedSiteId.
     const site = this.sites.create({
       name: q.siteName,
       client: customer.name,
-      clientId: q.customerId,
+      clientId: this.customers.find(q.customerId) ? q.customerId : null,
       address: q.address,
       description: q.workContent,
       contactName: customer.contactName,
@@ -499,10 +825,14 @@ export class QuotesService {
     const client = this.customers.find(record.customerId);
     return {
       ...publicQuote,
-      contactName: client?.contactName ?? "",
-      phone: client?.phone ?? "",
-      groups: record.sections.map((section) =>
-        this.customerItems(this.view(record), section.items).map((item) => {
+      contactName:
+        publicQuote.customerSnapshot?.contactName ?? client?.contactName ?? "",
+      phone: publicQuote.customerSnapshot?.phone ?? client?.phone ?? "",
+      groups: publicQuote.sections.map((section) =>
+        this.customerItems(
+          this.view(record),
+          record.sections.find((s) => s.kind === section.kind)?.items ?? [],
+        ).map((item) => {
           if (item.priceCategory === "노무비") return 3;
           if (item.priceCategory === "경비") return 4;
           if (/전선|케이블|전기배관|전선관|박스|단자|차단기/.test(item.name))
@@ -523,45 +853,58 @@ export class QuotesService {
       throw new BadRequestException("출력모드를 확인해 주세요.");
     const q = this.view(this.record(id));
     return {
+      companySnapshot: q.companySnapshot
+        ? {
+            ...q.companySnapshot,
+            logo: q.companySnapshot.logo
+              ? {
+                  ...q.companySnapshot.logo,
+                  originalDataUrl: q.companySnapshot.logo.dataUrl,
+                  filename: "company-logo",
+                }
+              : null,
+            seal: q.companySnapshot.seal
+              ? {
+                  ...q.companySnapshot.seal,
+                  originalDataUrl: q.companySnapshot.seal.dataUrl,
+                  filename: "company-seal",
+                }
+              : null,
+          }
+        : undefined,
+      customerSnapshot: q.customerSnapshot,
+      workPeriod: q.workPeriod,
       id: q.id,
+      quoteNumber: q.quoteNumber ?? q.id,
       customerName: q.customerName,
       siteName: q.siteName,
       address: q.address,
       workContent: q.workContent,
       quoteDate: q.quoteDate,
       validUntil: q.validUntil,
-      notes: [
-        q.notes,
-        q.sections.some((s) => s.items.some((i) => i.reviewNotice))
-          ? "예시수량 포함 / 현장확인 필요. 법정 표준 또는 확정 시공물량이 아닙니다."
-          : "",
-        q.sections.some((s) => s.items.some((i) => i.quantityPending))
-          ? "현장산출 필요 항목 포함: 수량 확정 전 초안입니다."
-          : "",
-        q.sections.some((s) =>
-          s.items.some((i) => i.pricePending && i.saleUnitPrice === 0),
-        )
-          ? "미등록 또는 미입력 단가 포함: 금액 확정 전 초안입니다."
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      notes: quotePublicNotes(q),
       displayUnit: q.displayUnit,
       printMode: mode as CustomerQuote["printMode"],
       totals: { ...q.totals },
-      sections: q.sections.map((s) => ({
-        kind: s.kind,
-        items: this.customerItems(q, s.items).map((i) => ({
-          trade: i.trade,
-          name: i.name,
-          specification: i.specification,
-          quantity: i.quantity,
-          unit: i.unit,
-          saleUnitPrice: i.saleUnitPrice,
-          amount: importAmount(i.quantity, i.saleUnitPrice),
-          notes: i.notes,
+      sections: [...q.sections]
+        .sort(
+          (a, b) =>
+            ["기계", "전기"].indexOf(a.kind) - ["기계", "전기"].indexOf(b.kind),
+        )
+        .filter((s) => s.items.length)
+        .map((s) => ({
+          kind: s.kind,
+          items: this.customerItems(q, s.items).map((i) => ({
+            trade: i.trade,
+            name: i.name,
+            specification: i.specification,
+            quantity: i.quantity,
+            unit: i.unit,
+            saleUnitPrice: i.saleUnitPrice,
+            amount: importAmount(i.quantity, i.saleUnitPrice),
+            notes: i.notes,
+          })),
         })),
-      })),
     };
   }
 }

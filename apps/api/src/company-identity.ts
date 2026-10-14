@@ -36,6 +36,9 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
     @Inject(PermissionService) private readonly permissions: PermissionService,
   ) {}
   intercept(execution: ExecutionContext, next: CallHandler) {
+    const response = execution.switchToHttp().getResponse();
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("Vary", "Cookie");
     const request = execution.switchToHttp().getRequest();
     const controller = execution.getClass().name,
       handler = execution.getHandler().name;

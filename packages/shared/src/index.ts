@@ -546,6 +546,7 @@ export interface PhotoReportOptions {
 
 export const QUOTE_STATUSES = [
   "작성중",
+  "검토중",
   "제출완료",
   "수정요청",
   "승인",
@@ -562,11 +563,13 @@ export const QUOTE_PRINT_MODES = [
 ] as const;
 export const QUOTE_PRICE_CATEGORIES = ["재료비", "노무비", "경비"] as const;
 export interface Customer {
+  deletedAt?: string;
   id: string;
   name: string;
   address: string;
   contactName: string;
   phone: string;
+  registrationNumber?: string;
 }
 export interface QuoteItemInput {
   laborBasis?: {
@@ -605,11 +608,60 @@ export interface QuoteItemInput {
   priceCategory: (typeof QUOTE_PRICE_CATEGORIES)[number];
   notes: string;
 }
+export function quoteDocumentFilename(siteName:string,date:string,extension:"pdf"|"xlsx"){const name=Array.from(siteName.replace(/[\\/:*?"<>|\u0000-\u001f]/g,"_")).slice(0,50).join("")||"견적";return `${name}_견적서_${date}.${extension}`;}
+export function quotePublicNotes(q:Pick<QuoteInput,"notes"|"sections">){return [q.notes,q.sections.some(s=>s.items.some(i=>i.reviewNotice))?"예시수량 포함 / 현장확인 필요. 법정 표준 또는 확정 시공물량이 아닙니다.":"",q.sections.some(s=>s.items.some(i=>i.quantityPending))?"현장산출 필요 항목 포함: 수량 확정 전 초안입니다.":"",q.sections.some(s=>s.items.some(i=>i.pricePending&&i.saleUnitPrice===0))?"미등록 또는 미입력 단가 포함: 금액 확정 전 초안입니다.":""].filter(Boolean).join("\n");}
 export interface QuoteSectionInput {
   kind: (typeof QUOTE_SECTIONS)[number];
   items: QuoteItemInput[];
 }
+export interface QuoteImageAsset {
+  pixelWidth?: number;
+  pixelHeight?: number;
+  companyId: string;
+  dataUrl: string;
+  originalDataUrl: string;
+  filename: string;
+  backgroundRemoved: boolean;
+}
+export interface QuoteCompanySnapshot {
+  companyId: string;
+  name: string;
+  representative: string;
+  registrationNumber: string;
+  address: string;
+  phone: string;
+  fax: string;
+  email: string;
+  website: string;
+  contactName: string;
+  contactPhone: string;
+  businessType: string;
+  businessItem: string;
+  bankInfo: string;
+  footer: string;
+  logo: QuoteImageAsset | null;
+  seal: QuoteImageAsset | null;
+  logoWidth: number;
+  sealWidth: number;
+  sealOffsetX: number;
+  sealOffsetY: number;
+}
+export interface QuoteRecipientSnapshot {
+  name: string;
+  registrationNumber: string;
+  recipient: string;
+  contactName: string;
+  phone: string;
+  address: string;
+}
+export function quoteCompanyDefaults(c: Company): QuoteCompanySnapshot {
+  return structuredClone(c.quoteProfile ?? {companyId:c.id,name:c.name,representative:c.business.representative,registrationNumber:c.business.registrationNumber,address:c.address,phone:c.phone,fax:c.fax,email:c.email,website:c.website,contactName:"",contactPhone:"",businessType:c.business.businessType,businessItem:c.business.businessItem,bankInfo:"",footer:c.output.quoteNotes,logo:null,seal:null,logoWidth:25,sealWidth:22,sealOffsetX:0,sealOffsetY:0});
+}
+export const QUOTE_COMPANY_FIELDS = {name:"회사명",representative:"대표자명",registrationNumber:"사업자등록번호",address:"주소",phone:"전화번호",fax:"팩스번호",email:"이메일",website:"홈페이지",contactName:"담당자명",contactPhone:"담당자 연락처",businessType:"업태",businessItem:"종목",bankInfo:"계좌정보",footer:"하단 안내문구"} as const;
 export interface QuoteInput {
+  companySnapshot?: QuoteCompanySnapshot;
+  customerSnapshot?: QuoteRecipientSnapshot;
+  workPeriod?: string;
   autoPrice?: boolean;
   mergeDuplicates?: boolean;
   mergeAcrossSources?: boolean;
@@ -632,6 +684,7 @@ export interface QuoteInput {
   sections: QuoteSectionInput[];
 }
 export interface Quote extends QuoteInput {
+  quoteNumber?: string;
   id: string;
   customerName: string;
   createdAt: string;
@@ -661,11 +714,34 @@ export interface QuoteInternalTotals {
   marginRate: number;
 }
 export interface QuoteView extends Quote {
+  quoteContactName?: string;
   totals: QuotePublicTotals;
   internal: QuoteInternalTotals;
 }
+export interface QuoteListRow {
+  id:string;
+  quoteNumber?:string;
+  customerId:string;
+  customerName:string;
+  siteName:string;
+  workContent:string;
+  quoteDate:string;
+  validUntil:string;
+  createdAt:string;
+  updatedAt:string;
+  status:QuoteInput["status"];
+  siteId:string|null;
+  convertedSiteId:string|null;
+  quoteContactName:string;
+  totals:QuotePublicTotals;
+  sections:{kind:QuoteSectionInput["kind"];itemCount:number}[];
+}
 // Explicit allowlist DTO. Customer export never accepts admin QuoteView.
 export interface CustomerQuote {
+  quoteNumber?: string;
+  companySnapshot?: QuoteCompanySnapshot;
+  customerSnapshot?: QuoteRecipientSnapshot;
+  workPeriod?: string;
   id: string;
   customerName: string;
   siteName: string;
@@ -796,6 +872,7 @@ export interface CompanyUser {
 }
 export type CompanyOwned<T> = T & { companyId: string };
 export interface Company {
+  quoteProfile?: QuoteCompanySnapshot;
   quotePreferences?: { autoPrice: boolean };
   id: string;
   name: string;

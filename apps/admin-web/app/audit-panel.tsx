@@ -88,7 +88,7 @@ const labels: Record<string, string> = {
   customerName: "거래처",
   quoteDate: "견적일",
   validUntil: "유효기간",
-  sections: "을지",
+  sections: "상세 내역서",
   kind: "구분",
   items: "항목",
   trade: "공종",

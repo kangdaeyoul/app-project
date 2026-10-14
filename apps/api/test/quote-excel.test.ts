@@ -17,11 +17,14 @@ test('실제 양식: 서식/이미지/인쇄 보존, 고객 금액, 숨김 모�
  const template=unzipSync(readFileSync('fixtures/quotes/jongro-2026.xlsx'));
  for(const mode of QUOTE_PRINT_MODES){
  const data=unzipSync(excel.generate(quotes.excelCustomer('Q003',mode)));
- for(const path of ['xl/styles.xml','xl/drawings/drawing1.xml','xl/media/image1.png','xl/media/image2.jpeg','xl/printerSettings/printerSettings1.bin'])assert.deepEqual(data[path],template[path]);
+ for(const path of ['xl/styles.xml','xl/printerSettings/printerSettings1.bin'])assert.deepEqual(data[path],template[path]);
  const all=Object.entries(data).filter(([p])=>p.endsWith('.xml')).map(([,v])=>text(v)).join('');
  assert.doesNotMatch(all,/materialUnitCost|laborUnitCost|expenseUnitCost|internalGeneralCost|internalSupportCost|margin|calcChain|sharedStrings|Z:\\/);
  assert.doesNotMatch(all,/<f[ >]/);
  assert.match(text(data['xl/workbook.xml']),/Print_Area/);
+ assert.doesNotMatch(all,/갑지|을지/);
+ assert.deepEqual(data['xl/media/quoteseal.png'],template['xl/media/image1.png']);
+ assert.deepEqual(data['xl/media/quotelogo.jpeg'],template['xl/media/image2.jpeg']);
  assert.match(text(data['xl/worksheets/sheet1.xml']),/VAT 포함 총액/);
  if(mode==='금액 숨김')assert.doesNotMatch(text(data['xl/worksheets/sheet1.xml']),/r="J26"[^>]*><v>/);
  }
@@ -29,7 +32,7 @@ test('실제 양식: 서식/이미지/인쇄 보존, 고객 금액, 숨김 모�
  const created=quotes.save(input);const data=unzipSync(excel.generate(quotes.excelCustomer(created.id)));
  const all=Object.entries(data).filter(([p])=>/^xl\/worksheets\/sheet\d+\.xml$/.test(p)).map(([,v])=>text(v)).join('');
  for(let i=0;i<100;i++)assert.ok(all.includes(`검증 항목 ${i}</t>`));
- assert.match(text(data['xl/workbook.xml']),/을지\(기계\)-7/);
+ assert.match(text(data['xl/workbook.xml']),/기계 상세 내역서-7/);
  assert.doesNotMatch(all,/<f[ >]/);
  assert.doesNotMatch(all,/987654321|24681357|1357911/);
  }finally{await app.close();}

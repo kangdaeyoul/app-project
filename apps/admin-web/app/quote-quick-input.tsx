@@ -292,9 +292,9 @@ export default function QuoteQuickInput({
               {entryTab === "직접입력" && (
                 <div className="form-grid">
                   <label>
-                    추가할 을지
+                    추가할 상세 내역서
                     <select
-                      aria-label="빠른입력 을지"
+                      aria-label="빠른입력 상세 내역서"
                       value={section}
                       onChange={(e) =>
                         setSection(e.target.value as typeof section)

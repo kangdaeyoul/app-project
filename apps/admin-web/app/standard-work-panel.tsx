@@ -430,7 +430,7 @@ export default function StandardWorkPanel({
                   onClick={() => {
                     onAdd(template!.section, items);
                     setItems([]);
-                    setNotice("견적 을지에 세부 구성품을 추가했습니다.");
+                    setNotice("견적 상세 내역서에 세부 구성품을 추가했습니다.");
                   }}
                 >
                   견적에 구성품 추가

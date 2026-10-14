@@ -187,7 +187,7 @@ export class BusinessReportsService {
           status: saved?.status ?? "검토필요",
           notes: saved?.notes ?? "준공일과 기계·전기 구분금액을 검토하세요.",
           sourceNotice: quote
-            ? "구분금액 자동값: 계약전환 견적 을지 판매금액(공급가액, 공통 경비 배분 전)"
+            ? "구분금액 자동값: 계약전환 견적 상세 내역서 판매금액(공급가액, 공통 경비 배분 전)"
             : "구분금액 미입력",
         };
       })

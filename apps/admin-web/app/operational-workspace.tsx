@@ -672,7 +672,7 @@ export function StaffQuotes() {
           </div>
           {form.sections.map((s: any, sectionIndex: number) => (
             <fieldset key={sectionIndex}>
-              <legend>을지 {s.kind}</legend>
+              <legend>상세 내역서 {s.kind}</legend>
               {s.items.map((item: any, itemIndex: number) => (
                 <div className="form-grid" key={itemIndex}>
                   {(
@@ -739,7 +739,7 @@ export function StaffQuotes() {
                 });
             }}
           >
-            기계 / 전기 을지 추가
+            기계 / 전기 상세 내역서 추가
           </button>
           <label>
             비고

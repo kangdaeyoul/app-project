@@ -114,6 +114,7 @@ export class PermissionService {
       ].includes(controller)
     )
       permitted.push(controller);
+    if (controller==="CustomersController"&&this.has("writeQuotes")&&["list","detail","create"].includes(method))permitted.push(controller);
     if (
       controller === "QuotesController" &&
       this.has("writeQuotes") &&
@@ -174,6 +175,7 @@ export class PermissionService {
       return value;
     if (Array.isArray(value)) return value.map((v) => this.redact(v));
     const hidden = new Set<string>();
+    if(this.identity.appRole==="worker"||this.identity.appRole==="staff"&&!this.has("writeQuotes"))hidden.add("quoteProfile");
     if (!this.has("internalCosts"))
       [
         "internal",
