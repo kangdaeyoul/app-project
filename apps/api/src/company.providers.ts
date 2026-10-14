@@ -1,3 +1,4 @@
+import { MaterialPersistence } from "./material-persistence";
 import { STANDARD_WORK_REPOSITORY, MemoryStandardWorkRepository } from './standard-work.repository';
 import {
   INSPECTION_REPORT_REPOSITORY,
@@ -54,7 +55,7 @@ import {
 import { SITES_REPOSITORY, SampleSitesRepository } from "./sites.repository";
 
 export const COMPANY_DATA_PROVIDERS: Provider[] = [
- {provide:STANDARD_WORK_REPOSITORY,inject:[CompanyContext],useFactory:(context:CompanyContext)=>companyRepository(context,seed=>new MemoryStandardWorkRepository(seed))},
+ {provide:STANDARD_WORK_REPOSITORY,inject:[MaterialPersistence],useFactory:(store:MaterialPersistence)=>store.repository},
   {
     provide: INSPECTION_REPORT_REPOSITORY,
     inject: [CompanyContext],

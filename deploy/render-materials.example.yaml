@@ -1,0 +1,30 @@
+# Reference only. Do not apply to the existing live service without operator approval.
+# The current render.yaml is deliberately unchanged.
+databases:
+  - name: field-materials-postgres
+    databaseName: field_materials
+    user: field_materials
+    plan: basic-256mb
+services:
+  - type: web
+    name: field-management-materials-example
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    numInstances: 1
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: MATERIAL_STORAGE
+        value: postgres
+      - key: MATERIAL_DATABASE_URL
+        fromDatabase:
+          name: field-materials-postgres
+          property: connectionString
+      - key: MATERIAL_SEED_SAMPLES
+        value: "false"
+      - key: DEMO_LOGIN_ENABLED
+        sync: false
+      - key: AUTH_SECURE_COOKIE
+        value: "true"
+# Run the additive migration after backup and explicit approval. No automatic preDeployCommand.

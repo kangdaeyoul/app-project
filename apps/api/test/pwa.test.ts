@@ -39,6 +39,11 @@ test("PWA 데모 로그인: 역할별 세션, API 권한 및 비활성 설정", 
     process.env.DEMO_LOGIN_ENABLED = "false";
     try {
       const disabled = await NestFactory.create(AppModule, { logger: false });
+      disabled.setGlobalPrefix("api");
+      await disabled.init();
+      const config = await request(disabled.getHttpServer()).get("/api/auth/config").expect(200);
+      assert.equal(config.body.demoEnabled, false);
+      assert.match(config.headers["cache-control"], /no-store/);
       const auth = disabled.get<MemoryAuthProvider>(AUTH_PROVIDER);
       assert.equal(auth.demoEnabled, false);
       assert.throws(() => auth.demoLogin("admin"));
@@ -165,5 +170,26 @@ test("모바일 작업 확인내용 보존 및 신규 배정/일정변경 알림
     assert.ok(workers.length >= 2);
   } finally {
     await app.close();
+  }
+});
+
+test("데모 설정은 기기/캐시 헤더와 무관하며 응답은 저장하지 않는다", async () => {
+  const prior = process.env.DEMO_LOGIN_ENABLED;
+  process.env.DEMO_LOGIN_ENABLED = "true";
+  const app = await NestFactory.create(AppModule, { logger: false });
+  app.setGlobalPrefix("api");
+  await app.init();
+  try {
+    for (const ua of ["Desktop Chrome", "iPhone Safari", "Android Chrome", "Standalone PWA"]) {
+      const result = await request(app.getHttpServer()).get("/api/auth/config")
+        .set("User-Agent", ua).set("If-None-Match", '"old-config"').expect(200);
+      assert.equal(result.body.demoEnabled, true);
+      assert.match(result.headers["cache-control"], /no-store/);
+      assert.equal(typeof result.body.buildVersion, "string");
+    }
+  } finally {
+    await app.close();
+    if (prior === undefined) delete process.env.DEMO_LOGIN_ENABLED;
+    else process.env.DEMO_LOGIN_ENABLED = prior;
   }
 });

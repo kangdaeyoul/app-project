@@ -1098,6 +1098,15 @@ export const WORK_REUSE_FLAGS = [
   "기존 배관 활용",
 ] as const;
 export interface WorkPrice {
+  revision?: number;
+  materialCode?: string;
+  active?: boolean;
+  purchasePriceRegistered?: boolean;
+  costRegistered?: boolean;
+  salePriceSource?: "직접입력" | "원가가산" | "소매가격";
+  markupPercent?: number;
+  costVatIncluded?: boolean;
+  saleVatIncluded?: boolean;
   priceRegistered?: boolean;
   compatibility?: { family: string; size: string; method?: string };
   trade?: string;
@@ -1244,6 +1253,12 @@ export function accumulateQuoteItems(
   }
   return result;
 }
+/** Catalog prices are stored with explicit tax basis; quotes use supply-price units. */
+export function materialNetPrice(price:WorkPrice, kind:'cost'|'sale'):number {
+ const n=kind==='cost'?price.cost:price.salePrice;
+ const included=kind==='cost'?(price.costVatIncluded??price.vatIncluded):(price.saleVatIncluded??price.vatIncluded);
+ return included?Math.round(n/1.1):n;
+}
 export function priceToQuoteItem(
   price: WorkPrice,
   autoPrice = true,
@@ -1260,22 +1275,22 @@ export function priceToQuoteItem(
     priceCategory: price.category,
     materialUnitCost:
       autoPrice &&
-      price.priceRegistered !== false &&
+      (price.costRegistered ?? price.priceRegistered) !== false &&
       price.category === "재료비"
-        ? price.cost
+        ? materialNetPrice(price,"cost")
         : 0,
     laborUnitCost:
       autoPrice &&
-      price.priceRegistered !== false &&
+      (price.costRegistered ?? price.priceRegistered) !== false &&
       price.category === "노무비"
-        ? price.cost
+        ? materialNetPrice(price,"cost")
         : 0,
     expenseUnitCost:
-      autoPrice && price.priceRegistered !== false && price.category === "경비"
-        ? price.cost
+      autoPrice && (price.costRegistered ?? price.priceRegistered) !== false && price.category === "경비"
+        ? materialNetPrice(price,"cost")
         : 0,
     saleUnitPrice:
-      autoPrice && price.priceRegistered !== false ? price.salePrice : 0,
+      autoPrice && price.priceRegistered !== false ? materialNetPrice(price,"sale") : 0,
     pricePending: !autoPrice || price.priceRegistered === false,
     notes: price.priceRegistered === false ? "단가 미등록" : "",
   };
@@ -1297,6 +1312,13 @@ export const MATERIAL_EXCEL_COLUMNS = [
   "비고",
 ] as const;
 export interface MaterialPriceHistory {
+  materialCode?: string;
+  materialName?: string;
+  changes?: { field: string; before: unknown; after: unknown }[];
+  userDisplayName?: string;
+  approvedBy?: string;
+  approverDisplayName?: string;
+  reason?: string;
   id: string;
   companyId: string;
   materialId: string;
@@ -1312,6 +1334,8 @@ export interface MaterialPriceHistory {
   userId: string;
 }
 export interface MaterialImportRow {
+  action?: "갱신" | "신규등록" | "제외" | "보류";
+  duplicate?: boolean;
   rowNumber: number;
   values: (string | number)[];
   status: "신규" | "수정" | "변경없음" | "오류";
@@ -1325,9 +1349,18 @@ export interface MaterialImportJob {
   filename: string;
   createdAt: string;
   createdBy: string;
-  status: "미리보기" | "반영완료";
+  createdByDisplayName?: string;
+  status: "미리보기" | "승인대기" | "취소" | "반영완료";
+  updatedAt?: string;
+  revision?: number;
+  approvedBy?: string;
+  approvedAt?: string;
+  approvalReason?: string;
   rows: MaterialImportRow[];
   summary: {
+    excluded?: number;
+    duplicates?: number;
+    held?: number;
     total: number;
     new: number;
     updated: number;
@@ -1551,7 +1584,7 @@ export interface AfterServiceView extends Omit<AfterService,'chargeAmount'> {cha
 
 // Authentication contracts are independent of the memory / future Supabase adapter.
 export type UserRole = 'admin' | 'staff' | 'worker' | 'customer';
-export type UserPermission = 'internalCosts' | 'siteFinance' | 'workerPayments' | 'editSchedule' | 'writeQuotes';
+export type UserPermission = 'internalCosts' | 'siteFinance' | 'workerPayments' | 'editSchedule' | 'writeQuotes' | 'manageMaterials' | 'approveMaterials';
 export interface CurrentUser {
   phone?:string; approvalStatus?:"승인대기"|"승인"|"거절"|"비활성"; requestedCompany?:string; locked?:boolean; passwordResetRequired?:boolean; appliedAt?:string;
   id:string; companyId:string; loginId:string; email:string; name:string;

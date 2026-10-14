@@ -662,3 +662,20 @@ nav .active {
 .field-greeting{align-items:center;min-height:122px;overflow:hidden;}
 @media(max-width:767px){.helper-character{width:88px;height:88px;flex-basis:88px}.field-greeting{min-height:104px}.account-profile-dialog{inset:2vh 12px;width:auto;transform:none;left:12px}.material-import-preview select{min-height:44px;width:100%}}
 @media print{body:has(.performance-panel) header,body:has(.performance-panel) aside,body:has(.performance-panel) nav,body:has(.performance-panel) .worker-actions,body:has(.performance-panel) button,body:has(.performance-panel) form{display:none!important}.performance-panel table{font-size:9px}.performance-panel .table-scroll{overflow:visible}}
+
+/* Material catalog and approval review: dense desktop tables, accessible mobile controls. */
+.material-catalog-table,.material-review-table{max-height:560px;overflow:auto;max-width:100%}
+.material-catalog-table th,.material-review-table th{position:sticky;top:0;z-index:1;background:#edf2f6;white-space:nowrap}
+.material-review-table input{min-width:130px;min-height:44px}.material-review-table td:last-child{min-width:250px}
+.material-review-table .excluded-row{opacity:.6;background:#f2f3f5}
+.material-management .tabs{display:flex;overflow-x:auto;gap:8px;padding:10px 0}
+.material-management .tabs button{white-space:nowrap;min-height:44px}
+.material-management .tabs [aria-selected=true]{background:#203e5a;color:white}
+.material-job-card{display:block;text-align:left;width:100%;padding:16px;margin:8px 0}
+.approval-box{background:#fff8e8;border-radius:8px;padding:18px;margin-top:16px}
+.material-modal-backdrop{position:fixed;inset:0;background:#10253699;z-index:1000;display:flex;align-items:center;justify-content:center;padding:18px}
+.material-modal{background:white;border-radius:10px;padding:24px;width:min(820px,100%);max-height:90dvh;overflow-y:auto;box-shadow:0 12px 40px #0003}
+.material-modal-actions{position:sticky;bottom:0;padding:12px 0;background:white;display:flex;gap:12px}
+.material-modal button,.material-management button,.material-review select{min-height:44px}
+.material-modal dl>div{display:grid;grid-template-columns:130px 1fr;padding:8px 0}.material-modal dd{margin:0;overflow-wrap:anywhere}
+@media(max-width:700px){.material-modal-backdrop{padding:8px}.material-modal{padding:16px;max-height:96dvh}.material-management .worker-actions{display:flex;flex-wrap:wrap}.material-management .worker-actions button{flex:1 1 140px}.material-review .detail-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.material-management{min-width:0}.material-modal .form-grid{grid-template-columns:1fr}}

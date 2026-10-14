@@ -40,7 +40,7 @@ export function companyRepository<T extends object>(
           "list",
           "favorites",
           "priceHistory",
-          "getImport",
+          "getImport", "listImports", "snapshot",
           "find",
           "receipts",
           "payments",

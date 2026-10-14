@@ -1,3 +1,4 @@
+import { materialNetPrice } from "@jongro/shared";
 import { BadRequestException } from "@nestjs/common";
 import {
   StandardWork,
@@ -408,8 +409,9 @@ export function calculateIntegrated(
       throw new BadRequestException("산출 수량 범위를 확인하세요.");
     if (quantity === 0 && !pending) continue;
     if (pending) warnings.push(`${p.name}: 현장산출 필요`);
-    const priceMissing = p.priceRegistered === false || missingVariant;
+    const priceMissing = p.priceRegistered === false || missingVariant || p.active === false;
     const priceEnabled = autoPrice && !priceMissing;
+    const costEnabled=autoPrice && (p.costRegistered??p.priceRegistered)!==false && !missingVariant && p.active!==false;
     const common =
       c.commonKey || source === "fixed" ? (c.commonKey ?? p.id) : undefined;
     const shared =
@@ -447,10 +449,10 @@ export function calculateIntegrated(
       specification: p.specification,
       quantity,
       unit: p.unit,
-      materialUnitCost: priceEnabled && p.category === "재료비" ? p.cost : 0,
-      laborUnitCost: priceEnabled && p.category === "노무비" ? p.cost : 0,
-      expenseUnitCost: priceEnabled && p.category === "경비" ? p.cost : 0,
-      saleUnitPrice: priceEnabled ? p.salePrice : 0,
+      materialUnitCost: costEnabled && p.category === "재료비" ? (p.costRegistered===false?0:materialNetPrice(p,"cost")) : 0,
+      laborUnitCost: costEnabled && p.category === "노무비" ? (p.costRegistered===false?0:materialNetPrice(p,"cost")) : 0,
+      expenseUnitCost: costEnabled && p.category === "경비" ? (p.costRegistered===false?0:materialNetPrice(p,"cost")) : 0,
+      saleUnitPrice: priceEnabled ? materialNetPrice(p,"sale") : 0,
       pricePending: !priceEnabled,
       quantityPending: pending,
       priceCategory: p.category,

@@ -11,7 +11,7 @@ PC 관리자 웹과 공통 API의 실행 가능한 초기 모노레포입니다.
 
 ## Windows에서 시작하기
 
-Node.js 22 이상 LTS와 Git을 설치하세요. PowerShell 또는 명령 프롬프트에서 아래 명령을 실행합니다. PowerShell의 스크립트 정책으로 `npm.ps1` 실행이 차단되면 `npm` 대신 `npm.cmd`를 사용하세요.
+Node.js 24 이상 LTS와 Git을 설치하세요. PowerShell 또는 명령 프롬프트에서 아래 명령을 실행합니다. PowerShell의 스크립트 정책으로 `npm.ps1` 실행이 차단되면 `npm` 대신 `npm.cmd`를 사용하세요.
 
 ```powershell
 git clone https://github.com/kangdaeyoul/app-project.git
@@ -298,7 +298,7 @@ API와 웹을 실행한 뒤 로그인 화면에서 아래 계정을 사용하세
 
 ### Windows 로컬 실행
 
-Node.js 22 이상 설치 후 PowerShell에서 저장소 폴더로 이동합니다.
+Node.js 24 이상 설치 후 PowerShell에서 저장소 폴더로 이동합니다.
 
 ```powershell
 npm ci
@@ -350,3 +350,11 @@ npm run start:preview
 ### 테스트 로그인 점검
 
 로그인 화면에 `로그인 점검 버전: 2026-10-11 v2`가 표시되는지 확인하세요. 표시되지 않으면 최신 코드를 받은 뒤 기존 웹/API를 종료하고 `npm run build`, `npm run start:preview`로 다시 실행하세요. 이메일은 `admin@jongro.test`, 초기 비밀번호는 `Jongro2026!`입니다. 초기 테스트 계정은 기존 공통 비밀번호도 호환하지만, 사용자 관리나 내 정보에서 비밀번호를 변경하면 호환은 해제됩니다. 비활성·잠금 계정은 계속 차단합니다.
+
+### 자재단가 영구 관리
+
+자재·경비의 자재단가 화면은 등록 자재관리 / 엑셀 업로드·검토 / 승인 대기 / 변경 이력으로 구성됩니다. 표준 13열 XLSX의 셀을 편집하고 검토 저장·승인 요청·최종 승인할 수 있습니다. 업로드와 검토 저장만으로 운영 가격을 바꾸지 않습니다. 기존 견적 가격은 그대로 유지합니다.
+
+로컬 `npm run start:preview`는 자재 자료만 `.local/materials.sqlite`에 영구 저장합니다. 기존 실행 중 메모리 자료가 있다면 종료 전에 Excel 또는 백업을 먼저 내려받으세요. 현장·견적·사용자 등 다른 저장소는 기존 메모리 방식입니다. DB 파일/백업은 Git에 포함하지 않습니다.
+
+Render 운영에는 PostgreSQL을 권장합니다. 현재 운영 `render.yaml`은 변경하지 않았습니다. DB 연결·스키마 추가·자료 이전·GitHub 푸시·배포는 운영자 승인 후 진행합니다. 환경변수, 백업, 충돌 없는 병합, 검증 절차는 [자재관리 배포 안내](docs/material-management-deployment.md)에 있습니다. 실제 Render 자동 배포 여부와 운영 DB 연결은 아직 확인되지 않았습니다.

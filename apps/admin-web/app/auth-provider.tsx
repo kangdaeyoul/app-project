@@ -91,6 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function LoginScreen() {
   const { brand, refresh } = useAuth();
   const [demoEnabled, setDemoEnabled] = useState(false);
+  const [configError, setConfigError] = useState("");
+  const [apiVersion, setApiVersion] = useState("");
   const [signup,setSignup]=useState(false);
   const [company, setCompany] = useState(DEFAULT_COMPANY.displayName),
     [login, setLogin] = useState(""),
@@ -100,13 +102,30 @@ export function LoginScreen() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
   useEffect(() => {
-    fetch("/api/auth/config")
-      .then((r) => r.json())
-      .then((v) => {
+    let active = true;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/auth/config", { cache: "no-store", credentials: "same-origin" });
+        if (!r.ok) throw Error(`설정 조회 실패 (${r.status})`);
+        const v = await r.json();
+        if (typeof v.demoEnabled !== "boolean") throw Error("로그인 설정 응답 오류");
+        if (!active) return;
         setCompany(v.company.displayName);
-        setDemoEnabled(v.demoEnabled === true);
-      })
-      .catch(() => {});
+        setDemoEnabled(v.demoEnabled);
+        setApiVersion(v.buildVersion ?? v.loginRevision ?? "unknown");
+        setConfigError("");
+      } catch (e) {
+        if (active) setConfigError("로그인 설정을 불러오지 못했습니다. 연결을 확인한 뒤 다시 시도하세요.");
+        console.warn("[login-config]", (e as Error).message);
+      }
+    };
+    const visible = () => { if (document.visibilityState === "visible") void load(); };
+    void load();
+    window.addEventListener("focus", load);
+    window.addEventListener("online", load);
+    window.addEventListener("pageshow", load);
+    document.addEventListener("visibilitychange", visible);
+    return () => { active = false; window.removeEventListener("focus", load); window.removeEventListener("online", load); window.removeEventListener("pageshow", load); document.removeEventListener("visibilitychange", visible); };
   }, []);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -203,7 +222,7 @@ export function LoginScreen() {
         {demoEnabled && (
           <section className="demo-login">
             <h3>모바일 검증용 데모 로그인</h3>
-            <small>로그인 점검 버전: 2026-10-11 v2</small>
+
             <p>역할별 화면을 바로 확인하세요. 초기 테스트 비밀번호: <strong>Jongro2026!</strong></p>
             <div>
               {[
@@ -238,6 +257,8 @@ export function LoginScreen() {
             </div>
           </section>
         )}
+        {configError && <p role="alert">{configError}</p>}
+        <small className="login-note" data-testid="login-build-version">웹 버전: {process.env.NEXT_PUBLIC_BUILD_VERSION ?? "local"} · API 버전: {apiVersion || "확인 중"}</small>
         <p className="login-note">
           테스트 계정 안내는 README를 확인하세요.
           <br />

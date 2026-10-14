@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "npm run build -w @jongro/shared && concurrently -k -n API,WEB \"npm run dev -w @jongro/api\" \"npm run dev -w @jongro/admin-web\"",

@@ -87,6 +87,10 @@ export class PermissionService {
       throw new ForbiddenException(
         "다른 작업진행자 정보는 조회할 수 없습니다.",
       );
+    if (this.identity.appRole === 'staff' && ['MaterialCatalogController','MaterialExcelController','UniversalMaterialExcelController'].includes(controller)) {
+      const read=req.method==='GET';
+      if(read || this.has('manageMaterials') || this.has('approveMaterials')) return;
+    }
     const permitted = [
       "AuthController",
       "OperationalController",
@@ -190,6 +194,7 @@ export class PermissionService {
         "purchasePrice",
         "recentPurchasePrice",
         "baseCost",
+        "markupPercent",
         "standardCost",
         "internalCosts",
         "priceHistory",
@@ -234,6 +239,7 @@ export class PermissionService {
   }
   project(controller: string, data: any) {
     if (this.admin) return data;
+    if (['MaterialCatalogController','MaterialExcelController','UniversalMaterialExcelController'].includes(controller) && (this.has('manageMaterials')||this.has('approveMaterials'))) return data;
     if (Array.isArray(data) && controller === "SitesController")
       data = data
         .filter((s) => this.allowedSite(s.id))

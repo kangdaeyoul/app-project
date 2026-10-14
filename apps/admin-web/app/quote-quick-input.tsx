@@ -414,14 +414,14 @@ export default function QuoteQuickInput({
                           .filter(
                             (p) =>
                               matchesTrade(p) &&
-                              [p.id, p.name, p.specification, p.unit]
+                              [p.materialCode??p.id, p.name, p.specification, p.unit]
                                 .join(" ")
                                 .toLowerCase()
                                 .includes(search.toLowerCase()),
                           )
                           .map((p) => (
                             <tr key={p.id}>
-                              <td>{p.id}</td>
+                              <td>{p.materialCode??p.id}</td>
                               <td>
                                 <button
                                   type="button"
@@ -461,7 +461,7 @@ export default function QuoteQuickInput({
                     {!prices.some(
                       (p) =>
                         matchesTrade(p) &&
-                        [p.id, p.name, p.specification, p.unit]
+                        [p.materialCode??p.id, p.name, p.specification, p.unit]
                           .join(" ")
                           .toLowerCase()
                           .includes(search.toLowerCase()),

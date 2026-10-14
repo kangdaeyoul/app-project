@@ -1,3 +1,4 @@
+import { materialAccess } from "./material-access";
 import {
   BadRequestException,
   Controller,
@@ -55,7 +56,7 @@ export class UniversalMaterialExcelService {
     private repository: StandardWorkRepository,
   ) {}
   inspect(buffer: Buffer, filename: string) {
-    this.company.assertMember(true);
+    materialAccess(this.company,'edit');
     if (!buffer?.length || buffer.length > 10 * 1024 * 1024)
       throw new BadRequestException("10MB 이하 XLS/XLSX 파일을 선택하세요.");
     if (!(
@@ -138,7 +139,7 @@ export class UniversalMaterialExcelService {
       templateName?: string;
     },
   ) => {
-    this.company.assertMember(true);
+    materialAccess(this.company,'edit');
     const u = this.uploads.get(id);
     if (!u || u.companyId !== this.company.companyId)
       throw new NotFoundException();
@@ -200,7 +201,7 @@ export class UniversalMaterialExcelService {
       const mapped = (k: string, fallback: unknown) =>
         mapping[k] === undefined ? fallback : get(r, k);
       s.addRow([
-        b.policy === "신규 등록" ? `MAT-${randomUUID()}` : (p?.id ?? ""),
+        b.policy === "신규 등록" ? `MAT-${randomUUID()}` : (p?.materialCode ?? p?.id ?? ""),
         name,
         specification,
         unit,
@@ -211,8 +212,8 @@ export class UniversalMaterialExcelService {
           ? (p?.manufacturer ?? "")
           : mapped("manufacturer", p?.manufacturer ?? ""),
         p?.supplier ?? "",
-        p?.purchasePrice ?? 0,
-        preserve ? (p?.cost ?? "") : mapped("cost", p?.cost ?? ""),
+        p?.purchasePriceRegistered===false?"":(p?.purchasePrice??""),
+        preserve ? (p?.costRegistered===false?"":p?.cost??"") : mapped("cost", p?.cost ?? ""),
         preserve
           ? (p?.salePrice ?? "")
           : mapped(

@@ -1,3 +1,6 @@
+import { materialNetPrice } from "@jongro/shared";
+import { materialAccess } from "./material-access";
+import { validateMaterial, materialCode } from "./material-price";
 import { registerDefaultWorks } from "./standard-work-defaults";
 import {
   calculateIntegrated,
@@ -129,7 +132,7 @@ export class StandardWorkService {
   list() {
     this.context.assertMember(true);
     const data = this.repository.list();
-    return { ...data, templates: data.templates.filter((t) => !t.deletedAt) };
+    return { ...data, prices:data.prices.filter(p=>p.active!==false), templates: data.templates.filter((t) => !t.deletedAt) };
   }
   favorites() {
     this.context.assertMember(true);
@@ -167,43 +170,15 @@ export class StandardWorkService {
     return t;
   }
   savePrice(raw: WorkPrice, id?: string) {
-    this.context.assertMember(true);
-    if (!raw || typeof raw !== "object") bad();
-    const current = this.repository.list().prices;
-    if (id && !current.some((p) => p.id === id)) throw new NotFoundException();
-    if (!["재료비", "노무비", "경비"].includes(raw.category)) bad();
-    const old = current.find((p) => p.id === id);
-    const p: WorkPrice = {
-      id: id ?? randomUUID(),
-      companyId: this.context.companyId,
-      trade: text(raw.trade ?? old?.trade ?? ""),
-      manufacturer: text(raw.manufacturer ?? old?.manufacturer ?? ""),
-      supplier: text(raw.supplier ?? old?.supplier ?? ""),
-      purchasePrice: number(
-        raw.purchasePrice ?? old?.purchasePrice ?? 0,
-        1000000000,
-      ),
-      vatIncluded: raw.vatIncluded ?? old?.vatIncluded ?? false,
-      effectiveDate: text(raw.effectiveDate ?? old?.effectiveDate ?? ""),
-      notes: text(raw.notes ?? old?.notes ?? "", false, 1000),
-      name: text(raw.name, true),
-      specification: text(raw.specification),
-      unit: text(raw.unit, true),
-      category: raw.category,
-      priceRegistered: true,
-      cost: number(raw.cost, 1000000000),
-      salePrice: number(raw.salePrice, 1000000000),
-    };
-    if (!Number.isSafeInteger(p.cost) || !Number.isSafeInteger(p.salePrice))
-      bad();
-    if (
-      !Number.isSafeInteger(p.purchasePrice) ||
-      typeof p.vatIncluded !== "boolean" ||
-      (p.effectiveDate && !validDate(p.effectiveDate))
-    )
-      bad();
-    const history = priceChange(p, old, "수동", this.context.identity.userId);
-    this.repository.commitPrices([p], history ? [history] : []);
+    materialAccess(this.context, 'edit');
+    const current=this.repository.list().prices;
+    const old=current.find(p=>p.id===id);
+    if(id&&!old)throw new NotFoundException();
+    const p=validateMaterial(raw,this.context.companyId,id??randomUUID(),old);
+    if(current.some(x=>x.id!==p.id&&materialCode(x)===materialCode(p)))throw new BadRequestException('이미 등록된 자재코드입니다.');
+    const history=priceChange(p,old,'수동',this.context.identity.userId);
+    if(history){history.userDisplayName=this.context.identity.userDisplayName;history.approvedBy=this.context.identity.userId;history.approverDisplayName=this.context.identity.userDisplayName;history.reason=(raw as any).auditReason??'';}
+    this.repository.commitPrices([p],history?[history]:[]);
     return p;
   }
   private quantityRule(value: unknown) {
@@ -565,10 +540,10 @@ export class StandardWorkService {
         specification: p.specification,
         quantity,
         unit: p.unit,
-        materialUnitCost: autoPrice && p.category === "재료비" ? p.cost : 0,
-        laborUnitCost: autoPrice && p.category === "노무비" ? p.cost : 0,
-        expenseUnitCost: autoPrice && p.category === "경비" ? p.cost : 0,
-        saleUnitPrice: autoPrice ? p.salePrice : 0,
+        materialUnitCost: autoPrice && p.category === "재료비" ? (p.costRegistered===false?0:materialNetPrice(p,"cost")) : 0,
+        laborUnitCost: autoPrice && p.category === "노무비" ? (p.costRegistered===false?0:materialNetPrice(p,"cost")) : 0,
+        expenseUnitCost: autoPrice && p.category === "경비" ? (p.costRegistered===false?0:materialNetPrice(p,"cost")) : 0,
+        saleUnitPrice: autoPrice ? materialNetPrice(p,"sale") : 0,
         pricePending: !autoPrice || p.priceRegistered === false,
         priceCategory: p.category,
         notes: "",

@@ -16,12 +16,31 @@ export interface StandardWorkRepository {
   priceHistory(id: string): MaterialPriceHistory[];
   getImport(id: string): MaterialImportJob | undefined;
   saveImport(job: MaterialImportJob): void;
+  listImports(): MaterialImportJob[];
+  snapshot(): MaterialCatalogSnapshot;
+  loadSnapshot(state: MaterialCatalogSnapshot): void;
   commitPrices(prices: WorkPrice[], histories: MaterialPriceHistory[]): void;
   favorites(): string[];
   saveFavorites(ids: string[]): void;
 }
+export interface MaterialCatalogSnapshot {
+  prices: WorkPrice[];
+  histories: MaterialPriceHistory[];
+  jobs: MaterialImportJob[];
+  favoriteIds: string[];
+  versions: StandardWork[];
+}
 export class MemoryStandardWorkRepository implements StandardWorkRepository {
   private histories: MaterialPriceHistory[] = [];
+  listImports() { return structuredClone([...this.jobs.values()]); }
+  snapshot(): MaterialCatalogSnapshot {
+    return structuredClone({prices:this.prices,histories:this.histories,jobs:[...this.jobs.values()],favoriteIds:this.favoriteIds,versions:this.versions});
+  }
+  loadSnapshot(s: MaterialCatalogSnapshot) {
+    this.prices=structuredClone(s.prices); this.histories=structuredClone(s.histories);
+    this.jobs=new Map(s.jobs.map(j=>[j.id,structuredClone(j)]));
+    this.favoriteIds=[...s.favoriteIds]; this.versions=structuredClone(s.versions);
+  }
   private jobs = new Map<string, MaterialImportJob>();
   priceHistory(id: string) {
     return structuredClone(this.histories.filter((h) => h.materialId === id));

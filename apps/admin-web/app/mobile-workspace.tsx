@@ -351,7 +351,7 @@ export default function MobileWorkspace() {
           </div>
         ) : menu === "작업" ? (
           <>{works.map(renderWork)}</>
-        ) : menu === "정산" && admin ? (<FinancePanel/>) : menu === "실적관리" && admin ? (<PerformancePanel onOpenSite={id=>{setSelected(id);navigate("현장")}}/>) : menu === "자재단가" && admin ? (<MaterialManagementPanel/>) : menu === "사용자 관리" && admin ? (<UsersPanel/>) : menu === "회사 설정" && admin ? (<CompanySettings/>) : menu === "더보기" ? (
+        ) : menu === "정산" && admin ? (<FinancePanel/>) : menu === "실적관리" && admin ? (<PerformancePanel onOpenSite={id=>{setSelected(id);navigate("현장")}}/>) : menu === "자재단가" && !worker ? (<MaterialManagementPanel/>) : menu === "사용자 관리" && admin ? (<UsersPanel/>) : menu === "회사 설정" && admin ? (<CompanySettings/>) : menu === "더보기" ? (
           <div className="mobile-actions">
             {(worker
               ? [
@@ -370,6 +370,7 @@ export default function MobileWorkspace() {
                   "작업",
                   "A/S",
                   ...(worker ? ["내 정산"] : []),
+                  ...(!admin&&!worker?["자재단가"]:[]),
                   ...(admin
                     ? ["배정관리", "견적", "정산", "실적관리", "자재단가", "사용자 관리", "회사 설정", "내 정보"]
                     : user?.permissions.includes("writeQuotes")

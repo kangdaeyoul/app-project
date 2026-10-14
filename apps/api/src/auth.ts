@@ -7,6 +7,8 @@ import {
   Get,
   Inject,
   Injectable,
+  Header,
+  Logger,
   Param,
   Post,
   Put,
@@ -65,6 +67,8 @@ const permissions: Permission[] = [
   "workerPayments",
   "editSchedule",
   "writeQuotes",
+  "manageMaterials",
+  "approveMaterials",
 ];
 function hash(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -595,6 +599,7 @@ export class MemoryAuthProvider
 }
 @Controller("auth")
 export class AuthController {
+  private loggedDemoDisabled = false;
   constructor(
     @Inject(AUTH_PROVIDER) private auth: AuthProvider,
     @Inject(CompanyContext) private company: CompanyContext,
@@ -605,7 +610,15 @@ export class AuthController {
   @Put("profile") profile(@Body() body: unknown) {
     return this.auth.updateProfile(body);
   }
-  @Get("config") config() {
+  @Get("config")
+  @Header("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate")
+  @Header("Pragma", "no-cache")
+  @Header("Expires", "0")
+  config() {
+    if (!this.loggedDemoDisabled && !this.auth.demoEnabled && (process.env.RENDER === "true" || process.env.NODE_ENV !== "production")) {
+      this.loggedDemoDisabled = true;
+      new Logger("AuthConfig").warn(JSON.stringify({ event: "demo_login_disabled", configured: process.env.DEMO_LOGIN_ENABLED === "false" ? "false" : process.env.DEMO_LOGIN_ENABLED === undefined ? "unset" : "invalid", hint: "테스트환경은 DEMO_LOGIN_ENABLED=true 설정 후 API 프로세스를 재시작하세요.", build: process.env.RENDER_GIT_COMMIT ?? "local" }));
+    }
     return {
       appBrand: APP_BRAND,
       company: {
@@ -616,7 +629,8 @@ export class AuthController {
       },
       sampleMode: true,
       demoEnabled: this.auth.demoEnabled === true,
-      loginRevision: "demo-login-2026-10-11-v2",
+      loginRevision: "demo-config-no-cache-v3",
+      buildVersion: process.env.RENDER_GIT_COMMIT ?? process.env.APP_BUILD_VERSION ?? "local",
     };
   }
   @Post("login") login(

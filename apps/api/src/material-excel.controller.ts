@@ -5,6 +5,7 @@ import {
   Inject,
   Param,
   Post,
+  Put,
   Res,
   UploadedFile,
   UseInterceptors,
@@ -56,6 +57,27 @@ export class MaterialExcelController {
   preview(@UploadedFile() file: { buffer: Buffer; originalname: string }) {
     if (!file) throw new BadRequestException("XLSX 파일을 선택하세요.");
     return this.service.preview(file.buffer, file.originalname);
+  }
+  @Get("imports") jobs() {
+    return this.service.jobs();
+  }
+  @Get("history") histories() {
+    return this.service.histories();
+  }
+  @Put("imports/:id/review") review(
+    @Param("id") id: string,
+    @Body() body: any,
+  ) {
+    return this.service.review(id, body);
+  }
+  @Post("imports/:id/submit") submit(
+    @Param("id") id: string,
+    @Body() body: any,
+  ) {
+    return this.service.submit(id, body?.revision);
+  }
+  @Post("imports/:id/cancel") cancel(@Param("id") id: string) {
+    return this.service.cancel(id);
   }
   @Get("imports/:id") job(@Param("id") id: string) {
     return this.service.job(id);

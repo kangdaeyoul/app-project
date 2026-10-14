@@ -145,6 +145,7 @@ test("Excel 표준/회사 목록 다운로드, 신규·수정·무코드 매칭�
         .expect(201)
     ).body;
     assert.deepEqual(job.summary, {
+      duplicates:0, excluded:0, held:0,
       total: 4,
       new: 1,
       updated: 2,
@@ -196,11 +197,11 @@ test("Excel 표준/회사 목록 다운로드, 신규·수정·무코드 매칭�
     const latest = priceToQuoteItem(
       after.find((p: { id: string }) => p.id === existing.id),
     );
-    assert.equal(latest.saleUnitPrice, 9000);
+    assert.equal(latest.saleUnitPrice, Math.round(9000 / 1.1));
     assert.equal(priceToQuoteItem(after[0], false).saleUnitPrice, 0);
     assert.equal(
       reapplyLatestQuotePrices(old.sections[0].items, after)[0].saleUnitPrice,
-      9000,
+      Math.round(9000 / 1.1),
     );
     await request(http)
       .put(`/api/standard-work/prices/${existing.id}`)

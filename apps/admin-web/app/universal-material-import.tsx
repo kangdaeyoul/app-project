@@ -37,8 +37,10 @@ async function api<T>(path: string, body: unknown): Promise<T> {
 }
 export default function UniversalMaterialImport({
   onApplied,
+  onReviewed,
 }: {
   onApplied: () => void;
+  onReviewed?: (job: MaterialImportJob) => void;
 }) {
   const [open, setOpen] = useState(false),
     [inspection, setInspection] = useState<Inspection | null>(null),
@@ -238,27 +240,27 @@ export default function UniversalMaterialImport({
               <button
                 disabled={busy}
                 onClick={() =>
-                  void run(async () =>
-                    setJob(
-                      await api<MaterialImportJob>(
-                        `universal/${inspection.id}/preview`,
-                        {
-                          sheetName: sheet,
-                          headerRow: header,
-                          mapping,
-                          policy,
-                          templateName: format,
-                        },
-                      ),
-                    ),
-                  )
+                  void run(async () => {
+                    const j = await api<MaterialImportJob>(
+                      `universal/${inspection.id}/preview`,
+                      {
+                        sheetName: sheet,
+                        headerRow: header,
+                        mapping,
+                        policy,
+                        templateName: format,
+                      },
+                    );
+                    setJob(j);
+                    onReviewed?.(j);
+                  })
                 }
               >
                 미리보기
               </button>
             </>
           )}
-          {job && (
+          {job && !onReviewed && (
             <>
               <p>
                 전체 {job.summary.total} · 신규 {job.summary.new} · 수정{" "}
@@ -307,6 +309,12 @@ export default function UniversalMaterialImport({
                   }
                   onClick={() =>
                     void run(async () => {
+                      if (
+                        !confirm(
+                          "검토 결과를 최종 승인하여 자재DB에 반영할까요?",
+                        )
+                      )
+                        return;
                       const v = await api<MaterialImportJob>(
                         `imports/${job.id}/apply`,
                         { mode },

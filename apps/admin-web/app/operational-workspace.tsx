@@ -1,4 +1,5 @@
 "use client";
+import MaterialManagementPanel from "./material-management-panel";
 import { useEffect, useState } from "react";
 import {
   DailyWork,
@@ -33,6 +34,7 @@ export default function OperationalWorkspace() {
       : [
           "일정",
           "허용된 현장",
+          "자재단가",
           "일일작업",
           "견적",
           "사진",
@@ -171,7 +173,7 @@ export default function OperationalWorkspace() {
                 } else openSite(s);
               }}
             />
-          ) : menu === "현장 재무" ? (
+          ) : menu === "자재단가" && !worker ? (<MaterialManagementPanel/>) : menu === "현장 재무" ? (
             <ScopedFinance sites={sites} />
           ) : menu === "견적" ? (
             <StaffQuotes />
