@@ -358,3 +358,5 @@ npm run start:preview
 로컬 `npm run start:preview`는 자재 자료만 `.local/materials.sqlite`에 영구 저장합니다. 기존 실행 중 메모리 자료가 있다면 종료 전에 Excel 또는 백업을 먼저 내려받으세요. 현장·견적·사용자 등 다른 저장소는 기존 메모리 방식입니다. DB 파일/백업은 Git에 포함하지 않습니다.
 
 Render 운영에는 PostgreSQL을 권장합니다. 현재 운영 `render.yaml`은 변경하지 않았습니다. DB 연결·스키마 추가·자료 이전·GitHub 푸시·배포는 운영자 승인 후 진행합니다. 환경변수, 백업, 충돌 없는 병합, 검증 절차는 [자재관리 배포 안내](docs/material-management-deployment.md)에 있습니다. 실제 Render 자동 배포 여부와 운영 DB 연결은 아직 확인되지 않았습니다.
+
+견적 제출용 회사정보·직인·스냅샷과 거래처 검색/상세 흐름은 [견적 개선 안내](docs/quote-submission-and-customer-ux.md)를 참고하세요. 회사·견적·거래처는 현재 메모리 저장소이므로 운영 자료의 영구 보관은 별도 연결이 필요합니다.

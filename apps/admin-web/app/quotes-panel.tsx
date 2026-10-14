@@ -6,11 +6,19 @@ import {
   QuoteInput,
   QuoteItemInput,
   QuoteView,
+  QuoteListRow,
   Site,
   QUOTE_STATUSES,
   QUOTE_PRINT_MODES,
   calculateQuote,
 } from "@jongro/shared";
+import QuoteCustomerPicker from "./quote-customer-picker";
+import QuoteCustomerDirectory from "./quote-customer-directory";
+import QuoteDetailView from "./quote-detail-view";
+import { fetchQuoteDocument } from "./quote-document-client";
+import { quoteDocumentFilename } from "@jongro/shared";
+import QuoteSummaryEditor from "./quote-summary-editor";
+import { QuoteCompanySnapshot, quoteCompanyDefaults } from "@jongro/shared";
 import QuoteQuickInput from "./quote-quick-input";
 import QuoteLineEditor from "./quote-line-editor";
 import QuoteNumberInput from "./quote-number-input";
@@ -51,7 +59,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     let response: Response;
     try {
-      response = await fetch(`/api${path}`, init);
+      response = await fetch(`/api${path}`, { cache: "no-store", ...init });
     } catch (e) {
       if (
         readOnly &&
@@ -116,9 +124,15 @@ export default function QuotesPanel({
       .catch(() => {});
     return () => controller.abort();
   }, []);
-  const [quotes, setQuotes] = useState<QuoteView[]>([]),
+  const [quotes, setQuotes] = useState<QuoteListRow[]>([]),
     [customers, setCustomers] = useState<Customer[]>([]),
     [sites, setSites] = useState<Site[]>([]);
+  const [convertModal, setConvertModal] = useState(false);
+  const [editing, setEditing] = useState(false),
+    [showCustomers, setShowCustomers] = useState(false);
+  const [tradeFilter, setTradeFilter] = useState(""),
+    [sort, setSort] = useState("updated"),
+    [page, setPage] = useState(0);
   const [search, setSearch] = useState(""),
     [status, setStatus] = useState(""),
     [from, setFrom] = useState(""),
@@ -135,12 +149,6 @@ export default function QuotesPanel({
   const [startDate, setStartDate] = useState(today),
     [endDate, setEndDate] = useState(today),
     [converting, setConverting] = useState(false);
-  const [customerForm, setCustomerForm] = useState({
-    name: "",
-    address: "",
-    contactName: "",
-    phone: "",
-  });
   const previewUrl = useRef("");
   function clearPreview() {
     if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
@@ -157,9 +165,17 @@ export default function QuotesPanel({
     const c = new AbortController();
     setLoading(true);
     setError("");
-    const q = new URLSearchParams({ search, status, from, to });
+    const q = new URLSearchParams({
+      search,
+      status,
+      from,
+      to,
+      trade: tradeFilter,
+      sort,
+    });
+    setPage(0);
     Promise.all([
-      api<QuoteView[]>(`/quotes?${q}`, { signal: c.signal }),
+      api<QuoteListRow[]>(`/quotes/index?${q}`, { signal: c.signal }),
       api<Customer[]>("/customers", { signal: c.signal }),
       api<Site[]>("/sites", { signal: c.signal }),
     ])
@@ -176,7 +192,7 @@ export default function QuotesPanel({
         if (!c.signal.aborted) setLoading(false);
       });
     return () => c.abort();
-  }, [search, status, from, to, revision]);
+  }, [search, status, from, to, tradeFilter, sort, revision]);
   useEffect(() => {
     if (initialQuoteId)
       fetch(`/api/quotes/${initialQuoteId}`)
@@ -185,10 +201,21 @@ export default function QuotesPanel({
           if (!r.ok) throw Error(b.message);
           return b;
         })
-        .then(open)
+        .then((q) => open(q))
         .catch((e) => setError(e.message));
   }, [initialQuoteId]);
-  function open(q: QuoteView) {
+  async function open(input: QuoteView | QuoteListRow, edit = false) {
+    let q = input as QuoteView;
+    if (!q.companySnapshot) {
+      try {
+        q = await api<QuoteView>(`/quotes/${q.id}`);
+      } catch (e) {
+        setError((e as Error).message);
+        return;
+      }
+    }
+    setEditing(edit);
+    setShowCustomers(false);
     clearPreview();
     setSelected(q);
     setForm(structuredClone(q));
@@ -265,7 +292,7 @@ export default function QuotesPanel({
           selected ? "PUT" : "POST",
         ),
       );
-      open(q);
+      void open(q);
       setRevision((v) => v + 1);
       setNotice("견적을 저장했습니다.");
     } catch (e) {
@@ -307,21 +334,6 @@ export default function QuotesPanel({
       setBusy(false);
     }
   }
-  async function createCustomer() {
-    setBusy(true);
-    setError("");
-    try {
-      const c = await api<Customer>("/customers", json(customerForm));
-      setCustomers((cs) => [...cs, c]);
-      change({ customerId: c.id });
-      setCustomerForm({ name: "", address: "", contactName: "", phone: "" });
-      setNotice("거래처를 등록하고 견적에 연결했습니다.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "거래처 등록 실패");
-    } finally {
-      setBusy(false);
-    }
-  }
   async function convert() {
     if (!selected || busy) return;
     setBusy(true);
@@ -332,7 +344,7 @@ export default function QuotesPanel({
         json({ startDate, endDate }),
       );
       const q = await api<QuoteView>(`/quotes/${selected.id}`);
-      open(q);
+      void open(q);
       setRevision((v) => v + 1);
       onChanged();
       setNotice("계약금액과 공종을 반영한 새 현장을 생성했습니다.");
@@ -343,12 +355,52 @@ export default function QuotesPanel({
       setBusy(false);
     }
   }
+  async function share() {
+    if (!selected || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetchQuoteDocument(
+        `/api/quotes/${selected.id}/pdf?mode=${encodeURIComponent(printMode)}`,
+      );
+      if (!r.ok) throw Error("공유용 PDF를 생성하지 못했습니다.");
+      const filename = quoteDocumentFilename(
+        selected.siteName,
+        selected.quoteDate,
+        "pdf",
+      );
+      const file = new File([await r.blob()], filename, {
+        type: "application/pdf",
+      });
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: selected.siteName + " 견적서",
+        });
+        setNotice("공유 창을 열었습니다.");
+      } else {
+        const url = URL.createObjectURL(file),
+          a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        setNotice(`공유용 PDF를 다운로드했습니다: ${filename}`);
+      }
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function print(download: boolean, excel = false) {
     if (!selected || busy) return;
     setBusy(true);
     setError("");
     try {
-      const r = await fetch(
+      const r = await fetchQuoteDocument(
         `/api/quotes/${selected.id}/${excel ? "excel" : "pdf"}?${new URLSearchParams({ mode: printMode, preview: download ? "false" : "true" })}`,
       );
       if (!r.ok) {
@@ -403,7 +455,7 @@ export default function QuotesPanel({
     : [];
   return (
     <div className="quotes-workspace quote-simple-mode">
-      {form && (
+      {form && editing && (
         <>
           <details className="quote-settings">
             <summary>입력 옵션 · 단가 자동입력 / 중복 합산</summary>
@@ -468,12 +520,14 @@ export default function QuotesPanel({
         <summary>자재DB · 표준작업 관리</summary>
         <StandardWorkPanel
           onAdd={
-            form ? (kind, items) => addItems(kind, items, true) : undefined
+            form && editing
+              ? (kind, items) => addItems(kind, items, true)
+              : undefined
           }
         />
       </details>
 
-      {form && (
+      {form && editing && (
         <label>
           <input
             type="checkbox"
@@ -484,6 +538,24 @@ export default function QuotesPanel({
         </label>
       )}
 
+      {!form && (
+        <div className="quote-mode-picker" aria-label="견적 및 거래처 관리">
+          <button
+            type="button"
+            aria-pressed={!showCustomers}
+            onClick={() => setShowCustomers(false)}
+          >
+            견적 목록
+          </button>
+          <button
+            type="button"
+            aria-pressed={showCustomers}
+            onClick={() => setShowCustomers(true)}
+          >
+            거래처 관리
+          </button>
+        </div>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}{" "}
@@ -498,168 +570,249 @@ export default function QuotesPanel({
         </p>
       )}
       {!form ? (
-        <section className="panel">
-          <div className="panel-title">
-            <div>
-              <h2>견적 목록</h2>
-              <p>기계·전기 견적과 승인 후 계약전환을 관리하세요.</p>
-            </div>
-            <button
-              className="primary-button"
-              disabled={busy || !customers.length}
-              onClick={() => {
-                setSelected(null);
-                void api<{
-                  company: { quotePreferences?: { autoPrice: boolean } };
-                }>("/company/current")
-                  .then((v) =>
-                    setForm({
-                      ...newQuote(customers[0].id),
-                      autoPrice: v.company.quotePreferences?.autoPrice ?? true,
-                      mergeDuplicates: true,
-                      mergeAcrossSources: true,
-                    }),
-                  )
-                  .catch((e) => setError(e.message));
-                setNotice("");
-                setError("");
-              }}
-            >
-              ＋ 새 견적 작성
-            </button>
-          </div>
-          <div className="site-filters">
-            <label>
-              과거 견적 검색
-              <input
-                type="search"
-                placeholder="현장, 거래처, 품명"
-                value={search}
-                maxLength={300}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </label>
-            <label>
-              견적 상태 필터
-              <select
-                aria-label="견적 상태 필터"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+        showCustomers ? (
+          <QuoteCustomerDirectory
+            onQuote={(q) => void open(q)}
+            onSite={onOpenSite}
+          />
+        ) : (
+          <section className="panel">
+            <div className="panel-title">
+              <div>
+                <h2>견적 목록</h2>
+                <p>기계·전기 견적과 승인 후 계약전환을 관리하세요.</p>
+              </div>
+              <button
+                className="primary-button"
+                disabled={busy || loading}
+                onClick={() => {
+                  setSelected(null);
+                  setEditing(true);
+                  void api<{
+                    company: import("@jongro/shared").Company;
+                  }>("/company/current")
+                    .then((v) =>
+                      setForm({
+                        ...newQuote(""),
+                        companySnapshot: quoteCompanyDefaults(v.company),
+                        autoPrice:
+                          v.company.quotePreferences?.autoPrice ?? true,
+                        mergeDuplicates: true,
+                        mergeAcrossSources: true,
+                      }),
+                    )
+                    .catch((e) => setError(e.message));
+                  setNotice("");
+                  setError("");
+                }}
               >
-                <option value="">전체 상태</option>
-                {QUOTE_STATUSES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              견적일 시작
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-              />
-            </label>
-            <label>
-              견적일 종료
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-              />
-            </label>
-          </div>
-          {loading ? (
-            <p role="status">견적을 불러오는 중입니다…</p>
-          ) : (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    {[
-                      "현장명",
-                      "거래처",
-                      "견적일 / 유효기간",
-                      "을지",
-                      "고객 총액 (VAT 포함)",
-                      "상태",
-                      "연결 현장",
-                      "관리",
-                    ].map((t) => (
-                      <th key={t}>{t}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotes.map((q) => (
-                    <tr key={q.id}>
-                      <td>
-                        <button
-                          type="button"
-                          className="text-button"
-                          onClick={() => open(q)}
-                        >
-                          {q.siteName}
-                        </button>
-                        <small>{q.id}</small>
-                      </td>
-                      <td>{q.customerName}</td>
-                      <td>
-                        {q.quoteDate}
-                        <small>{q.validUntil}까지</small>
-                      </td>
-                      <td>
-                        {q.sections
-                          .filter((s) => s.items.length)
-                          .map((s) => s.kind)
-                          .join(" + ")}
-                      </td>
-                      <td>{sale(q.totals.totalAmount, q.displayUnit)}</td>
-                      <td>
-                        <span className="badge">{q.status}</span>
-                      </td>
-                      <td>
-                        {q.convertedSiteId || q.siteId ? (
-                          <button
-                            className="text-button"
-                            onClick={() =>
-                              onOpenSite(q.convertedSiteId || q.siteId!)
-                            }
-                          >
-                            현장 보기
-                          </button>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="text-button"
-                          disabled={busy}
-                          onClick={() => copy(q)}
-                        >
-                          복사
-                        </button>{" "}
-                        <button
-                          type="button"
-                          className="text-button"
-                          disabled={busy || !!q.convertedSiteId}
-                          onClick={() => remove(q)}
-                        >
-                          삭제
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!quotes.length && (
-                <p className="empty">조건에 맞는 견적이 없습니다.</p>
-              )}
+                ＋ 새 견적 작성
+              </button>
             </div>
-          )}
-        </section>
+            <div className="site-filters">
+              <label>
+                과거 견적 검색
+                <input
+                  type="search"
+                  placeholder="견적번호 · 거래처 · 현장 · 공사내용"
+                  value={search}
+                  maxLength={300}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </label>
+              <label>
+                견적 상태 필터
+                <select
+                  aria-label="견적 상태 필터"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">전체 상태</option>
+                  {QUOTE_STATUSES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                견적일 시작
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                />
+              </label>
+              <label>
+                견적일 종료
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+              </label>
+              <label>
+                공종 필터
+                <select
+                  aria-label="견적 공종 필터"
+                  value={tradeFilter}
+                  onChange={(e) => setTradeFilter(e.target.value)}
+                >
+                  {["", "기계", "전기", "기계+전기"].map((t) => (
+                    <option key={t} value={t}>
+                      {t || "전체 공종"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                정렬
+                <select
+                  aria-label="견적 정렬"
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                >
+                  {[
+                    ["updated", "최신 수정일"],
+                    ["created", "최신 작성일"],
+                    ["amount", "견적금액"],
+                    ["client", "거래처명"],
+                  ].map(([v, l]) => (
+                    <option key={v} value={v}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {loading ? (
+              <p role="status">견적을 불러오는 중입니다…</p>
+            ) : (
+              <>
+                <div className="table-scroll quote-list-desktop">
+                  <table>
+                    <thead>
+                      <tr>
+                        {[
+                          "견적일",
+                          "견적번호",
+                          "거래처",
+                          "현장명",
+                          "공사내용",
+                          "견적금액",
+                          "상태",
+                          "담당자",
+                          "최종수정일",
+                        ].map((l) => (
+                          <th key={l}>{l}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotes.slice(page * 40, (page + 1) * 40).map((q) => (
+                        <tr
+                          key={q.id}
+                          className="quote-list-row"
+                          onClick={() => void open(q)}
+                        >
+                          <td>{q.quoteDate}</td>
+                          <td>{q.quoteNumber ?? q.id}</td>
+                          <td>{q.customerName || "—"}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="text-button"
+                              aria-label={`견적 상세 ${q.siteName}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void open(q);
+                              }}
+                            >
+                              {q.siteName}
+                            </button>
+                          </td>
+                          <td>{q.workContent}</td>
+                          <td>{money(q.totals.totalAmount)}</td>
+                          <td>
+                            <span className="badge">{q.status}</span>
+                          </td>
+                          <td>{q.quoteContactName || "—"}</td>
+                          <td>{q.updatedAt.slice(0, 10)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="quote-list-mobile">
+                  {quotes.slice(page * 40, (page + 1) * 40).map((q) => (
+                    <button
+                      type="button"
+                      className="quote-list-card"
+                      key={q.id}
+                      onClick={() => void open(q)}
+                    >
+                      <strong>{q.siteName}</strong>
+                      <span>{q.customerName || "거래처 입력 안 함"}</span>
+                      <b>{money(q.totals.totalAmount)}</b>
+                      <span>
+                        {q.status} · {q.quoteDate}
+                      </span>
+                      <small>{q.quoteNumber ?? q.id}</small>
+                    </button>
+                  ))}
+                </div>
+                {!quotes.length && (
+                  <p className="empty">조건에 맞는 견적이 없습니다.</p>
+                )}
+                {quotes.length > 40 && (
+                  <div className="quote-list-pagination">
+                    <button
+                      disabled={!page}
+                      onClick={() => setPage((p) => p - 1)}
+                    >
+                      이전
+                    </button>
+                    <span>
+                      {page + 1} / {Math.ceil(quotes.length / 40)}
+                    </span>
+                    <button
+                      disabled={(page + 1) * 40 >= quotes.length}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      다음
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        )
+      ) : !editing && selected ? (
+        <QuoteDetailView
+          quote={selected}
+          onEdit={() => {
+            setEditing(true);
+            clearPreview();
+          }}
+          onCopy={() => void copy(selected)}
+          onRemove={() => void remove(selected)}
+          onPrint={(d, e) => void print(d, e)}
+          onShare={() => void share()}
+          onBack={() => {
+            setForm(null);
+            setSelected(null);
+            clearPreview();
+          }}
+          onSite={onOpenSite}
+          onConvert={() => {
+            setConvertModal(true);
+          }}
+          busy={busy}
+          mode={printMode}
+          onMode={(v) => {
+            setPrintMode(v);
+            clearPreview();
+          }}
+          preview={preview}
+        />
       ) : (
         <>
           <div className="site-toolbar">
@@ -733,21 +886,14 @@ export default function QuotesPanel({
               </div>
               <fieldset disabled={busy || locked} className="quote-fieldset">
                 <div className="form-grid">
-                  <label>
-                    거래처
-                    <select
-                      aria-label="거래처"
-                      required
-                      value={form.customerId}
-                      onChange={(e) => change({ customerId: e.target.value })}
-                    >
-                      {customers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <div className="full-width">
+                    <QuoteCustomerPicker
+                      customers={customers}
+                      quote={form}
+                      onChange={change}
+                      onCreated={(c) => setCustomers((cs) => [...cs, c])}
+                    />
+                  </div>
                   <label>
                     기존 현장 연결 (선택)
                     <select
@@ -896,46 +1042,18 @@ export default function QuotesPanel({
                     </div>
                   </details>
                 </div>
-                <details className="quote-customer">
-                  <summary>새 거래처 등록</summary>
-                  <div className="form-grid">
-                    {(["name", "address", "contactName", "phone"] as const).map(
-                      (key, i) => (
-                        <label key={key}>
-                          {
-                            [
-                              "거래처명",
-                              "거래처 주소",
-                              "담당자",
-                              "거래처 연락처",
-                            ][i]
-                          }
-                          <input
-                            maxLength={300}
-                            value={customerForm[key]}
-                            onChange={(e) =>
-                              setCustomerForm((c) => ({
-                                ...c,
-                                [key]: e.target.value,
-                              }))
-                            }
-                          />
-                        </label>
-                      ),
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    disabled={!customerForm.name.trim()}
-                    onClick={createCustomer}
-                  >
-                    거래처 등록
-                  </button>
-                </details>
               </fieldset>
             </section>
             <section className="panel quote-details quote-mobile-compose">
+              {calc && (
+                <QuoteSummaryEditor
+                  quote={form}
+                  documentNumber={selected?.quoteNumber ?? selected?.id}
+                  disabled={busy || locked}
+                  onChange={change}
+                  totals={calc.totals}
+                />
+              )}
               <QuoteLineEditor
                 key={selected?.id ?? "new"}
                 form={form}
@@ -954,11 +1072,11 @@ export default function QuotesPanel({
               />
               <details className="quote-settings quote-financial-details">
                 <summary>
-                  갑지 총괄 · 일반관리비 · 착·준공지원비 · 내부원가
+                  금액 상세 · 일반관리비 · 착·준공지원비 · 내부원가
                 </summary>
                 <div className="quote-summary">
                   <div>
-                    <h3>고객 공개 갑지</h3>
+                    <h3>고객 공개 견적 요약</h3>
                     <p>
                       VAT 포함 총액을 기준으로 표시합니다. 항목별 판매금액을
                       고객금액 분류에 따라 집계합니다.
@@ -1033,7 +1151,7 @@ export default function QuotesPanel({
                 </fieldset>
               </details>
             </section>
-            {form && (
+            {form && editing && (
               <div className="quote-save-bar" aria-label="견적 저장 액션바">
                 <span>
                   {form.sections.reduce(
@@ -1183,6 +1301,47 @@ export default function QuotesPanel({
             </section>
           )}
         </>
+      )}
+      {convertModal && selected && (
+        <div
+          className="quote-preview-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="견적 현장 생성"
+        >
+          <section className="panel">
+            <h3>승인 견적에서 현장 생성</h3>
+            <p>{selected.siteName}</p>
+            <label>
+              공사 시작일
+              <input
+                aria-label="현장 생성 시작일"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </label>
+            <label>
+              공사 종료예정일
+              <input
+                aria-label="현장 생성 종료일"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </label>
+            <button
+              disabled={busy}
+              type="button"
+              onClick={() => void convert().then(() => setConvertModal(false))}
+            >
+              현장 생성 확정
+            </button>
+            <button type="button" onClick={() => setConvertModal(false)}>
+              취소
+            </button>
+          </section>
+        </div>
       )}
     </div>
   );
