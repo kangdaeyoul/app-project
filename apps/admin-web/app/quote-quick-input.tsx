@@ -1,4 +1,5 @@
 "use client";
+import QuoteNumberInput from "./quote-number-input";
 import StandardWorkQuick from "./standard-work-quick";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -26,10 +27,12 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 export default function QuoteQuickInput({
   autoPrice,
+  activeTrade,
   onAdd,
   onPendingChange,
   totals,
 }: {
+  activeTrade?: "기계" | "전기";
   onPendingChange?: (count: number) => void;
   autoPrice: boolean;
   totals?: QuotePublicTotals;
@@ -67,12 +70,15 @@ export default function QuoteQuickInput({
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [defaultPrice, setDefaultPrice] = useState(true);
+  useEffect(() => {
+    if (activeTrade) setSection(activeTrade);
+  }, [activeTrade]);
   const [manual, setManual] = useState({
     materialCode: "",
     name: "",
     specification: "",
     unit: "개",
-    quantity: 1,
+    quantity: 0,
     saleUnitPrice: 0,
   });
   useEffect(() => {
@@ -124,6 +130,7 @@ export default function QuoteQuickInput({
       if (!latest) throw Error("품목을 다시 조회하세요.");
       setPrices(data.prices);
       onAdd([priceToQuoteItem(latest, autoPrice, source)], section);
+      setExpanded(false);
     } catch (e) {
       if (mounted.current) setError((e as Error).message);
     } finally {
@@ -275,7 +282,10 @@ export default function QuoteQuickInput({
               allTrades={allTrades}
               onAllTradesChange={setAllTrades}
               autoPrice={autoPrice}
-              onAdd={onAdd}
+              onAdd={(items, kind) => {
+                onAdd(items, kind);
+                setExpanded(false);
+              }}
             />
           ) : (
             <>
@@ -414,14 +424,19 @@ export default function QuoteQuickInput({
                           .filter(
                             (p) =>
                               matchesTrade(p) &&
-                              [p.materialCode??p.id, p.name, p.specification, p.unit]
+                              [
+                                p.materialCode ?? p.id,
+                                p.name,
+                                p.specification,
+                                p.unit,
+                              ]
                                 .join(" ")
                                 .toLowerCase()
                                 .includes(search.toLowerCase()),
                           )
                           .map((p) => (
                             <tr key={p.id}>
-                              <td>{p.materialCode??p.id}</td>
+                              <td>{p.materialCode ?? p.id}</td>
                               <td>
                                 <button
                                   type="button"
@@ -461,7 +476,12 @@ export default function QuoteQuickInput({
                     {!prices.some(
                       (p) =>
                         matchesTrade(p) &&
-                        [p.materialCode??p.id, p.name, p.specification, p.unit]
+                        [
+                          p.materialCode ?? p.id,
+                          p.name,
+                          p.specification,
+                          p.unit,
+                        ]
                           .join(" ")
                           .toLowerCase()
                           .includes(search.toLowerCase()),
@@ -489,7 +509,7 @@ export default function QuoteQuickInput({
                     ))}
                     <label>
                       수량
-                      <input
+                      <QuoteNumberInput
                         aria-label="수동 수량"
                         type="number"
                         min="0.001"
@@ -505,7 +525,7 @@ export default function QuoteQuickInput({
                     </label>
                     <label>
                       판매단가
-                      <input
+                      <QuoteNumberInput
                         aria-label="수동 판매단가"
                         type="number"
                         min="0"
@@ -528,7 +548,7 @@ export default function QuoteQuickInput({
                       manual.quantity <= 0 ||
                       manual.saleUnitPrice < 0
                     }
-                    onClick={() =>
+                    onClick={() => {
                       onAdd(
                         [
                           {
@@ -543,8 +563,16 @@ export default function QuoteQuickInput({
                           },
                         ],
                         section,
-                      )
-                    }
+                      );
+                      setManual({
+                        materialCode: "",
+                        name: "",
+                        specification: "",
+                        unit: "개",
+                        quantity: 0,
+                        saleUnitPrice: 0,
+                      });
+                    }}
                   >
                     수동 품목 추가
                   </button>

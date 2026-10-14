@@ -318,6 +318,8 @@ test("견적 입력/관계/범위 검증은 저장 전 실패하고 원장을 �
       { validUntil: "1999-01-01" },
       { rounding: "invalid" },
       { sections: [] },
+      { sections: [{ kind: "기계", items: [{ ...item, name: "" }] }] },
+      { sections: [{ kind: "기계", items: [{ ...item, name: "   " }] }] },
       { sections: [q.sections[0], q.sections[0]] },
       { generalFee: -1 },
       { sections: [{ kind: "기계", items: [{ ...item, quantity: 0 }] }] },

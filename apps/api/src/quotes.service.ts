@@ -168,6 +168,7 @@ export class QuotesService {
     };
   }
   private customerItems(q: QuoteView, items: QuoteItemInput[]) {
+    items = items.filter(i=>i.name.trim());
     if (!q.groupComponents) return items;
     const result: QuoteItemInput[] = [];
     for (const i of items) {

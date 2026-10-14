@@ -7,14 +7,13 @@ import {
   QuoteItemInput,
   QuoteView,
   Site,
-  QUOTE_SECTIONS,
   QUOTE_STATUSES,
-  QUOTE_PRICE_CATEGORIES,
   QUOTE_PRINT_MODES,
   calculateQuote,
-  quoteLineAmount,
 } from "@jongro/shared";
 import QuoteQuickInput from "./quote-quick-input";
+import QuoteLineEditor from "./quote-line-editor";
+import QuoteNumberInput from "./quote-number-input";
 import { accumulateQuoteItems } from "@jongro/shared";
 import StandardWorkPanel from "./standard-work-panel";
 import PdfPreview from "./pdf-preview";
@@ -27,20 +26,6 @@ const sale = (n: number, unit: QuoteInput["displayUnit"]) =>
   unit === "만원"
     ? `${new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 4 }).format(n / 10000)}만원 (${money(n)})`
     : money(n);
-const newItem = (): QuoteItemInput => ({
-  entrySources: ["manual"],
-  trade: "소방시설",
-  name: "",
-  specification: "",
-  quantity: 1,
-  unit: "개",
-  materialUnitCost: 0,
-  laborUnitCost: 0,
-  expenseUnitCost: 0,
-  saleUnitPrice: 0,
-  priceCategory: "재료비",
-  notes: "",
-});
 const newQuote = (customerId: string): QuoteInput => ({
   customerId,
   siteId: null,
@@ -59,14 +44,47 @@ const newQuote = (customerId: string): QuoteInput => ({
   internalSupportCost: 0,
   rounding: "천원 반올림",
   displayUnit: "만원",
-  sections: [{ kind: "기계", items: [newItem()] }],
+  sections: [],
 });
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(`/api${path}`, init),
-    body = await r.json();
-  if (!r.ok) throw Error(body.message || "견적 요청 실패");
-  return body;
+  const readOnly = !init?.method || init.method.toUpperCase() === "GET";
+  for (let attempt = 0; ; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(`/api${path}`, init);
+    } catch (e) {
+      if (
+        readOnly &&
+        attempt === 0 &&
+        !init?.signal?.aborted &&
+        e instanceof TypeError
+      )
+        continue;
+      throw e;
+    }
+    // The web proxy can lose an idle API connection. Never retry writes.
+    const isJson = response.headers
+      .get("content-type")
+      ?.includes("application/json");
+    if (
+      readOnly &&
+      attempt === 0 &&
+      !isJson &&
+      [500, 502, 503, 504].includes(response.status)
+    ) {
+      await response.text();
+      continue;
+    }
+    if (!isJson)
+      throw Error(
+        `API 연결에 실패했습니다 (${response.status}). 다시 시도하세요.`,
+      );
+    const body = await response.json();
+    if (!response.ok) throw Error(body.message || "견적 요청 실패");
+    return body;
+  }
 }
+
 const json = (body: unknown, method = "POST") => ({
   method,
   headers: { "Content-Type": "application/json" },
@@ -82,7 +100,6 @@ export default function QuotesPanel({
   onOpenSite: (id: string) => void;
 }) {
   const [pendingItems, setPendingItems] = useState(0);
-  const [detailMode, setDetailMode] = useState(false);
   const [autoPriceDefault, setAutoPriceDefault] = useState(true);
   const [companyName, setCompanyName] = useState(DEFAULT_COMPANY.displayName);
   useEffect(() => {
@@ -113,8 +130,7 @@ export default function QuotesPanel({
     [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<QuoteView | null>(null),
     [form, setForm] = useState<QuoteInput | null>(null);
-  const [tab, setTab] = useState("갑지: 총괄"),
-    [printMode, setPrintMode] = useState<string>("전체 상세"),
+  const [printMode, setPrintMode] = useState<string>("전체 상세"),
     [preview, setPreview] = useState("");
   const [startDate, setStartDate] = useState(today),
     [endDate, setEndDate] = useState(today),
@@ -176,7 +192,6 @@ export default function QuotesPanel({
     clearPreview();
     setSelected(q);
     setForm(structuredClone(q));
-    setTab("갑지: 총괄");
     setConverting(false);
     setError("");
     setNotice("");
@@ -221,7 +236,6 @@ export default function QuotesPanel({
       );
       return { ...f, sections: sections.filter((s) => s.items.length) };
     });
-    setTab(`을지: ${kind}`);
   }
   const calc = (() => {
     try {
@@ -238,7 +252,18 @@ export default function QuotesPanel({
     try {
       const q = await api<QuoteView>(
         selected ? `/quotes/${selected.id}` : "/quotes",
-        json(form, selected ? "PUT" : "POST"),
+        json(
+          {
+            ...form,
+            sections: form.sections
+              .map((s) => ({
+                ...s,
+                items: s.items.filter((i) => i.name.trim()),
+              }))
+              .filter((s) => s.items.length),
+          },
+          selected ? "PUT" : "POST",
+        ),
       );
       open(q);
       setRevision((v) => v + 1);
@@ -377,9 +402,7 @@ export default function QuotesPanel({
       ] as const)
     : [];
   return (
-    <div
-      className={`quotes-workspace ${detailMode ? "quote-detail-mode" : "quote-simple-mode"}`}
-    >
+    <div className="quotes-workspace quote-simple-mode">
       {form && (
         <>
           <details className="quote-settings">
@@ -439,13 +462,6 @@ export default function QuotesPanel({
           {pendingItems > 0 && (
             <p role="status">선택한 품목을 추가하는 중입니다…</p>
           )}
-          <QuoteQuickInput
-            key={selected?.id ?? "new"}
-            totals={calc?.totals}
-            onPendingChange={setPendingItems}
-            autoPrice={form.autoPrice ?? autoPriceDefault}
-            onAdd={(items, kind) => addItems(kind, items)}
-          />
         </>
       )}
       <details className="quote-settings quote-management">
@@ -505,7 +521,6 @@ export default function QuotesPanel({
                     }),
                   )
                   .catch((e) => setError(e.message));
-                setTab("갑지: 총괄");
                 setNotice("");
                 setError("");
               }}
@@ -920,377 +935,134 @@ export default function QuotesPanel({
                 </details>
               </fieldset>
             </section>
-            <section className="panel quote-details">
-              <div
-                className="quote-mode-picker"
-                role="group"
-                aria-label="견적 편집 모드"
-              >
-                <button
-                  type="button"
-                  aria-pressed={!detailMode}
-                  onClick={() => setDetailMode(false)}
-                >
-                  간편모드
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={detailMode}
-                  onClick={() => setDetailMode(true)}
-                >
-                  상세모드
-                </button>
-              </div>
-              <div className="tab-list" role="tablist" aria-label="견적 구성">
-                {["갑지: 총괄", "을지: 기계", "을지: 전기"].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === t}
-                    className={tab === t ? "selected" : ""}
-                    onClick={() => setTab(t)}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              {tab === "갑지: 총괄" ? (
-                <>
-                  <div className="quote-summary">
-                    <div>
-                      <h3>고객 공개 갑지</h3>
-                      <p>
-                        VAT 포함 총액을 기준으로 표시합니다. 항목별 판매금액을
-                        고객금액 분류에 따라 집계합니다.
-                      </p>
-                      <table>
-                        <tbody>
-                          {rows.map(([label, n]) => (
-                            <tr key={label}>
-                              <th>{label}</th>
-                              <td>{sale(n, form.displayUnit)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="quote-internal">
-                      <h3>내부 원가·마진 · 관리자용</h3>
-                      <p>고객용 PDF와 공개 데이터에는 포함되지 않습니다.</p>
-                      {calc ? (
-                        <dl className="info-grid">
-                          {[
-                            ["재료 원가", calc.internal.material],
-                            ["노무 원가", calc.internal.labor],
-                            ["경비 원가", calc.internal.expense],
-                            ["총 내부 원가", calc.internal.totalCost],
-                            ["마진 (공급가액 기준)", calc.internal.margin],
-                          ].map(([l, n]) => (
-                            <div key={l}>
-                              <dt>{l}</dt>
-                              <dd>{money(Number(n))}</dd>
-                            </div>
-                          ))}
-                          <div>
-                            <dt>마진율</dt>
-                            <dd>{calc.internal.marginRate.toFixed(1)}%</dd>
-                          </div>
-                        </dl>
-                      ) : (
-                        <p className="error">
-                          수량과 금액 범위를 확인해 주세요.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <fieldset
-                    disabled={busy || locked}
-                    className="quote-fieldset"
-                  >
-                    <div className="form-grid">
-                      {(
-                        [
-                          "generalFee",
-                          "supportFee",
-                          "internalGeneralCost",
-                          "internalSupportCost",
-                        ] as const
-                      ).map((key, i) => (
-                        <label key={key}>
-                          {
-                            [
-                              "고객 일반관리비",
-                              "고객 착·준공지원비",
-                              "내부 일반관리 원가",
-                              "내부 착·준공지원 원가",
-                            ][i]
-                          }
-                          <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            required
-                            value={form[key]}
-                            onChange={(e) =>
-                              change({ [key]: Number(e.target.value) })
-                            }
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                </>
-              ) : (
-                QUOTE_SECTIONS.filter((kind) => tab === `을지: ${kind}`).map(
-                  (kind) => {
-                    const section = form.sections.find((s) => s.kind === kind);
-                    const items = section?.items ?? [];
-                    const update = (
-                      index: number,
-                      patch: Partial<QuoteItemInput>,
-                    ) =>
-                      change({
-                        sections: section
-                          ? form.sections.map((s) =>
-                              s.kind === kind
-                                ? {
-                                    ...s,
-                                    items: s.items.map((item, i) =>
-                                      i === index
-                                        ? { ...item, ...patch }
-                                        : item,
-                                    ),
-                                  }
-                                : s,
-                            )
-                          : [...form.sections, { kind, items: [] }],
-                      });
-                    return (
-                      <fieldset
-                        key={kind}
-                        className="quote-fieldset"
-                        disabled={busy || locked}
-                      >
-                        <div className="panel-title">
-                          <div>
-                            <h3>을지 · {kind}</h3>
-                            <p>
-                              {items.length}개 항목 · 판매단가로 고객금액을
-                              계산합니다.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() =>
-                              change({
-                                sections: section
-                                  ? form.sections.map((s) =>
-                                      s.kind === kind
-                                        ? {
-                                            ...s,
-                                            items: [...s.items, newItem()],
-                                          }
-                                        : s,
-                                    )
-                                  : [
-                                      ...form.sections,
-                                      { kind, items: [newItem()] },
-                                    ],
-                              })
-                            }
-                          >
-                            {kind} 항목 추가
-                          </button>
-                        </div>
-                        {items.map((item, index) => (
-                          <article className="quote-item" key={index}>
-                            <div className="panel-title">
-                              <strong>
-                                {item.name || `${kind} 항목 ${index + 1}`}
-                              </strong>
-                              <button
-                                type="button"
-                                className="text-button"
-                                onClick={() =>
-                                  change({
-                                    sections: form.sections.map((s) =>
-                                      s.kind === kind
-                                        ? {
-                                            ...s,
-                                            items: s.items.filter(
-                                              (_, i) => i !== index,
-                                            ),
-                                          }
-                                        : s,
-                                    ),
-                                  })
-                                }
-                              >
-                                항목 삭제
-                              </button>
-                            </div>
-                            <div className="form-grid">
-                              {(
-                                [
-                                  "trade",
-                                  "name",
-                                  "specification",
-                                  "unit",
-                                ] as const
-                              ).map((key, i) => (
-                                <label key={key}>
-                                  {["공종", "품명", "규격", "단위"][i]}
-                                  <input
-                                    required={key !== "specification"}
-                                    maxLength={
-                                      key === "trade"
-                                        ? 100
-                                        : key === "unit"
-                                          ? 30
-                                          : 300
-                                    }
-                                    value={item[key]}
-                                    onChange={(e) =>
-                                      update(index, { [key]: e.target.value })
-                                    }
-                                  />
-                                </label>
-                              ))}
-                              <label>
-                                수량 {item.quantityPending && "· 현장산출 필요"}
-                                <input
-                                  required
-                                  type="number"
-                                  min={item.quantityPending ? 0 : 0.001}
-                                  max={1000000}
-                                  step={0.001}
-                                  value={item.quantity}
-                                  onChange={(e) =>
-                                    update(index, {
-                                      quantity: Number(e.target.value),
-                                      quantityPending: false,
-                                      manualQuantity: true,
-                                    })
-                                  }
-                                />
-                              </label>
-                              <label>
-                                판매단가 (고객 공개)
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={1}
-                                  placeholder="단가 미등록 / 직접 입력"
-                                  value={
-                                    item.pricePending &&
-                                    item.saleUnitPrice === 0
-                                      ? ""
-                                      : item.saleUnitPrice
-                                  }
-                                  onChange={(e) =>
-                                    update(index, {
-                                      saleUnitPrice: Number(e.target.value),
-                                      pricePending: false,
-                                    })
-                                  }
-                                />
-                              </label>
-                              <label>
-                                고객금액 분류
-                                <select
-                                  aria-label="고객금액 분류"
-                                  value={item.priceCategory}
-                                  onChange={(e) =>
-                                    update(index, {
-                                      priceCategory: e.target
-                                        .value as QuoteItemInput["priceCategory"],
-                                    })
-                                  }
-                                >
-                                  {QUOTE_PRICE_CATEGORIES.map((c) => (
-                                    <option key={c}>{c}</option>
-                                  ))}
-                                </select>
-                              </label>
-                              <div className="quote-line-total">
-                                고객 금액
-                                <strong>
-                                  {(() => {
-                                    try {
-                                      return money(
-                                        quoteLineAmount(
-                                          item.quantity,
-                                          item.saleUnitPrice,
-                                        ),
-                                      );
-                                    } catch {
-                                      return "범위 오류";
-                                    }
-                                  })()}
-                                </strong>
-                              </div>
-                              <label className="full-width">
-                                항목 비고 (고객 공개)
-                                <textarea
-                                  rows={2}
-                                  maxLength={1000}
-                                  value={item.notes}
-                                  onChange={(e) =>
-                                    update(index, { notes: e.target.value })
-                                  }
-                                />
-                              </label>
-                            </div>
-                            <div className="quote-internal">
-                              <strong>내부 원가 단가 · 관리자용</strong>
-                              <div className="form-grid">
-                                {(
-                                  [
-                                    "materialUnitCost",
-                                    "laborUnitCost",
-                                    "expenseUnitCost",
-                                  ] as const
-                                ).map((key, i) => (
-                                  <label key={key}>
-                                    {
-                                      [
-                                        "재료비 단가 (내부)",
-                                        "노무비 단가 (내부)",
-                                        "경비 단가 (내부)",
-                                      ][i]
-                                    }
-                                    <input
-                                      required
-                                      type="number"
-                                      min={0}
-                                      step={1}
-                                      value={item[key]}
-                                      onChange={(e) =>
-                                        update(index, {
-                                          [key]: Number(e.target.value),
-                                        })
-                                      }
-                                    />
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          </article>
+            <section className="panel quote-details quote-mobile-compose">
+              <QuoteLineEditor
+                key={selected?.id ?? "new"}
+                form={form}
+                disabled={busy || locked}
+                onAdd={addItems}
+                onChange={change}
+                quickInput={(kind) => (
+                  <QuoteQuickInput
+                    activeTrade={kind}
+                    totals={calc?.totals}
+                    onPendingChange={setPendingItems}
+                    autoPrice={form.autoPrice ?? autoPriceDefault}
+                    onAdd={(items, section) => addItems(section, items)}
+                  />
+                )}
+              />
+              <details className="quote-settings quote-financial-details">
+                <summary>
+                  갑지 총괄 · 일반관리비 · 착·준공지원비 · 내부원가
+                </summary>
+                <div className="quote-summary">
+                  <div>
+                    <h3>고객 공개 갑지</h3>
+                    <p>
+                      VAT 포함 총액을 기준으로 표시합니다. 항목별 판매금액을
+                      고객금액 분류에 따라 집계합니다.
+                    </p>
+                    <table>
+                      <tbody>
+                        {rows.map(([label, n]) => (
+                          <tr key={label}>
+                            <th>{label}</th>
+                            <td>{sale(n, form.displayUnit)}</td>
+                          </tr>
                         ))}
-                        {!items.length && (
-                          <p className="empty">
-                            {kind} 항목을 추가하세요. 빈 을지는 고객 출력에서
-                            생략합니다.
-                          </p>
-                        )}
-                      </fieldset>
-                    );
-                  },
-                )
-              )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <details className="quote-internal">
+                    <summary>내부 원가·마진 · 관리자용</summary>
+
+                    <p>고객용 PDF와 공개 데이터에는 포함되지 않습니다.</p>
+                    {calc ? (
+                      <dl className="info-grid">
+                        {[
+                          ["재료 원가", calc.internal.material],
+                          ["노무 원가", calc.internal.labor],
+                          ["경비 원가", calc.internal.expense],
+                          ["총 내부 원가", calc.internal.totalCost],
+                          ["마진 (공급가액 기준)", calc.internal.margin],
+                        ].map(([l, n]) => (
+                          <div key={l}>
+                            <dt>{l}</dt>
+                            <dd>{money(Number(n))}</dd>
+                          </div>
+                        ))}
+                        <div>
+                          <dt>마진율</dt>
+                          <dd>{calc.internal.marginRate.toFixed(1)}%</dd>
+                        </div>
+                      </dl>
+                    ) : (
+                      <p className="error">수량과 금액 범위를 확인해 주세요.</p>
+                    )}
+                  </details>
+                </div>
+                <fieldset disabled={busy || locked} className="quote-fieldset">
+                  <div className="form-grid">
+                    {(
+                      [
+                        "generalFee",
+                        "supportFee",
+                        "internalGeneralCost",
+                        "internalSupportCost",
+                      ] as const
+                    ).map((key, i) => (
+                      <label key={key}>
+                        {
+                          [
+                            "고객 일반관리비",
+                            "고객 착·준공지원비",
+                            "내부 일반관리 원가",
+                            "내부 착·준공지원 원가",
+                          ][i]
+                        }
+                        <QuoteNumberInput
+                          min={0}
+                          step={1}
+                          value={form[key]}
+                          onValue={(value) => change({ [key]: value })}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </details>
             </section>
+            {form && (
+              <div className="quote-save-bar" aria-label="견적 저장 액션바">
+                <span>
+                  {form.sections.reduce(
+                    (n, s) => n + s.items.filter((i) => i.name.trim()).length,
+                    0,
+                  )}
+                  개 품목
+                </span>
+                <span>
+                  공급가액{" "}
+                  <strong>{money(calc?.totals.supplyAmount ?? 0)}</strong>
+                </span>
+                <span>
+                  VAT <strong>{money(calc?.totals.vat ?? 0)}</strong>
+                </span>
+                <span>
+                  총액 <strong>{money(calc?.totals.totalAmount ?? 0)}</strong>
+                </span>
+                {!locked && (
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    disabled={busy || pendingItems > 0}
+                  >
+                    {busy ? "저장 중…" : "저장"}
+                  </button>
+                )}
+              </div>
+            )}
           </form>
           {selected && (
             <section className="panel">

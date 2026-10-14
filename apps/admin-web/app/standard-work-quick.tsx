@@ -1,4 +1,5 @@
 "use client";
+import QuoteNumberInput from "./quote-number-input";
 import { useEffect, useRef, useState } from "react";
 import {
   StandardWork,
@@ -351,7 +352,7 @@ export default function StandardWorkQuick({
                           {templates.find((x) => x.id === t.templateId)?.name}
                         </td>
                         <td>
-                          <input
+                          <QuoteNumberInput
                             aria-label={`작업 ${n + 1} 수량`}
                             type="number"
                             min="0.001"
@@ -445,7 +446,7 @@ export default function StandardWorkQuick({
                 ).map(([key, label]) => (
                   <label key={key}>
                     {label}
-                    <input
+                    <QuoteNumberInput
                       aria-label={`간편 ${label}`}
                       type="number"
                       min="0"
@@ -533,7 +534,7 @@ export default function StandardWorkQuick({
                   {numericFields.map(([key, label]) => (
                     <label key={key}>
                       {label}
-                      <input
+                      <QuoteNumberInput
                         type="number"
                         min="0"
                         step="0.001"
@@ -647,7 +648,7 @@ export default function StandardWorkQuick({
                         {numericFields.map(([key, label]) => (
                           <label key={key}>
                             {label}
-                            <input
+                            <QuoteNumberInput
                               type="number"
                               min="0"
                               step="0.001"
@@ -693,7 +694,7 @@ export default function StandardWorkQuick({
           {preview.length > 0 && (
             <>
               <div className="panel-title">
-                <h3>구성품 미리보기</h3>
+                <h3>예상 구성품 {preview.flatMap((s) => s.items).length}종</h3>
                 <strong>
                   {preview
                     .flatMap((s, j) =>
@@ -757,165 +758,170 @@ export default function StandardWorkQuick({
                   <p key={w}>{w}</p>
                 ))}
               </details>
-              {preview.map((section, s) => (
-                <div key={section.kind} className="table-scroll">
-                  <h4>{section.kind}</h4>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>품목명</th>
-                        <th>규격</th>
-                        <th>단위</th>
-                        <th>수량</th>
-                        <th>단가</th>
-                        <th>금액</th>
-                        {detail && <th>계산근거 · 내부원가</th>}
-                        {detail && <th>입력</th>}
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {section.items.map((item, n) => (
-                        <tr
-                          key={n}
-                          hidden={!detail && !accessories && isAccessory(item)}
-                          className={
-                            excluded.has(`${s}:${n}`) ? "quote-excluded" : ""
-                          }
-                        >
-                          <td>{item.name}</td>
-                          <td>{item.specification}</td>
-                          <td>{item.unit}</td>
-                          <td>
-                            <input
-                              aria-label={`미리보기 ${section.kind} ${n + 1} 수량`}
-                              type="number"
-                              min="0"
-                              step="0.001"
-                              value={
-                                item.quantityPending && item.quantity === 0
-                                  ? ""
-                                  : item.quantity
-                              }
-                              placeholder="현장산출 필요"
-                              onChange={(e) =>
-                                edit(s, n, {
-                                  quantity: Number(e.target.value),
-                                  quantityPending: e.target.value === "",
-                                  manualQuantity: true,
-                                  calculationBasis: "관리자 수동 수정",
-                                })
-                              }
-                            />
-                          </td>
-                          <td>
-                            <input
-                              aria-label={`미리보기 ${section.kind} ${n + 1} 단가`}
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={
-                                item.pricePending && item.saleUnitPrice === 0
-                                  ? ""
-                                  : item.saleUnitPrice
-                              }
-                              placeholder={
-                                autoPrice ? "단가 미등록" : "직접 입력"
-                              }
-                              onChange={(e) =>
-                                edit(s, n, {
-                                  saleUnitPrice: Number(e.target.value),
-                                  pricePending: e.target.value === "",
-                                })
-                              }
-                            />
-                          </td>
-                          <td>
-                            {item.pricePending || item.quantityPending
-                              ? "미확정"
-                              : Math.round(
-                                  item.quantity * item.saleUnitPrice,
-                                ).toLocaleString() + "원"}
-                          </td>
-                          {detail && (
+              <details className="quote-components-details">
+                <summary>구성품 보기 · 수량/단가 수정</summary>
+                {preview.map((section, s) => (
+                  <div key={section.kind} className="table-scroll">
+                    <h4>{section.kind}</h4>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>품목명</th>
+                          <th>규격</th>
+                          <th>단위</th>
+                          <th>수량</th>
+                          <th>단가</th>
+                          <th>금액</th>
+                          {detail && <th>계산근거 · 내부원가</th>}
+                          {detail && <th>입력</th>}
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.items.map((item, n) => (
+                          <tr
+                            key={n}
+                            hidden={
+                              !detail && !accessories && isAccessory(item)
+                            }
+                            className={
+                              excluded.has(`${s}:${n}`) ? "quote-excluded" : ""
+                            }
+                          >
+                            <td>{item.name}</td>
+                            <td>{item.specification}</td>
+                            <td>{item.unit}</td>
                             <td>
-                              {item.calculationBasis}
-                              <small>
-                                내부원가{" "}
-                                {Math.round(
-                                  item.quantity *
-                                    (item.materialUnitCost +
-                                      item.laborUnitCost +
-                                      item.expenseUnitCost),
-                                ).toLocaleString()}
-                                원
-                              </small>
-                            </td>
-                          )}
-                          {detail && (
-                            <td>
-                              {item.manualQuantity ? "수동수정" : "자동추가"}
-                            </td>
-                          )}
-                          <td>
-                            <label>
-                              <input
-                                type="checkbox"
-                                aria-label={`포함 ${section.kind} ${n + 1}`}
-                                checked={!excluded.has(`${s}:${n}`)}
+                              <QuoteNumberInput
+                                aria-label={`미리보기 ${section.kind} ${n + 1} 수량`}
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                value={
+                                  item.quantityPending && item.quantity === 0
+                                    ? ""
+                                    : item.quantity
+                                }
+                                placeholder="현장산출 필요"
                                 onChange={(e) =>
-                                  setExcluded((v) => {
-                                    const next = new Set(v);
-                                    if (e.target.checked)
-                                      next.delete(`${s}:${n}`);
-                                    else next.add(`${s}:${n}`);
-                                    return next;
+                                  edit(s, n, {
+                                    quantity: Number(e.target.value),
+                                    quantityPending: e.target.value === "",
+                                    manualQuantity: true,
+                                    calculationBasis: "관리자 수동 수정",
                                   })
                                 }
                               />
-                              포함
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setExcluded(
-                                  (v) =>
-                                    new Set(
-                                      [...v].flatMap((key) => {
-                                        const [j, i] = key
-                                          .split(":")
-                                          .map(Number);
-                                        return j !== s
-                                          ? [key]
-                                          : i === n
-                                            ? []
-                                            : [`${j}:${i > n ? i - 1 : i}`];
-                                      }),
+                            </td>
+                            <td>
+                              <QuoteNumberInput
+                                aria-label={`미리보기 ${section.kind} ${n + 1} 단가`}
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={
+                                  item.pricePending && item.saleUnitPrice === 0
+                                    ? ""
+                                    : item.saleUnitPrice
+                                }
+                                placeholder={
+                                  autoPrice ? "단가 미등록" : "직접 입력"
+                                }
+                                onChange={(e) =>
+                                  edit(s, n, {
+                                    saleUnitPrice: Number(e.target.value),
+                                    pricePending: e.target.value === "",
+                                  })
+                                }
+                              />
+                            </td>
+                            <td>
+                              {item.pricePending || item.quantityPending
+                                ? "미확정"
+                                : Math.round(
+                                    item.quantity * item.saleUnitPrice,
+                                  ).toLocaleString() + "원"}
+                            </td>
+                            {detail && (
+                              <td>
+                                {item.calculationBasis}
+                                <small>
+                                  내부원가{" "}
+                                  {Math.round(
+                                    item.quantity *
+                                      (item.materialUnitCost +
+                                        item.laborUnitCost +
+                                        item.expenseUnitCost),
+                                  ).toLocaleString()}
+                                  원
+                                </small>
+                              </td>
+                            )}
+                            {detail && (
+                              <td>
+                                {item.manualQuantity ? "수동수정" : "자동추가"}
+                              </td>
+                            )}
+                            <td>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  aria-label={`포함 ${section.kind} ${n + 1}`}
+                                  checked={!excluded.has(`${s}:${n}`)}
+                                  onChange={(e) =>
+                                    setExcluded((v) => {
+                                      const next = new Set(v);
+                                      if (e.target.checked)
+                                        next.delete(`${s}:${n}`);
+                                      else next.add(`${s}:${n}`);
+                                      return next;
+                                    })
+                                  }
+                                />
+                                포함
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExcluded(
+                                    (v) =>
+                                      new Set(
+                                        [...v].flatMap((key) => {
+                                          const [j, i] = key
+                                            .split(":")
+                                            .map(Number);
+                                          return j !== s
+                                            ? [key]
+                                            : i === n
+                                              ? []
+                                              : [`${j}:${i > n ? i - 1 : i}`];
+                                        }),
+                                      ),
+                                  );
+                                  setPreview((v) =>
+                                    v.map((x, j) =>
+                                      j === s
+                                        ? {
+                                            ...x,
+                                            items: x.items.filter(
+                                              (_, i) => i !== n,
+                                            ),
+                                          }
+                                        : x,
                                     ),
-                                );
-                                setPreview((v) =>
-                                  v.map((x, j) =>
-                                    j === s
-                                      ? {
-                                          ...x,
-                                          items: x.items.filter(
-                                            (_, i) => i !== n,
-                                          ),
-                                        }
-                                      : x,
-                                  ),
-                                );
-                              }}
-                            >
-                              구성품 삭제
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ))}
+                                  );
+                                }}
+                              >
+                                구성품 삭제
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </details>
             </>
           )}
         </div>
