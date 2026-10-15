@@ -1,4 +1,6 @@
 "use client";
+import GuidedInput from "./guided-input";
+import {useTutorialWorkspace,ScreenHelpButton,tutorialMenu} from "./onboarding";
 import MaterialManagementPanel from "./material-management-panel";
 import { useEffect, useState } from "react";
 import {
@@ -90,6 +92,7 @@ export default function OperationalWorkspace() {
     setSiteId(w.siteId);
     setMenu(worker ? "작업완료" : "일일작업");
   };
+  const tutorialScreen=useTutorialWorkspace(menu,s=>{setSelected(null);setSiteId("");setAsId(undefined);setMenu(tutorialMenu(s,user!.role));});
   return (
     <div className="shell operational-shell">
       <aside>
@@ -133,9 +136,9 @@ export default function OperationalWorkspace() {
       <div className="workspace">
         <header>
           <span>{company.displayName} · 현장관리</span>
-          <SessionHeader />
+          <ScreenHelpButton/><SessionHeader />
         </header>
-        <main>
+        <main data-onboarding-screen={tutorialScreen}>
           <div className="page-heading">
             <div>
               <div className="eyebrow">MY WORKSPACE</div>
@@ -686,7 +689,7 @@ export function StaffQuotes() {
                   ).map((key, i) => (
                     <label key={key}>
                       {["품명", "규격", "단위", "수량", "판매단가"][i]}
-                      <input
+                      <GuidedInput
                         required={key !== "specification"}
                         type={i > 2 ? "number" : "text"}
                         min={i > 2 ? 0 : undefined}

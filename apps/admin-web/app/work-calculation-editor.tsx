@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import { useState } from "react";
 import { WorkComponent, WorkPrice, WorkQuantityRule } from "@jongro/shared";
 const sources: [WorkQuantityRule["source"], string][] = [
@@ -97,7 +98,7 @@ export default function WorkCalculationEditor({
           </label>
           <label>
             계산계수
-            <input
+            <GuidedNumberInput
               type="number"
               min="0"
               step="0.001"
@@ -109,7 +110,7 @@ export default function WorkCalculationEditor({
             <>
               <label>
                 예시 기본노무
-                <input
+                <GuidedNumberInput
                   type="number"
                   min="0"
                   step="0.001"
@@ -119,7 +120,7 @@ export default function WorkCalculationEditor({
               </label>
               <label>
                 수량별 추가노무
-                <input
+                <GuidedNumberInput
                   type="number"
                   min="0"
                   step="0.001"

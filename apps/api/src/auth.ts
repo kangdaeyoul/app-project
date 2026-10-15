@@ -147,6 +147,7 @@ export class MemoryAuthProvider
       const worker = workerId ? this.workers.find(workerId) : undefined;
       this.users.set(id, {
         id,
+        isDemo:true,
         companyId,
         loginId,
         email: loginId,
@@ -406,6 +407,7 @@ export class MemoryAuthProvider
     )
       throw new BadRequestException("가입 상태를 확인하세요.");
     const u: StoredUser = {
+      isDemo: existing?.isDemo === true,
       id: id ?? randomUUID(),
       companyId: this.company.companyId,
       loginId: b.loginId!.trim(),

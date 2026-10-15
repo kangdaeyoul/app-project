@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import { useEffect, useState } from "react";
 import {
   DailyWork,
@@ -206,7 +207,7 @@ export default function ExpensesPanel({
     return (
       <label>
         {label}
-        <input
+        <GuidedNumberInput
           aria-label={label}
           type="number"
           required

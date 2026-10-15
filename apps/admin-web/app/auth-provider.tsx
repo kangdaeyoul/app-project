@@ -1,4 +1,5 @@
 "use client";
+import DemoWelcome from "./demo-welcome";
 import PersonalProfile,{SignupForm} from "./account-forms";
 import { createContext, useContext, useEffect, useState } from "react";
 import { APP_BRAND, Company, DEFAULT_COMPANY } from "@jongro/shared";
@@ -35,6 +36,7 @@ export async function authApi<T>(
         ? body.message.join(", ")
         : (body.message ?? "요청에 실패했습니다."),
     );
+  if(options?.method&&!["GET","HEAD"].includes(options.method.toUpperCase())&&!/tutorial|auth|quote-assets|initial-setup/.test(url))window.dispatchEvent(new Event("app-saved"));
   return body;
 }
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -90,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 export function LoginScreen() {
   const { brand, refresh } = useAuth();
+  const [demoAccount,setDemoAccount]=useState<string|null>(null);
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [configError, setConfigError] = useState("");
   const [apiVersion, setApiVersion] = useState("");
@@ -235,21 +238,7 @@ export function LoginScreen() {
                   type="button"
                   key={account}
                   disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    setError("");
-                    try {
-                      await authApi("/auth/demo", {
-                        method: "POST",
-                        body: JSON.stringify({ account, remember }),
-                      });
-                      await refresh();
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
+                  onClick={() => setDemoAccount(account)}
                 >
                   {label}로 체험
                 </button>
@@ -257,6 +246,7 @@ export function LoginScreen() {
             </div>
           </section>
         )}
+        {demoAccount && <DemoWelcome account={demoAccount} busy={busy} onCancel={()=>setDemoAccount(null)} onStart={async tutorial=>{setBusy(true);setError("");try {await authApi("/auth/demo",{method:"POST",body:JSON.stringify({account:demoAccount,remember})});sessionStorage.setItem("demo-entry",tutorial?"tutorial":"home");await refresh();}catch(e){setError((e as Error).message);setDemoAccount(null)}finally{setBusy(false)}}}/>}
         {configError && <p role="alert">{configError}</p>}
         <small className="login-note" data-testid="login-build-version">웹 버전: {process.env.NEXT_PUBLIC_BUILD_VERSION ?? "local"} · API 버전: {apiVersion || "확인 중"}</small>
         <p className="login-note">
@@ -279,6 +269,7 @@ export function SessionHeader() {
   const [profile,setProfile]=useState(false);
   return (
     <div className="session-controls">
+      {user?.isDemo && <span className="tutorial-sample-badge">체험판</span>}
       <span>
         {user?.displayName} · {user && ROLE_LABELS[user.role]}
       </span>

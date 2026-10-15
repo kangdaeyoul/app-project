@@ -1,4 +1,5 @@
 'use client';
+import GuidedNumberInput from "./quote-number-input";
 
 import InstructionsPanel from './instructions-panel';
 import AfterServicePanel from './after-service-panel';
@@ -26,12 +27,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 function Badge({ status }: { status: Site['status'] }) {
   return <span className={`badge ${status === '미배정' ? 'warning' : status === '완료' ? 'success' : ''}`}>{status}</span>;
 }
-export default function SitesPanel({ onChanged, initialSiteId }: { onChanged: () => void; initialSiteId?: string }) {
+export default function SitesPanel({ onChanged, initialSiteId, initialCreate=false }: { onChanged: () => void; initialSiteId?: string; initialCreate?:boolean }) {
   const [workers, setWorkers] = useState<WorkerSummary[]>([]);
   const [workersReady, setWorkersReady] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [selected, setSelected] = useState<Site | null>(null);
-  const [form, setForm] = useState<SiteInput | null>(null);
+  const [form, setForm] = useState<SiteInput | null>(initialCreate?emptyInput():null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tab, setTab] = useState<typeof tabs[number]>('개요');
   const [loading, setLoading] = useState(true);
@@ -89,7 +90,7 @@ export default function SitesPanel({ onChanged, initialSiteId }: { onChanged: ()
       {textField('name', '현장명', 'text', true)}{textField('client', '거래처')}{textField('address', '주소')}{textField('contactName', '현장 담당자')}{textField('phone', '연락처', 'tel')}
       <label className="full-width">공사내용<textarea value={form.description} maxLength={5000} rows={3} onChange={e => setForm({ ...form, description: e.target.value })}/></label>
       {textField('startDate', '시작일', 'date', true)}{textField('endDate', '종료예정일', 'date')}
-      <label>VAT 포함 공사금액<input type="number" min="0" max={Number.MAX_SAFE_INTEGER} step="1" value={form.contractAmount} onChange={e => setForm({ ...form, contractAmount: Number(e.target.value) })}/><small>원 단위 · 미정인 경우 0원</small></label>
+      <label>VAT 포함 공사금액<GuidedNumberInput type="number" min="0" max={Number.MAX_SAFE_INTEGER} step="1" value={form.contractAmount} onChange={e => setForm({ ...form, contractAmount: Number(e.target.value) })}/><small>원 단위 · 미정인 경우 0원</small></label>
       <label>대표 작업진행자<select aria-label="대표 작업진행자" disabled={!workersReady} value={form.managerId ?? ''} onChange={e => setForm({ ...form, managerId: e.target.value || null, manager: workers.find(w=>w.id===e.target.value)?.displayName ?? null })}><option value="">미배정</option>{form.managerId && !workers.some(w=>w.id===form.managerId) && <option value={form.managerId}>{form.manager} (삭제됨 · 기존 배정 유지)</option>}{workers.map(w=><option value={w.id} key={w.id}>{w.displayName} · {w.role || '역할 미입력'}</option>)}</select>{!workersReady&&<small>작업진행자 목록을 불러오는 중입니다.</small>}</label>
       <label>진행상태<select aria-label="진행상태" value={form.status} onChange={e => setForm({ ...form, status: e.target.value as Site['status'] })}>{SITE_STATUSES.map(s => <option key={s}>{s}</option>)}</select></label>
     </div><div className="form-actions"><button type="button" className="secondary-button" onClick={() => { setForm(null); setError(''); }}>취소</button><button className="primary-button" type="submit">{saving ? '저장 중…' : '저장'}</button></div></fieldset></form></section> : selected ? <>

@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import { MaterialUsageInput } from "@jongro/shared";
 export default function MaterialRows({
   rows,
@@ -73,7 +74,7 @@ export default function MaterialRows({
                   />
                 </td>
                 <td>
-                  <input
+                  <GuidedNumberInput
                     aria-label={`수량 ${i + 1}`}
                     type="number"
                     min="0.001"

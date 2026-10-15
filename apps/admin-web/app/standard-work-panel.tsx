@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import WorkCalculationEditor from "./work-calculation-editor";
 import WorkConditionsEditor from "./work-conditions-editor";
 import { useEffect, useState } from "react";
@@ -234,7 +235,7 @@ export default function StandardWorkPanel({
             </label>
             <label>
               작업수량
-              <input
+              <GuidedNumberInput
                 aria-label="작업수량"
                 type="number"
                 min="0.001"
@@ -249,7 +250,7 @@ export default function StandardWorkPanel({
             {(["배선", "배관"] as const).map((k) => (
               <label key={k}>
                 {k} 총길이(m, 0=기본값)
-                <input
+                <GuidedNumberInput
                   type="number"
                   min="0"
                   step="0.001"
@@ -286,7 +287,7 @@ export default function StandardWorkPanel({
             .map((c) => (
               <label key={c.id}>
                 {data.prices.find((p) => p.id === c.priceId)?.name} 직접 수량
-                <input
+                <GuidedNumberInput
                   type="number"
                   min="0"
                   step="0.001"
@@ -339,7 +340,7 @@ export default function StandardWorkPanel({
                         <td>{i.name}</td>
                         <td>{i.specification}</td>
                         <td>
-                          <input
+                          <GuidedNumberInput
                             aria-label={`${i.name} 수량`}
                             type="number"
                             min="0.001"
@@ -358,7 +359,7 @@ export default function StandardWorkPanel({
                         </td>
                         <td>{i.unit}</td>
                         <td>
-                          <input
+                          <GuidedNumberInput
                             aria-label={`${i.name} 내부 단가`}
                             type="number"
                             min="0"
@@ -388,7 +389,7 @@ export default function StandardWorkPanel({
                           />
                         </td>
                         <td>
-                          <input
+                          <GuidedNumberInput
                             aria-label={`${i.name} 판매 단가`}
                             type="number"
                             min="0"
@@ -499,7 +500,7 @@ export default function StandardWorkPanel({
                 </label>
                 <label>
                   기본수량
-                  <input
+                  <GuidedNumberInput
                     aria-label="세트 기본수량"
                     type="number"
                     min="0.001"
@@ -681,7 +682,7 @@ export default function StandardWorkPanel({
                             </select>
                           </td>
                           <td>
-                            <input
+                            <GuidedNumberInput
                               type="number"
                               min="0"
                               step="0.001"
@@ -942,7 +943,7 @@ export default function StandardWorkPanel({
                 {(["cost", "salePrice"] as const).map((k, n) => (
                   <label key={k}>
                     {["내부 원가", "고객 판매단가"][n]}
-                    <input
+                    <GuidedNumberInput
                       type="number"
                       min="0"
                       value={price[k]}

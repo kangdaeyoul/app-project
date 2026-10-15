@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import { useEffect, useState } from "react";
 import { authApi } from "./auth-provider";
 import { ReceiptsPanel, SiteFinancePanel } from "./finance-panels";
@@ -190,7 +191,7 @@ export default function PerformancePanel({
       <div className="site-filters">
         <label>
           실적연도
-          <input
+          <GuidedNumberInput
             type="number"
             min="2000"
             max="2100"
@@ -348,7 +349,7 @@ export default function PerformancePanel({
             {["mechanical", "electrical"].map((k, i) => (
               <label key={k}>
                 {["기계공사금액", "전기공사금액"][i]}
-                <input
+                <GuidedNumberInput
                   type="number"
                   min="0"
                   placeholder="미입력"

@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import { useRef, useState, type ReactNode } from "react";
 import {
   quoteLineAmount,
@@ -155,7 +156,7 @@ export default function QuoteLineEditor({
           </label>
           <label>
             수량
-            <input
+            <GuidedNumberInput
               aria-label="추가 수량"
               type="number"
               inputMode="decimal"
@@ -177,7 +178,7 @@ export default function QuoteLineEditor({
           </label>
           <label className="quote-single-sale">
             판매단가
-            <input
+            <GuidedNumberInput
               aria-label="추가 판매단가"
               type="number"
               inputMode="decimal"
@@ -198,7 +199,7 @@ export default function QuoteLineEditor({
             ).map((key, i) => (
               <label key={key}>
                 {["재료비 단가", "노무비 단가", "경비 단가"][i]}
-                <input
+                <GuidedNumberInput
                   aria-label={`추가 ${["재료비 단가", "노무비 단가", "경비 단가"][i]}`}
                   type="number"
                   min="0"

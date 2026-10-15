@@ -1,4 +1,5 @@
 "use client";
+import GuidedInput from "./guided-input";
 import FieldHelper from "./field-helper";
 import InstructionsPanel from "./instructions-panel";
 import { useEffect, useState } from "react";
@@ -261,7 +262,7 @@ export default function AfterServicePanel({
     return (
       <label key={key}>
         {label}
-        <input
+        <GuidedInput
           aria-label={label}
           required={required}
           type={kind}
@@ -836,7 +837,7 @@ export default function AfterServicePanel({
                   ].map(([k, l]) => (
                     <label key={k}>
                       {l}
-                      <input
+                      <GuidedInput
                         required={k !== "notes"}
                         type={k === "completedDate" ? "date" : "text"}
                         value={String(completion[k])}

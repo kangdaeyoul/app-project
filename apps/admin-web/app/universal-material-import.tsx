@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import { useState } from "react";
 import { MaterialImportJob } from "@jongro/shared";
 const fields: Record<string, string> = {
@@ -174,7 +175,7 @@ export default function UniversalMaterialImport({
                 </label>
                 <label>
                   헤더 행
-                  <input
+                  <GuidedNumberInput
                     type="number"
                     min={1}
                     max={12}

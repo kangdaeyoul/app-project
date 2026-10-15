@@ -1,4 +1,8 @@
 "use client";
+import HomeCalendar from "./home-calendar";
+import {useTutorialWorkspace,ScreenHelpButton,tutorialMenu} from "./onboarding";
+import SitesPanel from "./sites-panel";
+import WorkersPanel from "./workers-panel";
 import { useEffect, useState } from "react";
 import {
   DailyWork,
@@ -53,6 +57,7 @@ export default function MobileWorkspace() {
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0),
     [dirty, setDirty] = useState(false);
+  const [photoWorkId,setPhotoWorkId]=useState("");
   const [siteStatus, setSiteStatus] = useState("진행중");
   const reload = () => setRevision((v) => v + 1);
   useEffect(() => {
@@ -105,12 +110,13 @@ export default function MobileWorkspace() {
     annotate();
     return () => observer.disconnect();
   }, []);
+  useEffect(()=>{const go=()=>{setWork(null);setSelected("");setAsId(undefined);setDirty(false);setMenu(work?"작업":selected?(admin?"현장":"내 현장"):asId?"A/S":"홈")};window.addEventListener("app-back",go);return()=>window.removeEventListener("app-back",go)},[work,selected,asId,admin]);
   const navigate = (m: string) => {
     if (m === "홈 화면 설치 안내") {
       window.dispatchEvent(new Event("show-pwa-install-guide"));
       return;
     }
-    if (dirty && !confirm("저장하지 않은 내용을 닫을까요?")) return;
+
     setDirty(false);
     setMenu(m);
     setSelected("");
@@ -185,6 +191,7 @@ export default function MobileWorkspace() {
       </button>
     </article>
   );
+  const tutorialScreen=useTutorialWorkspace(menu,s=>navigate(tutorialMenu(s,user!.role,true)));
   return (
     <div className="mobile-app">
       <header className="mobile-header">
@@ -201,10 +208,10 @@ export default function MobileWorkspace() {
           알림 <b>{unread}</b>
         </button>
       </header>
-      <main className="mobile-main">
+      <main className="mobile-main" data-onboarding-screen={tutorialScreen}>
         <div className="mobile-title">
           <h1>{work ? "현장 작업" : site ? site.name : menu}</h1>
-          <SessionHeader />
+          <ScreenHelpButton/><SessionHeader />
         </div>
         {error && (
           <p role="alert" className="error">
@@ -249,6 +256,22 @@ export default function MobileWorkspace() {
                 </strong>
               </button>
             </div>
+            <HomeCalendar onSite={openSite} onAs={openAs} onAll={()=>navigate("일정")}/>
+            <h2>오늘 현장</h2>
+            {todayWorks.length ? (
+              todayWorks.slice(0,2).map(renderWork)
+            ) : (
+              <p className="mobile-card">오늘 배정된 작업이 없습니다.</p>
+            )}
+            {todayWorks.length>2&&<button onClick={()=>navigate("일정")}>오늘 현장 {todayWorks.length}건 전체보기</button>}
+            <h2>오늘 A/S</h2>
+            {todayAs.length ? (
+              todayAs.slice(0,2).map(renderAs)
+            ) : (
+              <p className="mobile-card">오늘 예정된 A/S가 없습니다.</p>
+            )}
+            {todayAs.length>2&&<button onClick={()=>navigate("A/S")}>오늘 A/S {todayAs.length}건 전체보기</button>}
+            <button onClick={()=>navigate(worker?"알림":"작업지시")}>미처리 알림 {unread}건 확인</button>
             {admin && (
               <>
                 <button className="primary" onClick={() => navigate("견적")}>
@@ -259,18 +282,6 @@ export default function MobileWorkspace() {
                 </button>
                 <MobileReview sites={sites} />
               </>
-            )}
-            <h2>오늘 현장</h2>
-            {todayWorks.length ? (
-              todayWorks.map(renderWork)
-            ) : (
-              <p className="mobile-card">오늘 배정된 작업이 없습니다.</p>
-            )}
-            <h2>오늘 A/S</h2>
-            {todayAs.length ? (
-              todayAs.map(renderAs)
-            ) : (
-              <p className="mobile-card">오늘 예정된 A/S가 없습니다.</p>
             )}
             <h2>다음 일정</h2>
             {[
@@ -286,7 +297,7 @@ export default function MobileWorkspace() {
                 .map((a) => ({ date: a.plannedDate, kind: "as", item: a })),
             ]
               .sort((a, b) => a.date.localeCompare(b.date))
-              .slice(0, 3)
+              .slice(0, 1)
               .map((e) =>
                 e.kind === "as" ? renderAs(e.item) : renderWork(e.item),
               )}
@@ -324,7 +335,7 @@ export default function MobileWorkspace() {
               } else openSite(s);
             }}
           />
-        ) : menu === "A/S" ? (
+        ) : menu === "현장 등록" && admin ? (<SitesPanel initialCreate onChanged={reload}/>) : menu === "작업진행자" && admin ? (<WorkersPanel onChanged={reload}/>) : menu === "사진" ? (<section className="panel"><h2>작업 전후사진</h2><label>일일작업 선택<select aria-label="사진 작업 선택" value={photoWorkId} onChange={e=>setPhotoWorkId(e.target.value)}><option value="">사진을 등록할 작업 선택</option>{works.map(w=><option key={w.id} value={w.id}>{w.workDate} · {w.siteName}</option>)}</select></label>{photoWorkId&&<PhotosPanel key={photoWorkId} dailyWorkId={photoWorkId}/>}</section>) : menu === "완료보고서" && !worker ? (<section className="panel"><h2>완료보고서</h2><label>보고서 현장<select aria-label="보고서 현장" value={selected} onChange={e=>setSelected(e.target.value)}><option value="">현장 선택</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>{selected&&<CompletionReportPanel key={selected} siteId={selected}/>}</section>) : menu === "A/S" ? (
           <AfterServicePanel
             initialAsId={asId}
             onChanged={reload}
@@ -352,7 +363,7 @@ export default function MobileWorkspace() {
         ) : menu === "작업" ? (
           <>{works.map(renderWork)}</>
         ) : menu === "정산" && admin ? (<FinancePanel/>) : menu === "실적관리" && admin ? (<PerformancePanel onOpenSite={id=>{setSelected(id);navigate("현장")}}/>) : menu === "자재단가" && !worker ? (<MaterialManagementPanel/>) : menu === "사용자 관리" && admin ? (<UsersPanel/>) : menu === "회사 설정" && admin ? (<CompanySettings/>) : menu === "더보기" ? (
-          <div className="mobile-actions">
+          <div className="mobile-actions"><ScreenHelpButton/>
             {(worker
               ? [
                   "내 정산",
@@ -365,6 +376,8 @@ export default function MobileWorkspace() {
                 ]
               : [
                   "홈 화면 설치 안내",
+                  "사진",
+                  ...(!worker?["완료보고서"]:[]),
                   "작업지시",
                   "일정",
                   "작업",
@@ -372,7 +385,7 @@ export default function MobileWorkspace() {
                   ...(worker ? ["내 정산"] : []),
                   ...(!admin&&!worker?["자재단가"]:[]),
                   ...(admin
-                    ? ["배정관리", "견적", "정산", "실적관리", "자재단가", "사용자 관리", "회사 설정", "내 정보"]
+                    ? ["작업진행자","배정관리", "견적", "정산", "실적관리", "자재단가", "사용자 관리", "회사 설정", "내 정보"]
                     : user?.permissions.includes("writeQuotes")
                       ? ["견적"]
                       : []),
@@ -385,6 +398,7 @@ export default function MobileWorkspace() {
           </div>
         ) : menu.includes("현장") ? (
           <>
+            {admin&&!site&&<button className="primary-button" onClick={()=>navigate("현장 등록")}>＋ 새 현장 등록</button>}
             {site ? (
               <>
                 <button onClick={() => setSelected("")}>← 현장 목록</button>
@@ -748,10 +762,10 @@ function MobileWork({
     }
   }
   return (
-    <section>
+    <section className="mobile-work">
       <button
         onClick={() => {
-          if (!dirty || confirm("저장하지 않은 내용을 닫을까요?")) onBack();
+          if (!dirty || document.body.dataset.leaveApproved==="true" || confirm("저장하지 않은 내용을 닫을까요?")) onBack();
         }}
       >
         ← 작업 목록

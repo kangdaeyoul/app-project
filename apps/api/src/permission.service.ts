@@ -92,6 +92,7 @@ export class PermissionService {
       if(read || this.has('manageMaterials') || this.has('approveMaterials')) return;
     }
     const permitted = [
+      "TutorialController",
       "AuthController",
       "OperationalController",
       "WorkInstructionController",

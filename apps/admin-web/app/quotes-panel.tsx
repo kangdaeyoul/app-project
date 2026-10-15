@@ -89,6 +89,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
       );
     const body = await response.json();
     if (!response.ok) throw Error(body.message || "견적 요청 실패");
+    if(init?.method&&!["GET","HEAD"].includes(init.method.toUpperCase()))window.dispatchEvent(new Event("app-saved"));
     return body;
   }
 }
@@ -822,7 +823,7 @@ export default function QuotesPanel({
               disabled={busy}
               onClick={() => {
                 if (
-                  dirty &&
+                  dirty && document.body.dataset.leaveApproved!=="true" &&
                   !window.confirm(
                     "저장하지 않은 변경사항을 버리고 목록으로 이동하시겠습니까?",
                   )

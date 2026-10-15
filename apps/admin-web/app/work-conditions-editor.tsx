@@ -1,4 +1,5 @@
 "use client";
+import GuidedInput from "./guided-input";
 import {
   WorkCondition,
   WORK_CONDITION_KEYS,
@@ -91,7 +92,7 @@ export default function WorkConditionsEditor({
                 ))}
               </select>
             ) : (
-              <input
+              <GuidedInput
                 aria-label={`${label} 값 ${n + 1}`}
                 type={rule.key === "height" ? "number" : "text"}
                 min="0"

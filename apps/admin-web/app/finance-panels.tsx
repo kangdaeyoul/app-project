@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import {CollectionsReport,MonthlySettlementReport} from "./business-panels";
 import ExpensesPanel from "./expenses-panel";
 import AuditPanel from "./audit-panel";
@@ -264,7 +265,7 @@ export function ReceiptsPanel({
               </label>
               <label>
                 금액 *
-                <input
+                <GuidedNumberInput
                   aria-label="수금 금액"
                   type="number"
                   required
@@ -570,7 +571,7 @@ export function SettlementsPanel({
               </label>
               <label>
                 지급금액 *
-                <input
+                <GuidedNumberInput
                   aria-label="지급금액"
                   required
                   type="number"

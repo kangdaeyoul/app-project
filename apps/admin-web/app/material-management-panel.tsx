@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import UniversalMaterialImport from "./universal-material-import";
 import MaterialImportReview from "./material-import-review";
 import { useEffect, useRef, useState } from "react";
@@ -725,7 +726,7 @@ export default function MaterialManagementPanel() {
                 {edit.salePriceSource === "원가가산" && (
                   <label>
                     원가 가산율 (%)
-                    <input
+                    <GuidedNumberInput
                       type="number"
                       min="0"
                       max="1000"

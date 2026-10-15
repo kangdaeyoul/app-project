@@ -1,4 +1,5 @@
 "use client";
+import GuidedNumberInput from "./quote-number-input";
 import { useEffect, useState } from "react";
 import {
   BusinessParty,
@@ -297,7 +298,7 @@ export default function InvoicesPanel({
                   {(["supplyAmount", "vat"] as const).map((key) => (
                     <label key={key}>
                       {key === "supplyAmount" ? "공급가액" : "VAT"}
-                      <input
+                      <GuidedNumberInput
                         aria-label={`계산서 ${key === "supplyAmount" ? "공급가액" : "VAT"}`}
                         type="number"
                         required
