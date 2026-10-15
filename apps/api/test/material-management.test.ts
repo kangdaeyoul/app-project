@@ -54,6 +54,7 @@ test("영구 자재관리: 표준 양식·수정 검토·취소·승인·이력�
     const initial = (
       await admin.get("/api/material-prices/catalog").expect(200)
     ).body;
+    assert.equal((await admin.get("/api/initial-setup").expect(200)).body.checks.materials,true);
     assert.equal(initial.persistent, true);
     assert(initial.prices.some((p: any) => p.id === "PRICE-1"));
     const template = await admin

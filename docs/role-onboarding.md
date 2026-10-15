@@ -61,3 +61,5 @@ Supabase 전환은 사용자 요청대로 보류 상태이다. OAuth 설정, 운
 - 사진 체험 저장 시 읽기 전용 기본 이미지 경로가 전송되어 거절되던 문제를 수정했다. 클라이언트는 수정 가능한 예시 필드만 전송하며 서버는 기본 경로 변경을 계속 거부한다.
 
 [관리자 PC](screenshots/tutorial/admin-pc.png) · [작업진행자 iPhone 크기](screenshots/tutorial/worker-iphone.png) · [직원 Android 크기](screenshots/tutorial/staff-android.png) · [PWA 예시 체험](screenshots/tutorial/pwa-examples.png) · [모바일 보고서 입력 예시](screenshots/tutorial/report-placeholder-iphone.png)
+
+관리자 첫 사용은 초기설정 가이드가 우선입니다. 체험 안내에서 `튜토리얼과 함께 시작`을 고르거나 도움말에서 다시보기를 누르면 7단계 가이드를 실행합니다. 사내직원/작업진행자의 첫 사용 가이드는 기존 자동 실행 흐름을 유지합니다.

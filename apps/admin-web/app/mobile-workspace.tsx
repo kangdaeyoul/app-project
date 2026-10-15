@@ -1,4 +1,5 @@
 "use client";
+import InitialSetup from "./initial-setup";
 import HomeCalendar from "./home-calendar";
 import {useTutorialWorkspace,ScreenHelpButton,tutorialMenu} from "./onboarding";
 import SitesPanel from "./sites-panel";
@@ -257,6 +258,7 @@ export default function MobileWorkspace() {
               </button>
             </div>
             <HomeCalendar onSite={openSite} onAs={openAs} onAll={()=>navigate("일정")}/>
+            {admin&&<InitialSetup navigate={s=>navigate(tutorialMenu(s,"admin",true))}/>}
             <h2>오늘 현장</h2>
             {todayWorks.length ? (
               todayWorks.slice(0,2).map(renderWork)

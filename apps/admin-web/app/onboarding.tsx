@@ -22,6 +22,7 @@ import {
   TutorialSample,
 } from "@jongro/shared";
 import { authApi, useAuth } from "./auth-provider";
+import InitialSetup from "./initial-setup";
 import InputGuides from "./input-guides";
 import GuidedNumberInput from "./quote-number-input";
 interface GuideContext {
@@ -249,6 +250,7 @@ export default function OnboardingProvider({
         sessionStorage.removeItem("demo-entry");
         if(entry==="home") { setTour(false); const saved=await authApi<TutorialProgress>("/tutorial/progress",{method:"PUT",body:JSON.stringify({status:"skipped",step:0,version:TUTORIAL_VERSION})});localStorage.setItem(key,JSON.stringify({...saved,pending:false}));setProgress(saved);if(!samples) {const value=await authApi<TutorialBundle>("/tutorial/samples",{method:"POST"});if(alive)setBundle(value)} return; }
         if (entry==="tutorial") {p.status="in_progress";p.step=0;const saved=await authApi<TutorialProgress>("/tutorial/progress",{method:"PUT",body:JSON.stringify({status:"in_progress",step:0,version:TUTORIAL_VERSION})});Object.assign(p,saved);localStorage.setItem(key,JSON.stringify({...saved,pending:false}));setProgress({...p});}
+        if(role==="admin"&&p.status==="new"&&entry!=="tutorial"){setTour(false);return;}
         if (p.status === "new" || p.status === "in_progress") {
           setTour(true);
           if ((p.status === "new" || entry==="tutorial") && !samples) {
@@ -520,6 +522,7 @@ export default function OnboardingProvider({
                     튜토리얼 진행상태 초기화
                   </button>
                 </div>
+                {user?.role==="admin"&&<><button onClick={()=>{sessionStorage.setItem("setup-replay","true");setHelp(false);navigator.current("home");window.dispatchEvent(new Event("show-initial-setup"))}}>처음 시작 가이드</button><h3>관리자 초기설정 가이드</h3><InitialSetup expanded navigate={s=>{setHelp(false);navigator.current(s)}}/></>}
                 {[['quotes','견적 튜토리얼'],['sites','현장관리 튜토리얼'],...(role==='admin'?[['finance','정산 튜토리얼']]:[])].filter(([s])=>steps.some(v=>v.screen===s)).map(([s,label])=><button key={s} onClick={async()=>{setHelp(false);setFinish(false);await save("in_progress",steps.findIndex(v=>v.screen===s));setTour(true)}}>{label}</button>)}
                 <p>예시 데이터 설명: 체험용 자료는 회사·사용자별 별도 공간에 저장합니다. 아래 삭제·다시 생성은 튜토리얼 자료만 대상으로 하며 기존 공용 샘플과 실제 입력 자료는 유지합니다.</p>
                 <TutorialExamples

@@ -358,6 +358,7 @@ export default function QuotesPanel({
   }
   async function share() {
     if (!selected || busy) return;
+    if(!selected.companySnapshot?.name?.trim()){setError("견적서를 출력하려면 회사명이 필요합니다. 회사정보를 등록한 뒤 견적 요약을 수정해 주세요.");return;}
     setBusy(true);
     setError("");
     try {
@@ -398,6 +399,7 @@ export default function QuotesPanel({
   }
   async function print(download: boolean, excel = false) {
     if (!selected || busy) return;
+    if(!selected.companySnapshot?.name?.trim()){setError("견적서를 출력하려면 회사명이 필요합니다. 회사정보를 등록한 뒤 견적 요약을 수정해 주세요.");return;}
     setBusy(true);
     setError("");
     try {

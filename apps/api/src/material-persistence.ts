@@ -286,6 +286,7 @@ export class MaterialTransactionInterceptor implements NestInterceptor {
     const controller = ctx.getClass().name;
     if (
       ![
+        "InitialSetupController",
         "MaterialExcelController",
         "MaterialCatalogController",
         "UniversalMaterialExcelController",
