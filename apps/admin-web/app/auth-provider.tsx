@@ -97,8 +97,7 @@ export function LoginScreen() {
   const [configError, setConfigError] = useState("");
   const [apiVersion, setApiVersion] = useState("");
   const [signup,setSignup]=useState(false);
-  const [company, setCompany] = useState(DEFAULT_COMPANY.displayName),
-    [login, setLogin] = useState(""),
+  const [login, setLogin] = useState(""),
     [password, setPassword] = useState(""),
     [remember, setRemember] = useState(false),
     [busy, setBusy] = useState(false),
@@ -113,7 +112,6 @@ export function LoginScreen() {
         const v = await r.json();
         if (typeof v.demoEnabled !== "boolean") throw Error("로그인 설정 응답 오류");
         if (!active) return;
-        setCompany(v.company.displayName);
         setDemoEnabled(v.demoEnabled);
         setApiVersion(v.buildVersion ?? v.loginRevision ?? "unknown");
         setConfigError("");
@@ -154,7 +152,7 @@ export function LoginScreen() {
         <div className="eyebrow">FIELD WORKSPACE</div>
         <h1>{brand}</h1>
         <p>
-          현장을 아는 소방 실무자의
+          현장에서 일하는 모두의
           <br />
           디지털 작업수첩
         </p>
@@ -167,9 +165,9 @@ export function LoginScreen() {
       </section>
       <section className="login-card">
         <div className="eyebrow">환영합니다</div>
-        <h2>{company}</h2>
+        <h2>{brand} 로그인</h2>
         <p>회사 계정으로 로그인해 업무를 시작하세요.</p>
-        {signup ? <SignupForm companyName={company} onBack={()=>setSignup(false)}/> : <form onSubmit={submit}>
+        {signup ? <SignupForm onBack={()=>setSignup(false)}/> : <form onSubmit={submit}>
           <label>
             이메일 또는 아이디
             <input
@@ -226,7 +224,7 @@ export function LoginScreen() {
           <section className="demo-login">
             <h3>모바일 검증용 데모 로그인</h3>
 
-            <p>역할별 화면을 바로 확인하세요. 초기 테스트 비밀번호: <strong>Jongro2026!</strong></p>
+            <p>역할별 화면을 바로 확인하세요. 초기 테스트 비밀번호: <strong>README의 테스트 계정 안내 참고</strong></p>
             <div>
               {[
                 ["admin", "관리자"],

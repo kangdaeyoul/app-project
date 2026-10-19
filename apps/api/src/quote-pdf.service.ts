@@ -325,7 +325,7 @@ export class QuotePdfService {
           columns.map((c) => c[0] as string),
           true,
         );
-        const items =
+        const items: CustomerQuote["sections"][number]["items"] =
           q.printMode === "공종별 묶음"
             ? [...new Set(s.items.map((i) => i.trade))].map((trade) => {
                 const group = s.items.filter((i) => i.trade === trade);
@@ -347,10 +347,10 @@ export class QuotePdfService {
           const content = [
             `${i.trade}\n${i.name}`,
             i.specification,
-            String(i.quantity),
+            i.quantityPending ? "" : String(i.quantity),
             i.unit,
-            ...(showUnit ? [i.saleUnitPrice.toLocaleString("ko-KR")] : []),
-            ...(!hidden ? [i.amount.toLocaleString("ko-KR")] : []),
+            ...(showUnit ? [i.pricePending ? "" : i.saleUnitPrice.toLocaleString("ko-KR")] : []),
+            ...(!hidden ? [i.quantityPending || i.pricePending ? "" : i.amount.toLocaleString("ko-KR")] : []),
             i.notes,
           ];
           // Huge free-text cells use separate continuation text pages rather than extending a row beyond A4.

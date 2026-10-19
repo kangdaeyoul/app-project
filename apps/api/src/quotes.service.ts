@@ -899,12 +899,14 @@ export class QuotesService {
             name: i.name,
             specification: i.specification,
             quantity: i.quantity,
+            quantityPending: i.quantityPending === true && i.quantity === 0,
+            pricePending: i.pricePending === true && i.saleUnitPrice === 0,
             unit: i.unit,
             saleUnitPrice: i.saleUnitPrice,
             amount: importAmount(i.quantity, i.saleUnitPrice),
             notes: i.notes,
           })),
-        })),
+        })).filter((s) => s.items.length),
     };
   }
 }

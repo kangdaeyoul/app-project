@@ -20,6 +20,7 @@ import {
   TutorialProgress,
   TutorialBundle,
   TutorialSample,
+  TutorialStep,
 } from "@jongro/shared";
 import { authApi, useAuth } from "./auth-provider";
 import InitialSetup from "./initial-setup";
@@ -94,6 +95,7 @@ export default function OnboardingProvider({
     [bundle, setBundle] = useState<TutorialBundle | null>(null),
     [tour, setTour] = useState(false),
     [finish, setFinish] = useState(false),
+    [practicedStep, setPracticedStep] = useState<string | null>(null),
     [help, setHelp] = useState(false),
     [screen, setScreen] = useState<TutorialScreen>("home"),
     [error, setError] = useState(""),
@@ -277,6 +279,8 @@ export default function OnboardingProvider({
     };
   }, [key, steps, retry]);
   const step = steps[Math.min(progress?.step ?? 0, steps.length - 1)];
+  const practiced = practicedStep === step?.id;
+  useEffect(() => setPracticedStep(null), [tour]);
   useEffect(() => {
     if (!tour || finish || !step) return;
     navigator.current(step.screen);
@@ -408,16 +412,19 @@ export default function OnboardingProvider({
                       안내 화면 열기
                     </button>
                   )}
-                  <details className="tutorial-sample-details">
+                  <details className="tutorial-sample-details" open key={step.id}>
                     <summary>예시로 체험하기 · 실제 데이터와 분리</summary>
                     <TutorialExamples
                       bundle={bundle}
                       kind={step.sample}
+                      exercise={step.exercise}
+                      onPracticed={() => setPracticedStep(step.id)}
                       onChange={setBundle}
                       onCreate={createSamples}
                       busy={busy}
                     />
                   </details>
+                  <p role="status" className="tutorial-exercise-status">{practiced ? "✓ 실습 완료 · 다음 단계로 이동하세요." : "아래 실습을 저장하면 다음 단계로 이동할 수 있습니다."}</p>
                   <div className="tutorial-actions">
                     <button
                       disabled={busy || progress.step === 0}
@@ -436,7 +443,7 @@ export default function OnboardingProvider({
                     </button>
                     <button
                       className="primary"
-                      disabled={busy}
+                      disabled={busy || (!!step.exercise && !practiced)}
                       onClick={() =>
                         progress.step === steps.length - 1
                           ? setFinish(true)
@@ -523,7 +530,15 @@ export default function OnboardingProvider({
                   </button>
                 </div>
                 {user?.role==="admin"&&<><button onClick={()=>{sessionStorage.setItem("setup-replay","true");setHelp(false);navigator.current("home");window.dispatchEvent(new Event("show-initial-setup"))}}>처음 시작 가이드</button><h3>관리자 초기설정 가이드</h3><InitialSetup expanded navigate={s=>{setHelp(false);navigator.current(s)}}/></>}
-                {[['quotes','견적 튜토리얼'],['sites','현장관리 튜토리얼'],...(role==='admin'?[['finance','정산 튜토리얼']]:[])].filter(([s])=>steps.some(v=>v.screen===s)).map(([s,label])=><button key={s} onClick={async()=>{setHelp(false);setFinish(false);await save("in_progress",steps.findIndex(v=>v.screen===s));setTour(true)}}>{label}</button>)}
+                <h3>전체 앱 · 메뉴별 실습</h3>
+                <div className="tutorial-menu-guides">
+                  {steps.filter((v, i) => i === steps.findIndex(s => s.screen === v.screen)).map(v => <button type="button" key={v.id} onClick={async () => {
+                    if (!confirm("작성 중인 내용을 먼저 저장해 주세요. 실습 화면으로 이동할까요?")) return;
+                    setHelp(false); setFinish(false);
+                    await save("in_progress", steps.findIndex(s => s.id === v.id)); setTour(true);
+                    if (!bundle) await createSamples();
+                  }}>{v.screen === "home" ? "전체 앱 소개 · 홈" : ({sites:"현장",quotes:"견적",schedule:"일정",workers:"작업진행자",photos:"사진",finance:role === "worker" ? "내 정산" : "정산",as:"A/S",work:"일일작업",materials:"자재",reports:"완료보고서",notifications:"작업지시"} as Record<string,string>)[v.screen]} 실습 시작</button>)}
+                </div>
                 <p>예시 데이터 설명: 체험용 자료는 회사·사용자별 별도 공간에 저장합니다. 아래 삭제·다시 생성은 튜토리얼 자료만 대상으로 하며 기존 공용 샘플과 실제 입력 자료는 유지합니다.</p>
                 <TutorialExamples
                   key={screen}
@@ -553,13 +568,21 @@ export default function OnboardingProvider({
     </Guide.Provider>
   );
 }
+function roleAmount(fields: Record<string, string | number>) {
+  if (Object.hasOwn(fields, "계약금액")) return `예시 미수금: ${(Number(fields.계약금액) - Number(fields.수금액)).toLocaleString("ko-KR")}원`;
+  return `예시 내미지급액: ${(Number(fields.내작업비) - Number(fields.내지급액)).toLocaleString("ko-KR")}원`;
+}
 function TutorialExamples({
   bundle,
   kind,
   onChange,
   onCreate,
   busy,
+  exercise,
+  onPracticed,
 }: {
+  exercise?: TutorialStep["exercise"];
+  onPracticed?: () => void;
   bundle: TutorialBundle | null;
   kind?: string;
   onChange: (b: TutorialBundle) => void;
@@ -608,9 +631,12 @@ function TutorialExamples({
         ...bundle!,
         records: bundle!.records.map((r) => (r.id === saved.id ? saved : r)),
       });
-      setMessage(
-        "예시에만 저장했습니다. 실제 업무 데이터는 변경되지 않았습니다.",
-      );
+      const achieved = !exercise || saved.fields[exercise.field] === exercise.value;
+      if (achieved) onPracticed?.();
+      setMessage(achieved
+        ? "실습 완료 · 예시에만 저장했습니다. 실제 업무 데이터는 변경되지 않았습니다."
+        : `예시에 저장했습니다. 다음 단계로 가려면 ${exercise?.instruction}`);
+
     } catch (e) {
       setMessage((e as Error).message);
     } finally {
@@ -640,6 +666,7 @@ function TutorialExamples({
       )}
       {draft ? (
         <>
+          {exercise && <p className="tutorial-exercise"><strong>따라 하기</strong> · {exercise.instruction}</p>}
           <h3>{draft.title}</h3><button disabled={saving} onClick={async()=>{if(!confirm("선택한 튜토리얼 예시만 초기 상태로 되돌립니다. 실제 자료는 변경하지 않습니다."))return;setSaving(true);try{const reset=await authApi<TutorialSample>("/tutorial/samples/"+encodeURIComponent(draft.id)+"/reset",{method:"POST"});onChange({...bundle,records:bundle.records.map(r=>r.id===reset.id?reset:r)});setMessage("선택한 예시를 되돌렸습니다.")}catch(e){setMessage((e as Error).message)}finally{setSaving(false)}}}>선택한 예시 초기 상태로 되돌리기</button>
           <form
             onSubmit={(e) => {
@@ -657,6 +684,7 @@ function TutorialExamples({
                       <GuidedNumberInput
                         aria-label={`예시 ${k}`}
                         value={v}
+                        readOnly={["미수금", "내미지급액"].includes(k)}
                         onValue={(n) => update(k, n)}
                         min={0}
                       />
@@ -680,6 +708,15 @@ function TutorialExamples({
                 원 · 등록 단가와 무관한 체험값
               </p>
             )}
+            {draft.kind === "schedule" && <section className="tutorial-role-preview" aria-label="일정 역할별 연결">
+              <h4>저장할 예시 일정의 연결</h4>
+              <p>관리자: {String(draft.fields.현장)} · {String(draft.fields.시간)} · {String(draft.fields.상태)} · 전체 배정 확인</p>
+              <p>직원: 허용된 현장에 포함될 때 같은 일정 확인 · 편집은 부여된 권한에 따름</p>
+              <p>작업진행자: {String(draft.fields.작업진행자)} 본인 배정 일정 · 작업지시 → 시작 → 사진·자재 → 완료요청</p>
+              <small>이 표시는 별도 실습입니다. 실제 다른 계정의 일정과 알림은 바뀌지 않습니다.</small>
+            </section>}
+            {draft.kind === "sites" && <p>연결 흐름: 견적에서 현장으로 전환 → 현장 일정 배정 → 일일작업·사진·사용자재 → 수금·지출·지급 → 완료보고서 → 후속 A/S</p>}
+            {draft.kind === "settlements" && <p aria-label="예시 미지급 미수 계산">{roleAmount(draft.fields)}</p>}
             {draft.kind === "photos" && (
               <>
                 <div className="tutorial-example-photos">

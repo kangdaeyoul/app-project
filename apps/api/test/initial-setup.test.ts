@@ -78,7 +78,8 @@ test("초기설정: 실제 회사 자료와 선택 확인으로 진행률 계산
       () => app.get(InitialSetupController).status(),
     );
     assert.equal(initial.completed, 0);
-    assert.equal(initial.total, 8);
+    assert.equal(initial.total, 9);
+    assert.equal(initial.checks.schedule, false);
     assert(Object.values(initial.checks).every((v) => v === false));
   } finally {
     await app.close();

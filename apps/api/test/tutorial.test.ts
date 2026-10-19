@@ -26,10 +26,14 @@ async function fixture() {
   return { app, http, login };
 }
 
-test("튜토리얼: 역할별 5~7단계, 미권한 견적 제외, 예시 식별자와 사용자/회사 캐시 분리", () => {
+test("튜토리얼: 역할별 실습과 필수 메뉴, 미권한 견적 제외, 예시 식별자와 사용자/회사 캐시 분리", () => {
   for (const role of ["admin", "staff", "worker"] as const) {
     const steps = tutorialSteps(role);
-    assert(steps.length >= 5 && steps.length <= 7);
+    assert(steps.length >= 10);
+    for (const screen of ["home", "sites", "schedule", "workers", "work", "photos", "as"])
+      assert(steps.some(s => s.screen === screen), `${role}: ${screen}`);
+    if (role === "admin") assert(steps.some(s => s.screen === "finance"));
+    assert(steps.every(s => s.exercise?.instruction));
     const bundle = sampleSeed("jongro", "user-1", role);
     assert(
       bundle.records.every(
@@ -40,6 +44,11 @@ test("튜토리얼: 역할별 5~7단계, 미권한 견적 제외, 예시 식별�
           r.ownerUserId === "user-1",
       ),
     );
+    for (const step of steps) {
+      const row = bundle.records.find(r => r.kind === step.sample);
+      assert(row, `${role}: ${step.sample} sample exists`);
+      assert(Object.hasOwn(row.fields, step.exercise!.field));
+    }
     if (role !== "admin") assert(!JSON.stringify(bundle).includes("계약금액"));
   }
   assert(!tutorialSteps("staff", false).some((s) => s.screen === "quotes"));
@@ -173,12 +182,12 @@ test("작업진행자는 본인 진행·예시만 관리하고 건너뛰기/초�
       .expect(200);
     await a
       .put("/api/tutorial/progress")
-      .send({ version: 1, status: "skipped", step: 2 })
+      .send({ version: TUTORIAL_VERSION, status: "skipped", step: 2 })
       .expect(200);
     assert.equal((await b.get("/api/tutorial/progress")).body.status, "new");
     await a
       .put("/api/tutorial/progress")
-      .send({ version: 1, status: "new", step: 0 })
+      .send({ version: TUTORIAL_VERSION, status: "new", step: 0 })
       .expect(200);
     assert.equal(
       (await a.get("/api/tutorial/samples")).body.bundle.records.length,
@@ -199,3 +208,28 @@ test("작업진행자는 본인 진행·예시만 관리하고 건너뛰기/초�
 });
 
 test('주요 입력 예시는 필드에 맞는 placeholder 문자열만 반환한다',async()=>{const{inputExample}=await import('../../admin-web/app/input-guides');for(const[label,text]of [['회사명','○○소방'],['대표자','홍길동'],['사업자등록번호','123-45-67890'],['주소','서울특별시'],['이메일','company@example.com'],['현장명','○○빌딩'],['거래처명','○○건설'],['담당자','김담당'],['자재명','화재감지기'],['단가','35,000'],['수량','5']]){assert(inputExample(label)?.includes(text),label);}assert.equal(inputExample('', 'number'),'예: 5');});
+
+test("모든 역할의 실습 과제를 저장해도 실제 업무 자료는 바뀌지 않고 정산 예시만 재계산된다", async () => {
+  const { app, login } = await fixture();
+  try {
+    for (const [account, role] of [["admin@jongro.test", "admin"], ["staff@jongro.test", "staff"], ["worker1@jongro.test", "worker"]] as const) {
+      const agent = await login(account);
+      const baseline = (await agent.get("/api/operational/sites").expect(200)).body;
+      let bundle = (await agent.post("/api/tutorial/samples").expect(201)).body;
+      for (const step of tutorialSteps(role)) {
+        const record = bundle.records.find((r: any) => r.kind === step.sample);
+        const exercise = step.exercise!;
+        const saved = (await agent.put("/api/tutorial/samples/" + encodeURIComponent(record.id))
+          .send({ fields: { [exercise.field]: exercise.value } }).expect(200)).body;
+        assert.equal(saved.fields[exercise.field], exercise.value, `${role}: ${step.id}`);
+        if (step.id === "finance") assert.equal(saved.fields.미수금, 1000000);
+        if (step.id === "own-finance") assert.equal(saved.fields.내미지급액, 100000);
+      }
+      await agent.delete("/api/tutorial/samples").expect(200);
+      assert.equal((await agent.get("/api/tutorial/samples")).body.bundle, null);
+      assert.deepEqual((await agent.get("/api/operational/sites")).body, baseline);
+      bundle = (await agent.post("/api/tutorial/samples").expect(201)).body;
+      assert.equal(bundle.records.find((r: any) => r.kind === "sites").fields.현장명, "[예시] ○○빌딩");
+    }
+  } finally { await app.close(); }
+});

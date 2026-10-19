@@ -6,6 +6,7 @@ import SitesPanel from "./sites-panel";
 import WorkersPanel from "./workers-panel";
 import { useEffect, useState } from "react";
 import {
+  APP_BRAND,
   DailyWork,
   Site,
   WorkerSchedule,
@@ -197,10 +198,7 @@ export default function MobileWorkspace() {
     <div className="mobile-app">
       <header className="mobile-header">
         <div>
-          {company.logoUrl && (
-            <img src={company.logoUrl} alt="회사 로고" width="28" height="28" />
-          )}
-          <strong>{company.displayName}</strong>
+          <strong>{APP_BRAND.name}</strong>
         </div>
         <button
           aria-label={`알림 미확인 ${unread}건`}

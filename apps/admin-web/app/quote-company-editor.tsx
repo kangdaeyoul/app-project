@@ -10,10 +10,12 @@ export default function QuoteCompanyEditor({
   value,
   onChange,
   disabled = false,
+  onBusyChange,
 }: {
   value: QuoteCompanySnapshot;
   onChange: (p: QuoteCompanySnapshot) => void;
   disabled?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const admin = useAuth().user?.role === "admin";
   const [busy, setBusy] = useState(false),
@@ -25,6 +27,7 @@ export default function QuoteCompanyEditor({
       return;
     }
     setBusy(true);
+    onBusyChange?.(true);
     setError("");
     try {
       const data = new FormData();
@@ -40,6 +43,7 @@ export default function QuoteCompanyEditor({
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      onBusyChange?.(false);
     }
   }
   return (

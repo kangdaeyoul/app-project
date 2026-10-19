@@ -51,6 +51,7 @@ const STEPS: [string, string, TutorialScreen, string][] = [
     "sites",
     "현장 등록 후 일정과 대표·참여 작업진행자를 배정하면 업무를 시작할 수 있습니다.",
   ],
+  ["schedule", "첫 일정 등록", "schedule", "현장을 선택하고 대표·참여 작업진행자와 날짜·시간을 배정합니다. 관리자는 전체 일정, 직원은 허용된 현장, 작업진행자는 본인 일정과 작업지시로 확인합니다."],
 ];
 interface Status {
   companyId: string;

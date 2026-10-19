@@ -395,3 +395,35 @@ test("거래처 입력 없음, 실제 검색/통계, 수정·삭제 후 스냅�
     await a.close();
   }
 });
+
+test("빈 수량·단가는 고객 Excel에 0을 채우지 않고 명시적인 무료 단가 0은 유지한다", async () => {
+  const a = await app();
+  try {
+    const agent = request.agent(a.getHttpServer());
+    await agent.post("/api/auth/demo").send({account:"admin"}).expect(201);
+    const seed = (await agent.get("/api/quotes/Q001").expect(200)).body;
+    const profile = (await agent.get("/api/company/current")).body.company.quoteProfile;
+    const q = (await agent.post("/api/quotes").send({
+      ...seed, customerId:"", customerSnapshot:{name:"",recipient:"",address:"",phone:"",contactName:"",registrationNumber:""},
+      siteId:null, address:"", workContent:"", notes:"", companySnapshot:{...profile, phone:"", fax:"", email:"", website:"", address:"", contactName:"", contactPhone:"", footer:"", bankInfo:""},
+      sections:[{kind:"기계",items:[{...seed.sections[0].items[0],name:"미입력 수량 단가",quantity:0,quantityPending:true,saleUnitPrice:0,pricePending:true},
+        {...seed.sections[0].items[0],name:"무료 품목",quantity:1,saleUnitPrice:0,pricePending:false}]}],
+    }).expect(201)).body;
+    const projection = (await agent.get(`/api/quotes/${q.id}/customer`)).body;
+    assert.equal(projection.sections[0].items[0].quantityPending, true);
+    assert.equal(projection.sections[0].items[0].pricePending, true);
+    assert.equal(projection.sections[0].items[1].pricePending, false);
+    assert.doesNotMatch(JSON.stringify(projection), /materialUnitCost|internalGeneralCost|marginRate/);
+    const x = (await agent.get(`/api/quotes/${q.id}/excel`).buffer(true).parse(binary).expect(200)).body;
+    const files = unzipSync(x);
+    const { DOMParser } = await import("@xmldom/xmldom");
+    const sheet = new DOMParser().parseFromString(strFromU8(files["xl/worksheets/sheet2.xml"]), "application/xml");
+    const cells = Array.from(sheet.getElementsByTagName("c"));
+    const text = (ref: string) => cells.find(c => c.getAttribute("r") === ref)?.textContent;
+    for (const ref of ["E5", "F5", "G5"]) assert.equal(text(ref), "", ref);
+    assert.equal(text("E6"), "1");
+    assert.equal(text("F6"), "0");
+    const pdf = (await agent.get(`/api/quotes/${q.id}/pdf`).buffer(true).parse(binary).expect(200)).body;
+    assert.match(pdf.toString("ascii",0,8), /^%PDF/);
+  } finally { await a.close(); }
+});

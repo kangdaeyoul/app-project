@@ -15,6 +15,7 @@ import {
   CustomersRepository,
 } from "./customers.repository";
 import { WORKERS_REPOSITORY, WorkersRepository } from "./workers.repository";
+import { DAILY_WORK_REPOSITORY, DailyWorkRepository } from "./daily-work.repository";
 import { MaterialPersistence } from "./material-persistence";
 @Injectable()
 export class InitialSetupStore {
@@ -35,6 +36,7 @@ export class InitialSetupController {
     @Inject(WORKERS_REPOSITORY) private workers: WorkersRepository,
     @Inject(MaterialPersistence) private materials: MaterialPersistence,
     @Inject(InitialSetupStore) private store: InitialSetupStore,
+    @Inject(DAILY_WORK_REPOSITORY) private daily: DailyWorkRepository,
   ) {}
   private key() {
     this.company.assertMember(true);
@@ -65,13 +67,14 @@ export class InitialSetupController {
         .prices.some((p) => p.active !== false),
       quote: review.quote === true,
       sites: this.sites.list().length > 0,
+      schedule: this.daily.list().some((d) => !!d.workDate && !!d.managerId && this.sites.list().some((s) => s.id === d.siteId)),
     };
     return {
       companyId: this.company.companyId,
       userId: this.company.identity.userId,
       checks,
       completed: Object.values(checks).filter(Boolean).length,
-      total: 8,
+      total: Object.keys(checks).length,
       review,
     };
   }

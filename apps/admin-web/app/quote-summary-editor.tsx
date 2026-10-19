@@ -1,13 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   QuoteInput,
   QuotePublicTotals,
   quoteCompanyDefaults,
   DEFAULT_COMPANY,
-  QuoteRecipientSnapshot,
 } from "@jongro/shared";
-import QuoteCompanyEditor from "./quote-company-editor";
+import QuoteCompanyDialog from "./quote-company-dialog";
 import QuoteSummaryPreview from "./quote-summary-preview";
 export default function QuoteSummaryEditor({
   quote,
@@ -15,14 +14,22 @@ export default function QuoteSummaryEditor({
   totals,
   documentNumber,
   disabled = false,
+  companyOpen, onCompanyClose, onCompanyOpen, preview, onPreviewClose, onPreviewOpen,
 }: {
   disabled?: boolean;
+  companyOpen: boolean;
+  onCompanyClose: () => void;
+  onCompanyOpen: () => void;
+  preview: boolean;
+  onPreviewClose: () => void;
+  onPreviewOpen: () => void;
   documentNumber?: string;
   quote: QuoteInput;
   onChange: (patch: Partial<QuoteInput>) => void;
   totals: QuotePublicTotals;
 }) {
-  const [preview, setPreview] = useState(false);
+  const previewDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => { if (preview) previewDialog.current?.showModal(); }, [preview]);
   const recipient = quote.customerSnapshot ?? {
     name: "",
     recipient: "",
@@ -41,7 +48,7 @@ export default function QuoteSummaryEditor({
             {recipient.name || "거래처 입력 안 함"}
           </p>
         </div>
-        <button type="button" onClick={() => setPreview(true)}>
+        <button type="button" onClick={onPreviewOpen}>
           견적 요약 미리보기
         </button>
       </div>
@@ -141,16 +148,8 @@ export default function QuoteSummaryEditor({
                   />
                 </label>
               </div>
-              <details>
-                <summary>회사정보 · 로고 · 직인 (이번 견적에만 적용)</summary>
-                <QuoteCompanyEditor
-                  value={
-                    quote.companySnapshot ??
-                    quoteCompanyDefaults(DEFAULT_COMPANY)
-                  }
-                  onChange={(companySnapshot) => onChange({ companySnapshot })}
-                />
-              </details>
+              <button type="button" className="primary-button" disabled={disabled} onClick={onCompanyOpen}>회사정보 / 회사 프로필 변경</button>
+
             </div>
             <div className="quote-inline-paper">
               <QuoteSummaryPreview
@@ -162,17 +161,22 @@ export default function QuoteSummaryEditor({
           </div>
         </details>
       </fieldset>
+      {companyOpen && <QuoteCompanyDialog
+        value={quote.companySnapshot ?? quoteCompanyDefaults(DEFAULT_COMPANY)}
+        onApply={companySnapshot => onChange({ companySnapshot })}
+        onClose={onCompanyClose}
+      />}
       {preview && (
-        <div
+        <dialog
+          ref={previewDialog}
           className="quote-preview-overlay"
-          role="dialog"
-          aria-modal="true"
+          onCancel={e => { e.preventDefault(); onPreviewClose(); }}
           aria-label="견적 요약 미리보기"
         >
           <button
             type="button"
             className="quote-preview-close"
-            onClick={() => setPreview(false)}
+            onClick={onPreviewClose}
           >
             미리보기 닫기
           </button>
@@ -181,7 +185,7 @@ export default function QuoteSummaryEditor({
             totals={totals}
             id={documentNumber}
           />
-        </div>
+        </dialog>
       )}
     </section>
   );

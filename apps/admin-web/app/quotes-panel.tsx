@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import {
-  DEFAULT_COMPANY,
   Customer,
   QuoteInput,
   QuoteItemInput,
@@ -108,9 +107,11 @@ export default function QuotesPanel({
   onChanged: () => void;
   onOpenSite: (id: string) => void;
 }) {
+  const [companyOpen, setCompanyOpen] = useState(false);
+  const [summaryPreview, setSummaryPreview] = useState(false);
+  const customerSection = useRef<HTMLDivElement>(null);
   const [pendingItems, setPendingItems] = useState(0);
   const [autoPriceDefault, setAutoPriceDefault] = useState(true);
-  const [companyName, setCompanyName] = useState(DEFAULT_COMPANY.displayName);
   useEffect(() => {
     const controller = new AbortController();
     fetch("/api/company/current", { signal: controller.signal })
@@ -119,7 +120,6 @@ export default function QuotesPanel({
         return r.json();
       })
       .then((v) => {
-        setCompanyName(v.company.displayName);
         setAutoPriceDefault(v.company.quotePreferences?.autoPrice ?? true);
       })
       .catch(() => {});
@@ -889,7 +889,7 @@ export default function QuotesPanel({
               </div>
               <fieldset disabled={busy || locked} className="quote-fieldset">
                 <div className="form-grid">
-                  <div className="full-width">
+                  <div className="full-width" ref={customerSection} tabIndex={-1}>
                     <QuoteCustomerPicker
                       customers={customers}
                       quote={form}
@@ -1051,6 +1051,12 @@ export default function QuotesPanel({
               {calc && (
                 <QuoteSummaryEditor
                   quote={form}
+                  companyOpen={companyOpen}
+                  onCompanyOpen={() => setCompanyOpen(true)}
+                  onCompanyClose={() => setCompanyOpen(false)}
+                  preview={summaryPreview}
+                  onPreviewOpen={() => setSummaryPreview(true)}
+                  onPreviewClose={() => setSummaryPreview(false)}
                   documentNumber={selected?.quoteNumber ?? selected?.id}
                   disabled={busy || locked}
                   onChange={change}
@@ -1156,6 +1162,11 @@ export default function QuotesPanel({
             </section>
             {form && editing && (
               <div className="quote-save-bar" aria-label="견적 저장 액션바">
+                <div className="quote-persistent-actions" role="group" aria-label="견적 빠른 작업">
+                  <button type="button" disabled={busy || locked} onClick={() => setCompanyOpen(true)}>회사정보 / 프로필 변경</button>
+                  <button type="button" onClick={() => { customerSection.current?.scrollIntoView({block:"center"}); customerSection.current?.focus({preventScroll:true}); }}>거래처</button>
+                  <button type="button" onClick={() => setSummaryPreview(true)}>미리보기</button>
+                </div>
                 <span>
                   {form.sections.reduce(
                     (n, s) => n + s.items.filter((i) => i.name.trim()).length,
@@ -1232,7 +1243,7 @@ export default function QuotesPanel({
                   disabled={busy || dirty}
                   onClick={() => print(true, true)}
                 >
-                  {companyName} Excel 다운로드
+                  견적서 Excel 다운로드
                 </button>
               </div>
               {preview && (

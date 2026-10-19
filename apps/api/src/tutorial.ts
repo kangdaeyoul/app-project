@@ -166,6 +166,10 @@ export class TutorialController {
         throw new BadRequestException("예시 입력값을 확인하세요.");
       fields[k] = v;
     }
+    if (record.kind === "settlements") {
+      if (Object.hasOwn(fields, "계약금액")) fields.미수금 = Number(fields.계약금액) - Number(fields.수금액);
+      else fields.내미지급액 = Number(fields.내작업비) - Number(fields.내지급액);
+    }
     record.fields = fields;
     this.repository.set(key, value);
     return record;

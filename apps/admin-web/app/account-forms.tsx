@@ -3,17 +3,15 @@ import FieldHelper from "./field-helper";
 import { useState } from "react";
 import { authApi, useAuth } from "./auth-provider";
 export function SignupForm({
-  companyName,
   onBack,
 }: {
-  companyName: string;
   onBack: () => void;
 }) {
   const [form, setForm] = useState({
       name: "",
       email: "",
       phone: "",
-      companyName,
+      companyName: "",
       password: "",
       role: "staff",
     }),
@@ -59,6 +57,7 @@ export function SignupForm({
                 k === "password" ? "password" : k === "email" ? "email" : "text"
               }
               minLength={k === "password" ? 8 : undefined}
+              placeholder={k === "companyName" ? "소속 회사명을 직접 입력하세요" : ["이름", "이메일", "휴대전화", "회사명", "8자 이상 비밀번호"][i]}
               value={form[k]}
               onChange={(e) => setForm({ ...form, [k]: e.target.value })}
             />

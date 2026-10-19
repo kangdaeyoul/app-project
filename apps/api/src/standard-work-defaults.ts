@@ -566,7 +566,7 @@ export function registerDefaultWorks(
           components: list,
           updatedAt: new Date().toISOString(),
           updatedBy: "기본 데이터 등록",
-          reason: "종로소방 최초 기준: 검토필요, 단가 임의 생성 없음",
+          reason: "초기 표준작업 기준: 검토필요, 단가 임의 생성 없음",
         });
         templateCount++;
       }

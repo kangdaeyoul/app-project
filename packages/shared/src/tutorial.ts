@@ -1,4 +1,4 @@
-export const TUTORIAL_VERSION = 1;
+export const TUTORIAL_VERSION = 2;
 export type TutorialRole = "admin" | "staff" | "worker";
 export type TutorialStatus = "new" | "in_progress" | "completed" | "skipped";
 export type TutorialScreen =
@@ -24,6 +24,7 @@ export interface TutorialStep {
   text: string;
   sample: string;
   target?: string;
+  exercise?: { field: string; value: string | number; instruction: string };
 }
 export interface TutorialProgress {
   version: number;
@@ -48,164 +49,248 @@ export interface TutorialBundle {
   ownerUserId: string;
   records: TutorialSample[];
 }
+const GUIDE_STEPS = {
+  "intro": {
+    "id": "intro",
+    "screen": "home",
+    "title": "앱 전체 소개 · 한 현장의 업무 흐름",
+    "text": "견적 → 현장 → 일정·작업진행자 → 작업·사진·자재 → 정산·완료보고서 → A/S가 연결됩니다. 아래 별도 실습 현장명을 바꿔 저장해 보세요. 실제 목록과 고객 문서에는 들어가지 않습니다.",
+    "sample": "sites",
+    "exercise": {
+      "field": "현장명",
+      "value": "[예시] 첫 실습 현장",
+      "instruction": "현장명 항목을 “[예시] 첫 실습 현장” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "home": {
+    "id": "home",
+    "screen": "home",
+    "title": "홈 · 월간 캘린더와 오늘 일정",
+    "text": "모바일 홈 월간 캘린더에서 날짜를 누르면 그날의 현장·A/S가 보입니다. 예시 일정 시간을 10:00~12:00으로 바꿔 보세요. 실제 일정 등록은 일정 메뉴에서 합니다.",
+    "sample": "schedule",
+    "exercise": {
+      "field": "시간",
+      "value": "10:00~12:00",
+      "instruction": "시간 항목을 “10:00~12:00” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "site": {
+    "id": "site",
+    "screen": "sites",
+    "title": "현장 · 모든 기록의 연결 기준",
+    "text": "현장은 견적의 계약전환 또는 직접 등록으로 만듭니다. 같은 현장 ID로 일정·사진·자재·정산·완료보고서를 묶습니다. 실습 현장의 작업내용을 바꾸고 저장하세요.",
+    "sample": "sites",
+    "exercise": {
+      "field": "작업내용",
+      "value": "2층 설비 점검",
+      "instruction": "작업내용 항목을 “2층 설비 점검” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "quote": {
+    "id": "quote",
+    "screen": "quotes",
+    "title": "견적 · 품목 한 건 추가와 빈 숫자",
+    "text": "실제 견적은 공종 → 품목 한 건 → 추가 → 저장 순서입니다. 숫자를 비우면 강제로 0을 입력하지 않습니다. 실습 수량을 3으로 바꿔 아래 금액이 105,000원이 되는지 확인하세요.",
+    "sample": "quotes",
+    "exercise": {
+      "field": "수량",
+      "value": 3,
+      "instruction": "수량 항목을 “3” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "quote-profile": {
+    "id": "quote-profile",
+    "screen": "quotes",
+    "title": "견적 · 회사정보와 고객 제출",
+    "text": "고정 액션의 회사정보 / 프로필 변경에서 로고·직인까지 수정합니다. 이번 견적 적용은 다른 견적을 바꾸지 않고, 회사 기본정보 저장은 새 견적에 사용됩니다. 저장 후 상세에서 PDF/Excel·수정·복사·공유를 사용합니다. 실습 품명을 바꿔 보세요.",
+    "sample": "quotes",
+    "exercise": {
+      "field": "품명",
+      "value": "비상조명등",
+      "instruction": "품명 항목을 “비상조명등” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "schedule": {
+    "id": "schedule",
+    "screen": "schedule",
+    "title": "일정 · 등록과 역할별 연결",
+    "text": "현장·날짜·시간·대표 및 참여 작업진행자를 지정합니다. 관리자는 회사 일정, 직원은 허용된 현장, 작업진행자는 본인 배정 일정과 작업지시를 봅니다. 예시 상태를 작업중으로 저장한 뒤 아래 역할별 연결을 확인하세요.",
+    "sample": "schedule",
+    "exercise": {
+      "field": "상태",
+      "value": "작업중",
+      "instruction": "상태 항목을 “작업중” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "worker": {
+    "id": "worker",
+    "screen": "workers",
+    "title": "작업진행자 · 배정과 로그인 연결",
+    "text": "작업진행자의 실제 이름·표시명·연락처를 등록하고 현장·일정에 배정합니다. 로그인 사용자의 workerId 연결은 사용자 관리에서 지정합니다. 실습 표시명을 바꿔 보세요.",
+    "sample": "workers",
+    "exercise": {
+      "field": "표시명",
+      "value": "실습 진행자",
+      "instruction": "표시명 항목을 “실습 진행자” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "work": {
+    "id": "work",
+    "screen": "work",
+    "title": "일일작업 · 시작과 완료 요청",
+    "text": "예시 작업 시작을 누르면 예시에만 시작시각이 기록됩니다. 작업내용·실제 사용자재·전후사진 확인 후 예시 완료 요청을 누르세요. 관리자 확인완료와 작업진행자의 완료요청은 다릅니다.",
+    "sample": "work",
+    "exercise": {
+      "field": "상태",
+      "value": "완료요청",
+      "instruction": "상태 항목을 “완료요청” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "photo": {
+    "id": "photo",
+    "screen": "photos",
+    "title": "사진 · 전후 구분과 위치",
+    "text": "같은 위치에서 작업 전·후를 촬영합니다. 현장·일일작업과 연결한 사진은 사진대지·완료보고서에서 사용합니다. 실습 위치를 2층 복도로 저장하고 전후사진을 비교하세요.",
+    "sample": "photos",
+    "exercise": {
+      "field": "작업위치",
+      "value": "2층 복도",
+      "instruction": "작업위치 항목을 “2층 복도” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "material": {
+    "id": "material",
+    "screen": "materials",
+    "title": "자재 · 실제 사용과 구매 구분",
+    "text": "사용자재는 실제 사용량, 구매·지출은 비용 기록입니다. 서로 자동 환산되지 않습니다. 실습 사용수량을 2로 바꿔 저장해 보세요. 운영 단가와 견적 가격은 바뀌지 않습니다.",
+    "sample": "materials",
+    "exercise": {
+      "field": "수량",
+      "value": 2,
+      "instruction": "수량 항목을 “2” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "finance": {
+    "id": "finance",
+    "screen": "finance",
+    "title": "정산 · 수금·미수와 지급",
+    "text": "현장의 계약액·수금 원장·지출·작업진행자 지급을 구분합니다. 월간 현금흐름과 전체 기간 현장손익은 기준이 다릅니다. 실습 수금액을 4,500,000원으로 바꿔 계산된 미수금을 확인하세요.",
+    "sample": "settlements",
+    "exercise": {
+      "field": "수금액",
+      "value": 4500000,
+      "instruction": "수금액 항목을 “4500000” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "report": {
+    "id": "report",
+    "screen": "reports",
+    "title": "완료보고서 · 현장 기록을 문서로",
+    "text": "현장과 작업기간을 선택하고 일일작업·사용자재·사진을 모아 미리본 뒤 PDF를 내려받습니다. 실습 요약을 바꿔 보고서에 들어갈 내용을 연습하세요.",
+    "sample": "reports",
+    "exercise": {
+      "field": "요약",
+      "value": "설비 점검 및 동작 확인 완료",
+      "instruction": "요약 항목을 “설비 점검 및 동작 확인 완료” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "as": {
+    "id": "as",
+    "screen": "as",
+    "title": "A/S · 기존 현장과 후속 작업",
+    "text": "기존 현장에 요청을 접수하고 배정 → 작업중 → 처리완료 → 관리자 확인·종결 순으로 진행합니다. 작업진행자는 본인 배정건만 처리합니다. 실습 처리내용을 저장하세요.",
+    "sample": "as",
+    "exercise": {
+      "field": "처리내용",
+      "value": "점검 후 정상 동작 확인",
+      "instruction": "처리내용 항목을 “점검 후 정상 동작 확인” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "participant": {
+    "id": "worker",
+    "screen": "workers",
+    "title": "작업진행자 · 내 배정과 동료 확인",
+    "text": "배정된 현장의 대표·참여 작업진행자를 확인합니다. 계정 연결과 배정 변경은 관리자에게 요청합니다. 별도 실습 표시명을 바꿔 보세요.",
+    "sample": "workers",
+    "exercise": {
+      "field": "표시명",
+      "value": "실습 진행자",
+      "instruction": "표시명 항목을 “실습 진행자” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "notice": {
+    "id": "notice",
+    "screen": "notifications",
+    "title": "작업지시 · 배정된 현장 확인",
+    "text": "본인에게 온 작업지시와 일정 변경을 확인합니다. 직원은 허용된 현장, 작업진행자는 본인 배정 현장에 접근합니다. 실습 현장 담당자를 바꿔 저장해 보세요.",
+    "sample": "sites",
+    "exercise": {
+      "field": "담당자",
+      "value": "실습 담당자",
+      "instruction": "담당자 항목을 “실습 담당자” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  },
+  "own-finance": {
+    "id": "own-finance",
+    "screen": "finance",
+    "title": "내 정산 · 본인 작업비만 확인",
+    "text": "작업진행자는 본인 지급예정·지급·미지급만 확인합니다. 회사 손익과 다른 작업자의 금액은 볼 수 없습니다. 실습 내지급액을 250,000원으로 바꿔 보세요.",
+    "sample": "settlements",
+    "exercise": {
+      "field": "내지급액",
+      "value": 250000,
+      "instruction": "내지급액 항목을 “250000” 값으로 바꾸고 예시에만 저장하세요."
+    }
+  }
+} satisfies Record<string, TutorialStep>;
+
 export const TUTORIAL_STEPS: Record<TutorialRole, TutorialStep[]> = {
   admin: [
-    {
-      id: "site",
-      screen: "sites",
-      title: "현장 등록",
-      text: "새 현장 등록에서 이름·일정·대표 작업진행자를 입력합니다. 아래 체험은 실제 현장에 저장되지 않습니다.",
-      sample: "sites",
-      target: "새 현장 등록",
-    },
-    {
-      id: "quote",
-      screen: "quotes",
-      title: "견적 작성",
-      text: "새 견적에서 공종을 선택하고 품목을 추가합니다. 상세보기에서 수정·복사·PDF/Excel 출력을 할 수 있습니다.",
-      sample: "quotes",
-      target: "새 견적 작성",
-    },
-    {
-      id: "schedule",
-      screen: "schedule",
-      title: "일정 배정",
-      text: "작업진행자의 가용상태와 중복 시간을 확인한 뒤 배정합니다.",
-      sample: "schedule",
-    },
-    {
-      id: "worker",
-      screen: "workers",
-      title: "작업진행자 연결",
-      text: "실제 이름과 표시명을 구분하고, 현장의 대표 작업진행자로 연결하세요.",
-      sample: "workers",
-      target: "새 작업진행자 등록",
-    },
-    {
-      id: "review",
-      screen: "work",
-      title: "사진·사용자재 확인",
-      text: "일일작업에서 작업내용, 전후사진과 실제 사용한 자재를 확인합니다. 구매 기록과 사용자재는 별개입니다.",
-      sample: "photos",
-      target: "새 일일작업",
-    },
-    {
-      id: "finance",
-      screen: "finance",
-      title: "정산 확인",
-      text: "수금·미수와 작업진행자 지급을 확인합니다. 일부 수금·일부 지급도 기록할 수 있습니다.",
-      sample: "settlements",
-    },
-    {
-      id: "report",
-      screen: "sites",
-      title: "완료보고서",
-      text: "현장 상세의 완료보고서 탭에서 작업·사용자재·사진을 모아 PDF로 출력합니다.",
-      sample: "reports",
-    },
+    GUIDE_STEPS.intro,
+    GUIDE_STEPS.home,
+    GUIDE_STEPS.site,
+    GUIDE_STEPS.quote,
+    GUIDE_STEPS["quote-profile"],
+    GUIDE_STEPS.schedule,
+    GUIDE_STEPS.worker,
+    GUIDE_STEPS.work,
+    GUIDE_STEPS.photo,
+    GUIDE_STEPS.material,
+    GUIDE_STEPS.finance,
+    GUIDE_STEPS.report,
+    GUIDE_STEPS.as,
   ],
   staff: [
-    {
-      id: "site",
-      screen: "sites",
-      title: "허용된 현장 확인",
-      text: "권한이 있는 현장만 표시됩니다. 현장명과 주소, 작업 목적을 먼저 확인하세요.",
-      sample: "sites",
-    },
-    {
-      id: "schedule",
-      screen: "schedule",
-      title: "일정 확인",
-      text: "배정된 일정과 작업진행자의 가용상태를 확인합니다.",
-      sample: "schedule",
-    },
-    {
-      id: "quote",
-      screen: "quotes",
-      title: "견적 작성",
-      text: "견적 작성 권한이 있으면 품목을 넣고 저장할 수 있습니다. 내부 재무정보는 추가 권한을 따릅니다.",
-      sample: "quotes",
-      target: "새 견적 작성",
-    },
-    {
-      id: "work",
-      screen: "work",
-      title: "작업내용과 사용자재",
-      text: "일일작업에 작업내용과 실제 사용한 자재를 입력합니다.",
-      sample: "materials",
-    },
-    {
-      id: "photo",
-      screen: "photos",
-      title: "작업 전후사진",
-      text: "작업 전·후 사진을 구분하고 같은 위치에서 촬영해 설명을 남기세요.",
-      sample: "photos",
-    },
-    {
-      id: "report",
-      screen: "reports",
-      title: "완료보고서",
-      text: "일일작업과 사진을 확인한 뒤 보고서를 미리보고 출력합니다.",
-      sample: "reports",
-    },
+    GUIDE_STEPS.intro,
+    GUIDE_STEPS.home,
+    GUIDE_STEPS.site,
+    GUIDE_STEPS.schedule,
+    GUIDE_STEPS.quote,
+    GUIDE_STEPS["quote-profile"],
+    GUIDE_STEPS.participant,
+    GUIDE_STEPS.work,
+    GUIDE_STEPS.photo,
+    GUIDE_STEPS.material,
+    GUIDE_STEPS.report,
+    GUIDE_STEPS.as,
+    GUIDE_STEPS.notice,
   ],
   worker: [
-    {
-      id: "today",
-      screen: "home",
-      title: "오늘 현장",
-      text: "오늘 현장과 A/S, 다음 일정, 긴급건을 먼저 확인하세요.",
-      sample: "schedule",
-    },
-    {
-      id: "instructions",
-      screen: "notifications",
-      title: "작업내용·지시 확인",
-      text: "본인에게 온 작업지시를 읽고 현장 도착 전 연락 등 중요사항을 확인하세요.",
-      sample: "sites",
-    },
-    {
-      id: "start",
-      screen: "work",
-      title: "작업 시작",
-      text: "내 작업을 선택해 작업 시작을 누릅니다. 아래 체험 버튼은 실제 출근·작업기록을 바꾸지 않습니다.",
-      sample: "work",
-    },
-    {
-      id: "photo",
-      screen: "photos",
-      title: "작업 전후사진 등록",
-      text: "전·후 사진을 같은 위치에서 촬영하고 위치와 설명을 입력합니다.",
-      sample: "photos",
-    },
-    {
-      id: "material",
-      screen: "work",
-      title: "사용자재 입력",
-      text: "실제로 사용한 자재의 규격·수량·단위를 남기세요.",
-      sample: "materials",
-    },
-    {
-      id: "complete",
-      screen: "work",
-      title: "완료 요청",
-      text: "작업내용과 시험/확인 결과, 사진을 확인한 뒤 완료를 요청합니다. 관리자 확인과 구분됩니다.",
-      sample: "work",
-    },
+    GUIDE_STEPS.intro,
+    GUIDE_STEPS.home,
+    GUIDE_STEPS.site,
+    GUIDE_STEPS.schedule,
+    GUIDE_STEPS.notice,
+    GUIDE_STEPS.participant,
+    GUIDE_STEPS.work,
+    GUIDE_STEPS.photo,
+    GUIDE_STEPS.material,
+    GUIDE_STEPS["own-finance"],
+    GUIDE_STEPS.as,
   ],
 };
 export function tutorialSteps(role: TutorialRole, writeQuotes = true) {
-  return TUTORIAL_STEPS[role].map((s) =>
-    role === "staff" && !writeQuotes && s.screen === "quotes"
-      ? {
-          id: "instructions",
-          screen: "notifications" as const,
-          title: "작업지시 확인",
-          text: "견적 작성 권한이 없는 계정은 작업지시를 확인하고 현장 업무를 이어갑니다.",
-          sample: "sites",
-        }
-      : s,
-  );
+  return TUTORIAL_STEPS[role].filter(s => role !== "staff" || writeQuotes || s.screen !== "quotes");
 }
 export function canonicalScreen(menu: string): TutorialScreen {
   if (/홈|오늘 일정/.test(menu)) return "home";
@@ -281,6 +366,7 @@ export function sampleSeed(
       "[예시] ○○빌딩 소방시설 보수공사",
       {
         현장명: "[예시] ○○빌딩",
+        연결안내: "견적 → 현장 → 일정·작업 → 사진·자재 → 정산·완료보고서 → A/S",
         주소: "서울특별시 ○○구 ○○로 123",
         작업내용: "3층 감지기 증설",
         담당자: "김담당",
@@ -294,7 +380,7 @@ export function sampleSeed(
     [
       "schedule",
       "[예시] 오늘 작업 일정",
-      { 현장: "[예시] ○○빌딩", 시간: "09:00~12:00", 상태: "배정완료" },
+      { 현장: "[예시] ○○빌딩", 날짜: new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date()), 시간: "09:00~12:00", 상태: "배정완료", 작업진행자: "[예시] 현장 도우미" },
     ],
     [
       "work",
@@ -322,6 +408,7 @@ export function sampleSeed(
       "[예시] 사용자재",
       { 자재명: "화재감지기(연기식)", 규격: "일반형", 수량: 5, 단위: "개" },
     ],
+    ["as", "[예시] 현장 후속 A/S", { 현장: "[예시] ○○빌딩", 요청내용: "설비 작동 재확인", 상태: "접수", 처리내용: "" }],
     [
       "reports",
       "[예시] 공사 완료보고서",

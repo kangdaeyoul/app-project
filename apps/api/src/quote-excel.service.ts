@@ -122,6 +122,8 @@ export class QuoteExcelService {
     set(cover, "E6", q.quoteDate);
     set(cover, "E7", q.siteName);
     set(cover, "E8", q.address);
+    set(cover, "B8", q.address ? "현장주소" : "");
+    set(cover, "D8", q.address ? ":" : "");
     set(cover, "B9", q.customerName ? "거래처" : "");
     set(cover, "E9", q.customerName);
     set(cover, "D9", q.customerName ? ":" : "");
@@ -303,10 +305,10 @@ export class QuoteExcelService {
             set(d, `B${r}`, i.name);
             set(d, `C${r}`, i.specification);
             set(d, `D${r}`, i.unit);
-            set(d, `E${r}`, i.quantity);
+            set(d, `E${r}`, i.quantityPending ? "" : i.quantity);
             set(d, `H${r}`, i.notes);
-            if (!hideUnits) set(d, `F${r}`, i.saleUnitPrice);
-            if (!hideAmounts) set(d, `G${r}`, i.amount);
+            if (!hideUnits) set(d, `F${r}`, i.pricePending ? "" : i.saleUnitPrice);
+            if (!hideAmounts) set(d, `G${r}`, i.quantityPending || i.pricePending ? "" : i.amount);
             sum += i.amount;
           });
           pageTotal += sum;

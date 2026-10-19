@@ -4,6 +4,7 @@ import {useTutorialWorkspace,ScreenHelpButton,tutorialMenu} from "./onboarding";
 import MaterialManagementPanel from "./material-management-panel";
 import { useEffect, useState } from "react";
 import {
+  APP_BRAND,
   DailyWork,
   MaterialUsageInput,
   Site,
@@ -20,7 +21,7 @@ import CompletionReportPanel from "./completion-report-panel";
 import FieldHelper from "./field-helper";
 const money = (n: number) => new Intl.NumberFormat("ko-KR").format(n) + "원";
 export default function OperationalWorkspace() {
-  const { user, company } = useAuth();
+  const { user } = useAuth();
   const worker = user?.role === "worker";
   const menus = (
     worker
@@ -97,20 +98,9 @@ export default function OperationalWorkspace() {
     <div className="shell operational-shell">
       <aside>
         <div className="brand">
-          <span className="brand-icon">
-            {company.logoUrl ? (
-              <img
-                src={company.logoUrl}
-                alt="회사 로고"
-                width={30}
-                height={30}
-              />
-            ) : (
-              company.displayName.slice(0, 1)
-            )}
-          </span>
+          <span className="brand-icon" aria-hidden="true">▦</span>
           <div>
-            {company.displayName}
+            {APP_BRAND.name}
             <small>현장 업무 공간</small>
           </div>
         </div>
@@ -135,7 +125,7 @@ export default function OperationalWorkspace() {
       </aside>
       <div className="workspace">
         <header>
-          <span>{company.displayName} · 현장관리</span>
+          <span>{APP_BRAND.name} · 내 업무</span>
           <ScreenHelpButton/><SessionHeader />
         </header>
         <main data-onboarding-screen={tutorialScreen}>

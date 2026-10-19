@@ -760,6 +760,8 @@ export interface CustomerQuote {
       name: string;
       specification: string;
       quantity: number;
+      quantityPending?: boolean;
+      pricePending?: boolean;
       unit: string;
       saleUnitPrice: number;
       amount: number;

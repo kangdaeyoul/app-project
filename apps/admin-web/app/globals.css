@@ -700,3 +700,34 @@ input::placeholder,textarea::placeholder{color:#8a97a5;opacity:1}input:focus::pl
 @media(max-width:760px){.mobile-main:has(.mobile-title){padding-top:12px}.app-back~.mobile-app .mobile-main{padding-top:60px}.mobile-main>.field-greeting,.mobile-main .field-greeting[data-pose="greeting"]{padding:8px;margin:8px 0;min-height:0}.mobile-main .field-greeting[data-pose="greeting"] .helper-character{width:42px;height:52px;flex:0 0 42px}.mobile-main .field-greeting[data-pose="greeting"] p{display:none}.mobile-main .field-greeting[data-pose="greeting"] strong{font-size:13px}.home-day-list{max-height:165px}.home-month-grid button{height:44px}.mobile-stats{gap:6px!important}.mobile-stats button{min-height:44px;padding:8px!important}}
 @media(max-width:760px){.mobile-app :is(button,input,select,textarea,summary){scroll-margin-top:90px;scroll-margin-bottom:95px}.mobile-app .secondary-button,.mobile-app .detail-header button{min-height:44px;color:#21415c;background:#fff;border:1px solid #adbfce}}
 @media(max-width:760px){.mobile-main:has(.mobile-title){padding-top:80px}.app-back~.mobile-app .mobile-main{padding-top:120px}}
+
+/* The same quote actions remain reachable at every scroll position. */
+.quote-save-bar{max-width:calc(100vw - 290px);flex-wrap:wrap;gap:10px}
+.quote-persistent-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.quote-persistent-actions button{min-height:44px;padding:9px 12px;border:1px solid #bdccd8;border-radius:7px;background:white;color:#203d56}
+.quote-company-dialog{width:min(960px,calc(100vw - 24px));max-height:90dvh;padding:24px;border:1px solid #ccd8e1;border-radius:12px;color:#203d56;overflow:auto}
+.quote-company-dialog::backdrop{background:#142d4470}
+.quote-company-dialog-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;position:sticky;top:-24px;background:white;z-index:2;padding:12px 0}
+.quote-company-dialog-heading h2{font-size:20px;margin:0}
+.quote-company-dialog button{min-height:44px;padding:9px 12px}
+.quote-company-dialog-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;position:sticky;bottom:-24px;padding:14px 0;background:white;z-index:2;border-top:1px solid #dce4eb}
+.quote-company-dialog p{line-height:1.7}
+.tutorial-menu-guides{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.tutorial-exercise{background:#fff4dc;padding:10px;border-radius:6px}
+.tutorial-role-preview{border:1px solid #b7c9d8;padding:10px;border-radius:6px;margin:10px 0}
+.tutorial-role-preview p{font-size:13px}
+.tutorial-exercise-status{font-weight:600}
+@media(max-width:760px){
+  .quote-save-bar{left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));max-width:none;display:grid;grid-template-columns:1fr 1fr;padding:8px;gap:6px;border-radius:8px 8px 0 0}
+  .quote-save-bar .quote-persistent-actions{grid-column:1/-1;display:grid;grid-template-columns:1.4fr .8fr .8fr;gap:5px}
+  .quote-save-bar .quote-persistent-actions button{font-size:12px;padding:7px 4px;white-space:normal;min-width:0}
+  .quote-save-bar>span{display:none}
+  .quote-save-bar>span:nth-last-of-type(1){display:block;font-size:12px}
+  .quote-save-bar>.primary-button{min-height:44px;min-width:0}
+  .quotes-workspace:has(.quote-save-bar){padding-bottom:230px}
+  .quote-company-dialog{padding:16px}
+  .quote-company-dialog-heading{top:-16px}.quote-company-dialog-actions{bottom:-16px}
+  .quote-company-dialog .form-grid{grid-template-columns:1fr}
+  .tutorial-menu-guides{grid-template-columns:1fr 1fr}
+  .tutorial-sample-details[open]>.tutorial-examples{max-height:29dvh}
+}
