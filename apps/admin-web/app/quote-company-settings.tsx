@@ -44,8 +44,7 @@ export default function QuoteCompanySettings() {
       </p>
       {user?.isDemo && (
         <p className="tutorial-examples">
-          체험판입니다. 별도 예시에서 회사정보를 수정하거나 초기 상태로 되돌릴
-          수 있습니다. 실제 회사 설정은 아래 수정 버튼으로 변경합니다.{" "}
+          {user.authSource === "trial" ? "현재 체험 회사의 정보만 수정합니다. 실제 회사에는 반영되지 않습니다. 상단 체험 관리에서 초기화·재생성할 수 있습니다." : "체험판입니다. 별도 튜토리얼 예시에서 회사정보 수정과 복원을 연습할 수 있습니다."}{" "}
           <button
             onClick={() =>
               window.dispatchEvent(new Event("open-tutorial-help"))

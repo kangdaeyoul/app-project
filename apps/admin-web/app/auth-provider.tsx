@@ -96,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 export function LoginScreen() {
   const { brand, refresh } = useAuth();
+  const [trialAccount,setTrialAccount]=useState<string|null>(null);
   const [demoAccount,setDemoAccount]=useState<string|null>(null);
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [realLogin, setRealLogin] = useState(false), [realReady, setRealReady] = useState(false);
@@ -230,6 +231,19 @@ export function LoginScreen() {
           {realReady ? <a className="google-login" href="/api/auth/google">Google로 계속하기</a> : <><button type="button" className="google-login" disabled>Google로 계속하기</button><p role="status">실제 로그인 연결 준비 중입니다. 운영자가 Render 서비스에 SUPABASE_URL과 SUPABASE_PUBLISHABLE_KEY를 설정해야 합니다.</p></>}
           <p>신규 계정은 승인대기로 생성됩니다. 관리자가 회사와 역할을 지정한 뒤 업무 화면을 사용할 수 있습니다.</p>
         </div>}
+        <section className="future-auth" aria-label="추가 로그인 제공자">
+          <p>다른 로그인 방법 · 준비 중</p>
+          <div>{["Kakao", "Naver", "Apple"].map(provider=><button type="button" key={provider} disabled>{provider} (준비 중)</button>)}</div>
+        </section>
+        <section className="public-trial-entry">
+          <button type="button" className="primary" disabled={busy} onClick={()=>setTrialAccount("admin")}>로그인 없이 체험하기</button>
+          <p>역할을 선택하고 나만의 예시 공간에서 사용해 보세요. 실제 회사 자료와 연결되지 않습니다.</p>
+        </section>
+        {trialAccount && <DemoWelcome account={trialAccount} busy={busy} publicTrial onAccountChange={setTrialAccount} onCancel={()=>setTrialAccount(null)} onStart={async tutorial=>{
+          setBusy(true);setError("");
+          try { await authApi("/trial/start",{method:"POST",body:JSON.stringify({role:trialAccount==="worker1"?"worker":trialAccount})});sessionStorage.setItem("demo-entry",tutorial?"tutorial":"home");setTrialAccount(null);await refresh(); }
+          catch(e){setError((e as Error).message);setTrialAccount(null)}finally{setBusy(false)}
+        }}/>}
         {!signup&&<button type="button" onClick={()=>setSignup(true)}>가입 신청</button>}
         {demoEnabled && (
           <section className="demo-login">
@@ -258,11 +272,7 @@ export function LoginScreen() {
         {demoAccount && <DemoWelcome account={demoAccount} busy={busy} onCancel={()=>setDemoAccount(null)} onStart={async tutorial=>{setBusy(true);setError("");try {await authApi("/auth/demo",{method:"POST",body:JSON.stringify({account:demoAccount,remember})});sessionStorage.setItem("demo-entry",tutorial?"tutorial":"home");await refresh();}catch(e){setError((e as Error).message);setDemoAccount(null)}finally{setBusy(false)}}}/>}
         {configError && <p role="alert">{configError}</p>}
         <small className="login-note" data-testid="login-build-version">웹 버전: {process.env.NEXT_PUBLIC_BUILD_VERSION ?? "local"} · API 버전: {apiVersion || "확인 중"}</small>
-        <p className="login-note">
-          테스트 계정 안내는 README를 확인하세요.
-          <br />
-          현재는 메모리 인증 환경입니다.
-        </p>
+        <p className="login-note">실제 계정은 회사 관리자의 승인 후 사용할 수 있습니다. 체험 데이터는 가입 계정으로 이전되지 않습니다.</p>
       </section>
     </main>
   );
@@ -283,7 +293,8 @@ export function SessionHeader() {
       <span>
         {user?.displayName} · {user && ROLE_LABELS[user.role]}
       </span>
-      <button onClick={()=>setProfile(true)}>내 정보</button>
+      {authMode !== "trial" && <button onClick={()=>setProfile(true)}>내 정보</button>}
+      {authMode === "trial" && <TrialControls/>}
       <button onClick={() => void logout().catch(() => setSignoutError("로그아웃에 실패했습니다. 다시 시도하세요."))}>로그아웃</button>
       {signoutError && <span role="alert">{signoutError}</span>}
       {authMode === "supabase" && <form method="post" action="/api/auth/link/google"><button type="submit">Google 계정 연결</button><small>{account?.providers.join(" · ")}</small></form>}
@@ -304,4 +315,21 @@ export function AuthAccessNotice() {
     <button onClick={()=>void logout().catch(()=>setError("로그아웃을 완료하지 못했습니다. 다시 시도하세요."))}>로그아웃</button>
     {error && <p role="alert">{error}</p>}
   </section></main>;
+}
+
+function TrialControls() {
+  const [busy,setBusy]=useState(false), [error,setError]=useState("");
+  async function reset(seed:boolean) {
+    if(!confirm(seed?"체험 중 입력한 내용을 지우고 예시 데이터를 다시 생성할까요?":"체험 공간의 모든 자료를 삭제하고 빈 공간으로 시작할까요?"))return;
+    setBusy(true);setError("");
+    try {await authApi("/trial/reset",{method:"POST",body:JSON.stringify({seed})});sessionStorage.setItem("demo-entry","home");window.location.assign("/");}
+    catch(e){setError((e as Error).message);setBusy(false)}
+  }
+  return <section className="trial-controls" aria-label="체험 관리">
+    <small>체험 전용 · 2시간 후 종료 · 실제 자료를 입력하지 마세요.</small>
+    <button disabled={busy} onClick={()=>void reset(false)}>예시 데이터 초기화</button>
+    <button disabled={busy} onClick={()=>void reset(true)}>예시 데이터 다시 생성</button>
+    <button disabled={busy} onClick={()=>{sessionStorage.setItem("demo-entry","tutorial");window.location.assign("/")}}>튜토리얼 다시보기</button>
+    {error&&<p role="alert">{error}</p>}
+  </section>;
 }

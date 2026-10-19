@@ -59,6 +59,7 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
           );
       }
     }
+    if (controller === "TrialController" && ["start", "reset", "end"].includes(handler)) return next.handle();
     if (
       (controller === "AuthController" &&
         ["config", "login", "demoLogin", "signup", "google", "callback", "linkGoogle", "me", "logout"].includes(handler)) ||
@@ -87,6 +88,7 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
           "작업진행자는 본인 배정 업무만 이용할 수 있습니다.",
         );
     }
+    if (identity.trial && (["UsersController"].includes(controller) || (controller === "AuthController" && handler !== "config"))) throw new ForbiddenException("체험에서는 실제 계정 및 사용자 설정을 변경할 수 없습니다.");
     const claim = request.headers["x-company-id"];
     if (claim && claim !== identity.companyId)
       throw new ForbiddenException("회사는 서버의 사용자 소속으로 결정됩니다.");

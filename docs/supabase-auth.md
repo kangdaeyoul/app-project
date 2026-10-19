@@ -313,3 +313,7 @@ PLAYWRIGHT_MODULE=/path/to/playwright node node_modules/tsx/dist/cli.mjs --tscon
 클라우드 개발 환경의 변수 등록이 Render Web Service로 복사되지는 않습니다. 기존 Render 서비스의 Environment에 `SUPABASE_URL`과 `SUPABASE_PUBLISHABLE_KEY`를 직접 등록해야 합니다. 값은 문서나 코드에 적지 않습니다. 실제 운영은 위 표의 `AUTH_MODE=supabase`, `AUTH_SITE_URL`, `APP_ENV=production`, `AUTH_SECURE_COOKIE=true`, `DEMO_LOGIN_ENABLED=false`도 확인합니다.
 
 운영 로그인 화면에는 **이메일 로그인**, **Google로 계속하기**, **가입 신청**을 표시합니다. 두 Supabase 변수가 없으면 Google 버튼을 비활성화하고 설정 안내를 표시합니다. 버튼 표시·배포 SHA 확인은 실제 Google 로그인 성공이나 승인 테이블 설치 완료를 의미하지 않습니다.
+
+### 운영의 로그인 없는 체험 기능
+
+운영 체험은 개발용 demo 로그인과 별개입니다. `DEMO_LOGIN_ENABLED=false`를 유지하며 별도 체험 세션/회사를 사용합니다. 실제 사용자는 체험 회사에 배정할 수 없습니다. [체험 모드와 운영자가 직접 적용할 추가 SQL](trial-mode.md)을 참고하세요. 추가 SQL은 `002-supabase-auth.sql` 뒤에 실행하며 자동 실행하지 않습니다.

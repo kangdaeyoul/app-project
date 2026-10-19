@@ -100,6 +100,7 @@ export class SupabaseAuthService {
   }
   private allowed(m:AuthMembership) {return m.approval_status==='approved' && m.active && !m.locked && !!m.company_id && !!m.role;}
   private identity(m:AuthMembership):CompanyIdentity {
+    if(m.company_id?.startsWith('trial_')) throw new ForbiddenException('체험 회사는 실제 계정에 배정할 수 없습니다.');
     if(!this.allowed(m)) throw new ForbiddenException('관리자의 회사·역할 지정 및 승인이 필요합니다.');
     if(m.role==='worker' && !m.worker_id) throw new ForbiddenException('작업진행자 연결이 필요합니다.');
     const i:CompanyIdentity={authenticated:true,appRole:m.role!,companyId:m.company_id!,userId:m.user_id,userDisplayName:m.display_name,

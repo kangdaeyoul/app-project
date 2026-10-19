@@ -1,3 +1,4 @@
+import { TrialService } from "./trial";
 import type { Request, Response } from "express";
 import { SupabaseAuthService } from "./supabase-auth";
 import {companyBranding} from "./quote-presentation";
@@ -608,12 +609,13 @@ export class AuthController {
     @Inject(AUTH_PROVIDER) private auth: AuthProvider,
     @Inject(CompanyContext) private company: CompanyContext,
     @Inject(SupabaseAuthService) private real: SupabaseAuthService,
+    @Inject(TrialService) private trial: TrialService,
   ) {}
   @Post("signup") signup(@Req() req:Request, @Res({passthrough:true}) res:Response, @Body() body: unknown) {
     return this.real.required ? this.real.signup(req,res,body) : this.auth.register(body);
   }
-  @Get("google") google(@Req() req:Request,@Res() res:Response){return this.real.google(req,res);}
-  @Get("callback") callback(@Req() req:Request,@Res() res:Response){return this.real.callback(req,res);}
+  @Get("google") google(@Req() req:Request,@Res() res:Response){this.trial.end(req,res);return this.real.google(req,res);}
+  @Get("callback") callback(@Req() req:Request,@Res() res:Response){this.trial.end(req,res);return this.real.callback(req,res);}
   @Post("link/google") async linkGoogle(@Req() req:Request,@Res() res:Response){return this.real.google(req,res,true);}
   @Put("profile") profile(@Req() req:Request, @Body() body: unknown) {
     if(this.real.hasCredentials(req)) throw new BadRequestException("실제 계정의 이름·이메일·비밀번호는 Supabase 계정 관리에서 변경하세요. 회사와 역할은 앱 관리자가 지정합니다.");
@@ -640,6 +642,7 @@ export class AuthController {
       authMode: this.real.required ? "supabase" : "demo",
       supabaseConfigured: this.real.enabled,
       demoEnabled: this.auth.demoEnabled === true,
+      trialEnabled: true,
       loginRevision: "demo-config-no-cache-v3",
       buildVersion: process.env.RENDER_GIT_COMMIT ?? process.env.APP_BUILD_VERSION ?? "local",
     };
@@ -651,7 +654,7 @@ export class AuthController {
   ) {
     if (body?.remember !== undefined && typeof body.remember !== "boolean")
       throw new BadRequestException();
-    if(this.real.required)return this.real.login(req,res,body);
+    if(this.real.required){this.trial.end(req,res);return this.real.login(req,res,body);}
     const user = this.auth.authenticate(body?.login, body?.password);
     const { token, ttl } = this.auth.session(user, body.remember === true);
     res.setHeader("Cache-Control", "no-store");
@@ -687,6 +690,7 @@ export class AuthController {
     return { user };
   }
   @Get("me") me(@Req() req:Request,@Res({passthrough:true}) res:Response) {
+    if(!this.real.hasCredentials(req) && this.trial.hasCredentials(req))return this.trial.me(req);
     if(this.real.hasCredentials(req) || (this.real.required && !req.headers.cookie?.includes("field_session=")))return this.real.me(req,res);
     const identity=this.auth.resolve(req);
     return this.company.run(identity,()=>({user:this.auth.current(),company:companyBranding(this.company.settings()),appBrand:APP_BRAND,access:"approved",authMode:"demo"}));
@@ -696,6 +700,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: any,
   ) {
     if(this.real.hasCredentials(req))await this.real.logout(req,res);
+    this.trial.end(req,res);
     this.auth.logout(req);
     res.clearCookie("field_session", {
       path: "/",

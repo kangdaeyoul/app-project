@@ -31,6 +31,9 @@ export interface TutorialRepository {
 }
 @Injectable()
 export class MemoryTutorialRepository implements TutorialRepository {
+  constructor(@Inject(CompanyContext) context: CompanyContext) {
+    context.onCompanyDisposed(id => {for(const key of this.rows.keys())if(JSON.parse(key)[0]===id)this.rows.delete(key);});
+  }
   private rows = new Map<
     string,
     { progress: TutorialProgress; bundle: TutorialBundle | null }

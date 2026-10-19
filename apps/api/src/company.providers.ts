@@ -62,7 +62,7 @@ export const COMPANY_DATA_PROVIDERS: Provider[] = [
     useFactory: (context: CompanyContext) =>
       companyRepository(
         context,
-        (seed) => new MemoryInspectionReportRepository(seed),
+        (seed, companyId) => new MemoryInspectionReportRepository(seed, companyId),
       ),
   },
   {

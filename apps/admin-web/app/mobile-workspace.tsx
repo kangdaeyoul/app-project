@@ -390,7 +390,7 @@ export default function MobileWorkspace() {
                       ? ["견적"]
                       : []),
                 ]
-            ).map((m) => (
+            ).filter(m=>user?.authSource!=="trial" || !["사용자 관리","내 정보"].includes(m)).map((m) => (
               <button key={m} onClick={() => navigate(m)}>
                 {m}
               </button>

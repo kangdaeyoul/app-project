@@ -218,7 +218,7 @@ export class MaterialPersistence implements OnModuleInit, OnModuleDestroy {
     }
     const memory = companyRepository(
       context,
-      (seed) => new MemoryStandardWorkRepository(seed),
+      (seed, companyId) => new MemoryStandardWorkRepository(seed, companyId),
     );
     this.repository = new Proxy({} as StandardWorkRepository, {
       get: (_t, key) => {
@@ -228,7 +228,7 @@ export class MaterialPersistence implements OnModuleInit, OnModuleDestroy {
         if (typeof method !== "function") return undefined;
         return (...args: any[]) => {
           const scoped = this.local.getStore();
-          if (!this.database) return method(...args);
+          if (!this.database || this.context.identity.trial) return method(...args);
           if (!scoped)
             throw Error("영구 자재 저장소의 트랜잭션 범위가 없습니다.");
           const check = (v: any) => {
@@ -258,7 +258,7 @@ export class MaterialPersistence implements OnModuleInit, OnModuleDestroy {
     await this.database?.close();
   }
   async run<T>(work: () => Promise<T>): Promise<T> {
-    if (!this.database) return work();
+    if (!this.database || this.context.identity.trial) return work();
     return this.database.transaction(
       this.context.companyId,
       () =>

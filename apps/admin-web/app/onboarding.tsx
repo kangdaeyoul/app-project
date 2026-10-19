@@ -539,7 +539,7 @@ export default function OnboardingProvider({
                     if (!bundle) await createSamples();
                   }}>{v.screen === "home" ? "전체 앱 소개 · 홈" : ({sites:"현장",quotes:"견적",schedule:"일정",workers:"작업진행자",photos:"사진",finance:role === "worker" ? "내 정산" : "정산",as:"A/S",work:"일일작업",materials:"자재",reports:"완료보고서",notifications:"작업지시"} as Record<string,string>)[v.screen]} 실습 시작</button>)}
                 </div>
-                <p>예시 데이터 설명: 체험용 자료는 회사·사용자별 별도 공간에 저장합니다. 아래 삭제·다시 생성은 튜토리얼 자료만 대상으로 하며 기존 공용 샘플과 실제 입력 자료는 유지합니다.</p>
+                <p>{user?.authSource === "trial" ? "아래 삭제·재생성은 실습용 튜토리얼 자료에만 적용합니다. 현장·견적 등 체험 업무 자료 전체를 초기화하려면 상단 체험 관리를 이용하세요. 실제 회사 자료와 연결되지 않습니다." : "예시 데이터 설명: 튜토리얼 자료는 회사·사용자별 별도 공간에 저장합니다. 아래 삭제·다시 생성은 튜토리얼 자료만 대상으로 하며 업무 자료는 유지합니다."}</p>
                 <TutorialExamples
                   key={screen}
                   kind={screen==="company"?"company":undefined}

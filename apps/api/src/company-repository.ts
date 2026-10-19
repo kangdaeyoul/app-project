@@ -6,7 +6,7 @@ import { CompanyContext } from "./company-context";
  */
 export function companyRepository<T extends object>(
   context: CompanyContext,
-  create: (seed: boolean) => T,
+  create: (seed: boolean, companyId?: string) => T,
 ): T {
   const sample = create(process.env.NODE_ENV !== "production" || process.env.APP_ENV === "test");
   const methods = new Set(
@@ -18,6 +18,7 @@ export function companyRepository<T extends object>(
   const partitions = new Map<string, CompanyOwned<{ adapter: T }>>([
     [DEFAULT_COMPANY.id, { companyId: DEFAULT_COMPANY.id, adapter: sample }],
   ]);
+  context.onCompanyDisposed(id => partitions.delete(id));
   const check = (value: unknown, companyId: string): void => {
     if (!value || typeof value !== "object" || Buffer.isBuffer(value)) return;
     if (
@@ -63,7 +64,7 @@ export function companyRepository<T extends object>(
         args.forEach((arg) => check(arg, companyId));
         let partition = partitions.get(companyId);
         if (!partition) {
-          partition = { companyId, adapter: create(false) };
+          partition = { companyId, adapter: create(context.trialSeed(companyId), companyId) };
           partitions.set(companyId, partition);
         }
         const adapter = partition.adapter;

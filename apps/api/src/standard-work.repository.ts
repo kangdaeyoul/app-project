@@ -64,10 +64,10 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
   }
   private prices: WorkPrice[] = [];
   private versions: StandardWork[] = [];
-  constructor(seed = true) {
+  constructor(seed = true, private seedCompanyId = "jongro") {
     if (seed) {
       this.seed();
-      registerDefaultWorks(this, "jongro");
+      registerDefaultWorks(this, this.seedCompanyId);
       for (const name of [
         "유도등",
         "발신기",
@@ -114,7 +114,7 @@ export class MemoryStandardWorkRepository implements StandardWorkRepository {
     else this.prices[i] = structuredClone(price);
   }
   private seed() {
-    const companyId = "jongro";
+    const companyId = this.seedCompanyId;
     const price = (
       name: string,
       unit = "개",

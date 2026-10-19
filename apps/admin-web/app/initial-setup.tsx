@@ -152,9 +152,7 @@ export default function InitialSetup({
       />
       {user.isDemo && (
         <p className="setup-demo-note">
-          체험판에서는 회사정보·거래처·현장·견적·작업진행자가 공용 샘플로
-          등록되어 있습니다. 도움말의 별도 예시에서 직접 수정·삭제·다시 생성을
-          연습하세요. 공용 샘플과 실제 자료는 초기화하지 않습니다.
+          {user.authSource === "trial" ? "이 세션 전용 회사에 예시 자료가 등록되어 있습니다. 자유롭게 수정해 보세요. 상단 체험 관리에서 전체 자료를 초기화·재생성할 수 있으며 실제 회사에는 영향을 주지 않습니다. 사용자 승인 관리는 실제 가입 후 이용합니다." : "체험판에서는 샘플로 기능을 확인할 수 있습니다. 도움말의 별도 튜토리얼 예시에서 수정·삭제·재생성을 연습하세요."}
         </p>
       )}
       {intro && (
@@ -196,7 +194,7 @@ export default function InitialSetup({
                   <span>{data.checks[key] ? "완료" : "미완료"}</span>
                 </div>
                 <p>{why}</p>
-                <button onClick={() => navigate(screen)}>
+                <button disabled={user.authSource === "trial" && key === "users"} onClick={() => navigate(screen)}>
                   {data.checks[key] ? "확인하기" : "설정하기"}
                 </button>
                 {["users", "quote"].includes(key) && (

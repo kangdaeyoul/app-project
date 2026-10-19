@@ -3,6 +3,7 @@ import { ForbiddenException, Injectable } from "@nestjs/common";
 import { Company, CompanyMembership, DEFAULT_COMPANY } from "@jongro/shared";
 export interface CompanyIdentity {
   authenticated?: boolean;
+  trial?: boolean;
   appRole?: "admin" | "staff" | "worker" | "customer";
   permissions?: string[];
   companyId: string;
@@ -33,6 +34,20 @@ export class CompanyContext {
     return this.operational.run(true, work);
   }
   private readonly local = new AsyncLocalStorage<CompanyIdentity>();
+  private readonly trialCompanies = new Map<string, boolean>();
+  private readonly disposal = new Set<(id: string) => void>();
+  onCompanyDisposed(fn: (id: string) => void) { this.disposal.add(fn); }
+  registerTrial(company: Company, seed: boolean) {
+    if (!company.id.startsWith("trial_")) throw Error("Invalid trial company");
+    this.register(company);
+    this.trialCompanies.set(company.id, seed);
+  }
+  trialSeed(id: string) { return this.trialCompanies.get(id) === true; }
+  disposeTrial(id: string) {
+    if (!this.trialCompanies.has(id)) return;
+    this.trialCompanies.delete(id); this.companies.delete(id);
+    for (const fn of this.disposal) fn(id);
+  }
   private readonly companies = new Map<string, Company>([
     [DEFAULT_COMPANY.id, structuredClone(DEFAULT_COMPANY)],
   ]);
@@ -49,6 +64,8 @@ export class CompanyContext {
       (m) => m.companyId === identity.companyId && m.userId === identity.userId,
     );
     if (
+      (identity.companyId.startsWith("trial_") && (!identity.trial || !this.trialCompanies.has(identity.companyId))) ||
+      (identity.trial && !identity.companyId.startsWith("trial_")) ||
       !this.companies.has(identity.companyId) ||
       !membership ||
       !["admin", "member", "viewer"].includes(membership.role) ||

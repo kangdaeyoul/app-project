@@ -125,6 +125,7 @@ export class AuditRecorder {
   }
   record(event: AuditEvent) {
     const identity = this.company.identity;
+    if(identity.trial)return; // Ephemeral trials never append to the operational audit store.
     const companyId = this.company.companyId;
     const sequence = (this.sequences.get(companyId) ?? 0) + 1;
     this.sequences.set(companyId, sequence);

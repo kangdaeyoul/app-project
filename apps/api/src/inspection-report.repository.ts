@@ -25,9 +25,9 @@ export class MemoryInspectionReportRepository implements InspectionReportReposit
   private reports: InspectionReportRecord[] = [];
   private items: InspectionItemRecord[] = [];
   private links: InspectionPhotoLink[] = [];
-  constructor(seed = true) {
+  constructor(seed = true, seedCompanyId = DEFAULT_COMPANY.id) {
     if (seed) {
-      const companyId = DEFAULT_COMPANY.id,
+      const companyId = seedCompanyId,
         id = "IR001",
         itemId = "II001",
         now = new Date().toISOString();

@@ -79,7 +79,7 @@ export interface InstructionRepository {
 }
 @Injectable()
 export class MemoryInstructionRepository implements InstructionRepository {
-  constructor(@Inject(CompanyContext) private context: CompanyContext) {}
+  constructor(@Inject(CompanyContext) private context: CompanyContext) { context.onCompanyDisposed(id => this.companies.delete(id)); }
   private companies = new Map<
     string,
     { messages: WorkInstruction[]; events: NotificationEvent[] }

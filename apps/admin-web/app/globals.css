@@ -735,3 +735,5 @@ input::placeholder,textarea::placeholder{color:#8a97a5;opacity:1}input:focus::pl
 .real-auth-actions{margin:16px 0;padding:16px 0;border-top:1px solid #d9e2e9}
 .google-login{display:block;text-align:center;padding:14px;border:1px solid #b9cbd9;border-radius:8px;background:#fff;color:#203d56;text-decoration:none;font-weight:600;min-height:48px}
 .auth-access-notice{max-width:600px;margin:auto}.auth-access-notice button{min-height:44px;padding:10px 14px;margin:6px}.auth-access-notice p{line-height:1.7}.session-user form{display:inline-flex;align-items:center;gap:6px}
+
+.public-trial-entry,.future-auth{margin-top:1rem;padding-top:1rem;border-top:1px solid #d9e2ec}.future-auth div,.trial-controls{display:flex;flex-wrap:wrap;gap:.5rem}.public-trial-entry p,.future-auth p,.trial-controls small{font-size:.85rem}.trial-controls{width:100%;padding:.5rem;background:#fff5d6;border-radius:8px}.trial-controls small{width:100%}.demo-welcome select{display:block;width:100%;margin:.5rem 0;padding:.7rem}.session-controls{flex-wrap:wrap}
