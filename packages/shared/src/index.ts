@@ -1665,6 +1665,7 @@ export interface AfterServiceView extends Omit<AfterService,'chargeAmount'> {cha
 export type UserRole = 'admin' | 'staff' | 'worker' | 'customer';
 export type UserPermission = 'internalCosts' | 'siteFinance' | 'workerPayments' | 'editSchedule' | 'writeQuotes' | 'manageMaterials' | 'approveMaterials';
 export interface CurrentUser {
+  authSource?: "supabase" | "demo"; authProviders?: string[];
   isDemo?:boolean;
   phone?:string; approvalStatus?:"승인대기"|"승인"|"거절"|"비활성"; requestedCompany?:string; locked?:boolean; passwordResetRequired?:boolean; appliedAt?:string;
   id:string; companyId:string; loginId:string; email:string; name:string;

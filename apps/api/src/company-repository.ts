@@ -8,7 +8,7 @@ export function companyRepository<T extends object>(
   context: CompanyContext,
   create: (seed: boolean) => T,
 ): T {
-  const sample = create(true);
+  const sample = create(process.env.NODE_ENV !== "production" || process.env.APP_ENV === "test");
   const methods = new Set(
     Object.getOwnPropertyNames(Object.getPrototypeOf(sample)).filter(
       (k) =>

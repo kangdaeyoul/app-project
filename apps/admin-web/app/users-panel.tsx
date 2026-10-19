@@ -10,6 +10,7 @@ import {
 } from "./auth-provider";
 type Form = Omit<CurrentUser, "id"> & { id?: string; password: string };
 interface Options {
+  authMode?: string;
   companies: Company[];
   sites: { id: string; name: string }[];
   workers: { id: string; name: string; displayName: string }[];
@@ -93,6 +94,7 @@ export default function UsersPanel() {
         </div>
         <button
           className="primary"
+          disabled={options?.authMode === "supabase"}
           onClick={() => {
             setForm(blank());
             setError("");
@@ -101,6 +103,7 @@ export default function UsersPanel() {
           사용자 등록
         </button>
       </div>
+      {options?.authMode === "supabase" && <p>Supabase에 가입한 사용자가 승인대기로 표시됩니다. 요청한 회사명을 확인하고, 소속 회사·역할·승인 상태를 지정하세요. 로그인 제공자가 추가되어도 동일한 Supabase 사용자 UUID의 승인을 유지합니다. 비밀번호는 이 화면에서 설정하지 않습니다.</p>}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -117,6 +120,7 @@ export default function UsersPanel() {
                   {["아이디", "이메일", "실제 이름", "표시 이름"][i]}
                   <input
                     required
+                    readOnly={options?.authMode === "supabase" && ["loginId","email"].includes(k)}
                     value={form[k]}
                     onChange={(e) => change(k, e.target.value)}
                   />
@@ -127,6 +131,7 @@ export default function UsersPanel() {
               비밀번호 {form.id ? "(비워두면 유지)" : ""}
               <input
                 type="password"
+                disabled={options?.authMode === "supabase"}
                 autoComplete="new-password"
                 minLength={8}
                 required={!form.id}
@@ -137,6 +142,7 @@ export default function UsersPanel() {
             <label>
               역할
               <select
+                required
                 value={form.role}
                 onChange={(e) =>
                   setForm({
@@ -149,6 +155,7 @@ export default function UsersPanel() {
                   })
                 }
               >
+                <option value="">역할 선택</option>
                 {Object.entries(ROLE_LABELS).map(([r, label]) => (
                   <option key={r} value={r}>
                     {label}
@@ -164,9 +171,11 @@ export default function UsersPanel() {
             <label>
               회사 배정
               <select
+                required
                 value={form.companyId}
                 onChange={(e) => change("companyId", e.target.value)}
               >
+                <option value="">소속 회사 선택</option>
                 {options?.companies.map((c) => (
                   <option value={c.id} key={c.id}>
                     {c.displayName}
@@ -284,7 +293,7 @@ export default function UsersPanel() {
                   {u.loginId}
                   <small>{u.email}</small>
                 </td>
-                <td>{ROLE_LABELS[u.role]}</td>
+                <td>{u.companyId ? ROLE_LABELS[u.role] : "미지정"}{u.requestedCompany && <small>신청 회사: {u.requestedCompany}</small>}</td>
                 <td>{u.approvalStatus??(u.active?"승인":"비활성")} · {u.locked?"잠금":u.active?"활성":"비활성"}{u.passwordResetRequired&&" · 비밀번호 초기화 필요"}</td>
                 <td>
                   {options?.workers.find((w) => w.id === u.workerId)
@@ -293,7 +302,7 @@ export default function UsersPanel() {
                 <td>
                   <button
                     onClick={() => {
-                      setForm({ ...u, password: "" });
+                      setForm({ ...u, role: (u.companyId ? u.role : "") as UserRole, password: "" });
                       setNotice("");
                     }}
                   >

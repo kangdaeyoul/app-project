@@ -1,3 +1,5 @@
+import type { Request, Response } from "express";
+import { SupabaseAuthService } from "./supabase-auth";
 import {companyBranding} from "./quote-presentation";
 import { PermissionService } from "./permission.service";
 import {
@@ -90,10 +92,9 @@ function publicUser(u: StoredUser): CurrentUser {
 export class MemoryAuthProvider
   implements AuthProvider, CompanyIdentityProvider
 {
-  readonly demoEnabled =
+  readonly demoEnabled = (process.env.NODE_ENV !== "production" || process.env.APP_ENV === "test") && (
     process.env.DEMO_LOGIN_ENABLED === "true" ||
-    (process.env.DEMO_LOGIN_ENABLED !== "false" &&
-      process.env.NODE_ENV !== "production");
+    (process.env.DEMO_LOGIN_ENABLED !== "false" && process.env.NODE_ENV !== "production"));
   private users = new Map<string, StoredUser>();
   private dummyHash = hash(randomBytes(32).toString("hex"));
   private sessions = new Map<string, Session>();
@@ -606,11 +607,16 @@ export class AuthController {
   constructor(
     @Inject(AUTH_PROVIDER) private auth: AuthProvider,
     @Inject(CompanyContext) private company: CompanyContext,
+    @Inject(SupabaseAuthService) private real: SupabaseAuthService,
   ) {}
-  @Post("signup") signup(@Body() body: unknown) {
-    return this.auth.register(body);
+  @Post("signup") signup(@Req() req:Request, @Res({passthrough:true}) res:Response, @Body() body: unknown) {
+    return this.real.required ? this.real.signup(req,res,body) : this.auth.register(body);
   }
-  @Put("profile") profile(@Body() body: unknown) {
+  @Get("google") google(@Req() req:Request,@Res() res:Response){return this.real.google(req,res);}
+  @Get("callback") callback(@Req() req:Request,@Res() res:Response){return this.real.callback(req,res);}
+  @Post("link/google") async linkGoogle(@Req() req:Request,@Res() res:Response){return this.real.google(req,res,true);}
+  @Put("profile") profile(@Req() req:Request, @Body() body: unknown) {
+    if(this.real.hasCredentials(req)) throw new BadRequestException("실제 계정의 이름·이메일·비밀번호는 Supabase 계정 관리에서 변경하세요. 회사와 역할은 앱 관리자가 지정합니다.");
     return this.auth.updateProfile(body);
   }
   @Get("config")
@@ -624,24 +630,28 @@ export class AuthController {
     }
     return {
       appBrand: APP_BRAND,
-      company: {
+      company: this.real.required ? null : {
         id: this.company.settings().id,
         name: this.company.settings().name,
         displayName: this.company.settings().displayName,
         logoUrl: companyBranding(this.company.settings()).logoUrl,
       },
-      sampleMode: true,
+      sampleMode: !this.real.required,
+      authMode: this.real.required ? "supabase" : "demo",
+      supabaseConfigured: this.real.enabled,
       demoEnabled: this.auth.demoEnabled === true,
       loginRevision: "demo-config-no-cache-v3",
       buildVersion: process.env.RENDER_GIT_COMMIT ?? process.env.APP_BUILD_VERSION ?? "local",
     };
   }
   @Post("login") login(
+    @Req() req:Request,
     @Body() body: { login: string; password: string; remember?: boolean },
     @Res({ passthrough: true }) res: any,
   ) {
     if (body?.remember !== undefined && typeof body.remember !== "boolean")
       throw new BadRequestException();
+    if(this.real.required)return this.real.login(req,res,body);
     const user = this.auth.authenticate(body?.login, body?.password);
     const { token, ttl } = this.auth.session(user, body.remember === true);
     res.setHeader("Cache-Control", "no-store");
@@ -654,7 +664,8 @@ export class AuthController {
     });
     return { user };
   }
-  @Post("demo") demoLogin(
+  @Post("demo") async demoLogin(
+    @Req() req:Request,
     @Body() body: { account: string; remember?: boolean },
     @Res({ passthrough: true }) res: any,
   ) {
@@ -662,6 +673,7 @@ export class AuthController {
       throw new UnauthorizedException("데모 로그인이 비활성화되어 있습니다.");
     if (body?.remember !== undefined && typeof body.remember !== "boolean")
       throw new BadRequestException();
+    if(this.real.hasCredentials(req))await this.real.logout(req,res);
     const user = this.auth.demoLogin(body?.account);
     const { token, ttl } = this.auth.session(user, body.remember === true);
     res.setHeader("Cache-Control", "no-store");
@@ -674,17 +686,16 @@ export class AuthController {
     });
     return { user };
   }
-  @Get("me") me() {
-    return {
-      user: this.auth.current(),
-      company: companyBranding(this.company.settings()),
-      appBrand: APP_BRAND,
-    };
+  @Get("me") me(@Req() req:Request,@Res({passthrough:true}) res:Response) {
+    if(this.real.hasCredentials(req) || (this.real.required && !req.headers.cookie?.includes("field_session=")))return this.real.me(req,res);
+    const identity=this.auth.resolve(req);
+    return this.company.run(identity,()=>({user:this.auth.current(),company:companyBranding(this.company.settings()),appBrand:APP_BRAND,access:"approved",authMode:"demo"}));
   }
-  @Post("logout") logout(
-    @Req() req: unknown,
+  @Post("logout") async logout(
+    @Req() req: Request,
     @Res({ passthrough: true }) res: any,
   ) {
+    if(this.real.hasCredentials(req))await this.real.logout(req,res);
     this.auth.logout(req);
     res.clearCookie("field_session", {
       path: "/",
@@ -696,17 +707,18 @@ export class AuthController {
 }
 @Controller("users")
 export class UsersController {
-  constructor(@Inject(AUTH_PROVIDER) private auth: AuthProvider) {}
-  @Get() list() {
-    return this.auth.list();
+  constructor(@Inject(AUTH_PROVIDER) private auth: AuthProvider, @Inject(SupabaseAuthService) private real:SupabaseAuthService) {}
+  @Get() list(@Req() req:Request) {
+    return this.real.hasCredentials(req) ? this.real.list(req) : this.auth.list();
   }
-  @Get("options") options() {
-    return this.auth.options();
+  @Get("options") options(@Req() req:Request) {
+    return {...this.auth.options(),authMode:this.real.hasCredentials(req)?"supabase":"demo"};
   }
-  @Post() create(@Body() body: unknown) {
+  @Post() create(@Req() req:Request,@Body() body: unknown) {
+    if(this.real.hasCredentials(req))throw new BadRequestException("사용자가 Supabase로 가입한 뒤 승인대기 목록에서 배정하세요.");
     return this.auth.save(body);
   }
-  @Put(":id") update(@Param("id") id: string, @Body() body: unknown) {
-    return this.auth.save(body, id);
+  @Put(":id") update(@Req() req:Request,@Param("id") id: string, @Body() body: unknown) {
+    return this.real.hasCredentials(req) ? this.real.save(req,id,body) : this.auth.save(body, id);
   }
 }

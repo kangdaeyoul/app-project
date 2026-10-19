@@ -1,5 +1,5 @@
 import { PermissionService } from "./permission.service";
-import { map } from "rxjs/operators";
+import { map, mergeMap } from "rxjs/operators";
 import { AuditRecorder } from "./audit-recorder";
 import { BadRequestException } from "@nestjs/common";
 import {
@@ -10,7 +10,7 @@ import {
   Injectable,
   NestInterceptor,
 } from "@nestjs/common";
-import { Observable } from "rxjs";
+import { Observable, from } from "rxjs";
 import {
   CompanyContext,
   CompanyIdentity,
@@ -18,7 +18,7 @@ import {
 } from "./company-context";
 export const COMPANY_IDENTITY = Symbol("COMPANY_IDENTITY");
 export interface CompanyIdentityProvider {
-  resolve(request: unknown): CompanyIdentity;
+  resolve(request: unknown): CompanyIdentity | Promise<CompanyIdentity>;
 }
 // Development-only adapter. Never trusts companyId/userId submitted by a browser.
 export class SampleCompanyIdentityProvider implements CompanyIdentityProvider {
@@ -61,15 +61,18 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
     }
     if (
       (controller === "AuthController" &&
-        ["config", "login", "demoLogin", "signup"].includes(handler)) ||
+        ["config", "login", "demoLogin", "signup", "google", "callback", "linkGoogle", "me", "logout"].includes(handler)) ||
       (controller === "AppController" && handler === "health")
     )
       return next.handle();
-    const identity = this.identities.resolve(request);
+    return from(Promise.resolve(this.identities.resolve(request))).pipe(
+      mergeMap(identity => this.authorized(identity, request, controller, handler, next)),
+    );
+  }
+  private authorized(identity: CompanyIdentity, request: any, controller: string, handler: string, next: CallHandler) {
     request.res?.setHeader("Cache-Control", "no-store");
 
     if (identity.workerId && !identity.authenticated) {
-      const controller = execution.getClass().name;
       if (
         ![
           "WorkInstructionController",

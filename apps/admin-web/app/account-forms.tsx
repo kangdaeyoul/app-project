@@ -65,7 +65,7 @@ export function SignupForm({
         ),
       )}
       <label>
-        가입유형
+        가입유형 (희망 · 실제 역할은 관리자가 지정)
         <select
           value={form.role}
           onChange={(e) => setForm({ ...form, role: e.target.value })}

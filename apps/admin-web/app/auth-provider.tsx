@@ -6,7 +6,11 @@ import { APP_BRAND, Company, DEFAULT_COMPANY } from "@jongro/shared";
 import FieldHelper from "./field-helper";
 import { CurrentUser, UserRole } from "@jongro/shared";
 export type { CurrentUser, UserRole } from "@jongro/shared";
+interface AuthAccount { id:string; email:string; providers:string[]; approvalStatus:string; }
 interface AuthState {
+  access: string;
+  account: AuthAccount | null;
+  authMode: string;
   user: CurrentUser | null;
   company: Company;
   brand: string;
@@ -40,6 +44,7 @@ export async function authApi<T>(
   return body;
 }
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [access, setAccess] = useState("signed_out"), [account, setAccount] = useState<AuthAccount | null>(null), [authMode, setAuthMode] = useState("demo");
   const [user, setUser] = useState<CurrentUser | null>(null),
     [company, setCompany] = useState(DEFAULT_COMPANY),
     [loading, setLoading] = useState(true),
@@ -51,25 +56,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credentials: "same-origin",
       });
       if (r.status === 401) {
-        setUser(null);
+        setUser(null); setAccount(null); setAccess("signed_out");
         return;
       }
-      if (!r.ok) throw Error();
+      if (!r.ok) { setUser(null); setAccess("unavailable"); return; }
       const v = await r.json();
+      setAccess(v.access ?? "approved"); setAccount(v.account ?? null); setAuthMode(v.authMode ?? "demo");
       setUser(v.user);
-      setCompany(v.company);
+      if(v.company)setCompany(v.company);
       setBrand(v.appBrand.name);
     } catch {
+      setUser(null); setAccess("unavailable");
     } finally {
       setLoading(false);
     }
   }
   async function logout() {
-    try {
-      await authApi("/auth/logout", { method: "POST" });
-    } finally {
-      setUser(null);
-    }
+    await authApi("/auth/logout", { method: "POST" });
+    setUser(null); setAccount(null); setAccess("signed_out");
   }
   useEffect(() => {
     refresh();
@@ -84,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
   return (
     <AuthContext.Provider
-      value={{ user, company, brand, loading, refresh, logout }}
+      value={{ user, company, brand, loading, refresh, logout, access, account, authMode }}
     >
       {children}
     </AuthContext.Provider>
@@ -94,6 +98,7 @@ export function LoginScreen() {
   const { brand, refresh } = useAuth();
   const [demoAccount,setDemoAccount]=useState<string|null>(null);
   const [demoEnabled, setDemoEnabled] = useState(false);
+  const [realLogin, setRealLogin] = useState(false), [realReady, setRealReady] = useState(false);
   const [configError, setConfigError] = useState("");
   const [apiVersion, setApiVersion] = useState("");
   const [signup,setSignup]=useState(false);
@@ -105,6 +110,7 @@ export function LoginScreen() {
     [notice, setNotice] = useState("");
   useEffect(() => {
     let active = true;
+    if(new URLSearchParams(window.location.search).has("auth_error"))setError("Google/이메일 인증을 완료하지 못했습니다. 다시 로그인해 주세요.");
     const load = async () => {
       try {
         const r = await fetch("/api/auth/config", { cache: "no-store", credentials: "same-origin" });
@@ -112,7 +118,7 @@ export function LoginScreen() {
         const v = await r.json();
         if (typeof v.demoEnabled !== "boolean") throw Error("로그인 설정 응답 오류");
         if (!active) return;
-        setDemoEnabled(v.demoEnabled);
+        setDemoEnabled(v.demoEnabled); setRealLogin(v.authMode === "supabase"); setRealReady(v.supabaseConfigured === true);
         setApiVersion(v.buildVersion ?? v.loginRevision ?? "unknown");
         setConfigError("");
       } catch (e) {
@@ -189,20 +195,21 @@ export function LoginScreen() {
             />
           </label>
           <div className="login-options">
-            <label>
+            {!realLogin && <label>
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
               />{" "}
               로그인 상태 유지
-            </label>
+            </label>}
+            {realLogin && <small>이 기기에서 로그인 세션을 유지합니다.</small>}
             <button
               type="button"
               className="text-button"
               onClick={() =>
                 setNotice(
-                  "현재 테스트 환경입니다. 비밀번호 재설정은 회사 관리자에게 요청해 주세요.",
+                  realLogin ? "비밀번호 재설정은 Supabase 인증 운영자에게 요청해 주세요." : "현재 테스트 환경입니다. 비밀번호 재설정은 회사 관리자에게 요청해 주세요.",
                 )
               }
             >
@@ -216,9 +223,13 @@ export function LoginScreen() {
           )}
           {notice && <p role="status">{notice}</p>}
           <button className="primary login-submit" disabled={busy}>
-            {busy ? "로그인 중…" : "로그인"}
+            {busy ? "로그인 중…" : realLogin ? "이메일 로그인" : "로그인"}
           </button>
         </form>}
+        {realLogin && <div className="real-auth-actions">
+          {realReady ? <a className="google-login" href="/api/auth/google">Google로 계속하기</a> : <><button type="button" className="google-login" disabled>Google로 계속하기</button><p role="status">실제 로그인 연결 준비 중입니다. 운영자가 Render 서비스에 SUPABASE_URL과 SUPABASE_PUBLISHABLE_KEY를 설정해야 합니다.</p></>}
+          <p>신규 계정은 승인대기로 생성됩니다. 관리자가 회사와 역할을 지정한 뒤 업무 화면을 사용할 수 있습니다.</p>
+        </div>}
         {!signup&&<button type="button" onClick={()=>setSignup(true)}>가입 신청</button>}
         {demoEnabled && (
           <section className="demo-login">
@@ -263,7 +274,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   customer: "고객 (준비중)",
 };
 export function SessionHeader() {
-  const { user, logout } = useAuth();
+  const { user, logout, authMode, account } = useAuth();
+  const [signoutError, setSignoutError] = useState("");
   const [profile,setProfile]=useState(false);
   return (
     <div className="session-controls">
@@ -272,8 +284,24 @@ export function SessionHeader() {
         {user?.displayName} · {user && ROLE_LABELS[user.role]}
       </span>
       <button onClick={()=>setProfile(true)}>내 정보</button>
-      <button onClick={logout}>로그아웃</button>
+      <button onClick={() => void logout().catch(() => setSignoutError("로그아웃에 실패했습니다. 다시 시도하세요."))}>로그아웃</button>
+      {signoutError && <span role="alert">{signoutError}</span>}
+      {authMode === "supabase" && <form method="post" action="/api/auth/link/google"><button type="submit">Google 계정 연결</button><small>{account?.providers.join(" · ")}</small></form>}
       {profile&&<div className="account-profile-dialog" role="dialog" aria-modal="true" aria-label="내 정보"><button onClick={()=>setProfile(false)}>닫기</button><PersonalProfile/></div>}
     </div>
   );
+}
+
+export function AuthAccessNotice() {
+  const {access,account,refresh,logout}=useAuth();
+  const [error,setError]=useState("");
+  return <main className="login-page"><section className="login-card auth-access-notice">
+    <h1>{access === "pending" ? "가입 승인대기" : access === "customer" ? "고객 계정" : access === "unavailable" ? "로그인 상태 확인 필요" : "업무 접근이 제한되었습니다"}</h1>
+    {account && <p>{account.email}</p>}
+    <p>{access === "pending" ? "로그인은 완료되었습니다. 관리자가 소속 회사와 역할(관리자·사내직원·작업진행자·고객)을 지정하고 승인할 때까지 회사 자료에 접근할 수 없습니다." : access === "customer" ? "고객 역할로 승인되었습니다. 고객 전용 업무 화면은 준비 중이며 사내 업무 자료에는 접근할 수 없습니다." : "승인·활성 상태와 서버 연결을 확인해 주세요. 다른 회사 자료를 대신 표시하지 않습니다."}</p>
+    <button onClick={()=>void refresh()}>승인 상태 다시 확인</button>
+    {account && <form method="post" action="/api/auth/link/google"><button type="submit">Google 계정 연결</button><p>연결된 제공자: {account.providers.join(" · ") || "확인 중"}</p></form>}
+    <button onClick={()=>void logout().catch(()=>setError("로그아웃을 완료하지 못했습니다. 다시 시도하세요."))}>로그아웃</button>
+    {error && <p role="alert">{error}</p>}
+  </section></main>;
 }
