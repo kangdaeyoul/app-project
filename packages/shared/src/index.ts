@@ -1666,7 +1666,7 @@ export type UserRole = 'admin' | 'staff' | 'worker' | 'customer';
 export type UserPermission = 'internalCosts' | 'siteFinance' | 'workerPayments' | 'editSchedule' | 'writeQuotes' | 'manageMaterials' | 'approveMaterials';
 export interface CurrentUser {
   authSource?: "supabase" | "demo" | "trial"; authProviders?: string[];
-  isDemo?:boolean;
+  isDemo?:boolean; roleAssigned?:boolean;
   phone?:string; approvalStatus?:"승인대기"|"승인"|"거절"|"비활성"; requestedCompany?:string; locked?:boolean; passwordResetRequired?:boolean; appliedAt?:string;
   id:string; companyId:string; loginId:string; email:string; name:string;
   displayName:string; role:UserRole; active:boolean; workerId:string|null;

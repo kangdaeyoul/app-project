@@ -297,7 +297,7 @@ export function SessionHeader() {
       {authMode === "trial" && <TrialControls/>}
       <button onClick={() => void logout().catch(() => setSignoutError("로그아웃에 실패했습니다. 다시 시도하세요."))}>로그아웃</button>
       {signoutError && <span role="alert">{signoutError}</span>}
-      {authMode === "supabase" && <form method="post" action="/api/auth/link/google"><button type="submit">Google 계정 연결</button><small>{account?.providers.join(" · ")}</small></form>}
+      {authMode === "supabase" && <GoogleAccountLink providers={account?.providers ?? []}/>}
       {profile&&<div className="account-profile-dialog" role="dialog" aria-modal="true" aria-label="내 정보"><button onClick={()=>setProfile(false)}>닫기</button><PersonalProfile/></div>}
     </div>
   );
@@ -311,7 +311,7 @@ export function AuthAccessNotice() {
     {account && <p>{account.email}</p>}
     <p>{access === "pending" ? "로그인은 완료되었습니다. 관리자가 소속 회사와 역할(관리자·사내직원·작업진행자·고객)을 지정하고 승인할 때까지 회사 자료에 접근할 수 없습니다." : access === "customer" ? "고객 역할로 승인되었습니다. 고객 전용 업무 화면은 준비 중이며 사내 업무 자료에는 접근할 수 없습니다." : "승인·활성 상태와 서버 연결을 확인해 주세요. 다른 회사 자료를 대신 표시하지 않습니다."}</p>
     <button onClick={()=>void refresh()}>승인 상태 다시 확인</button>
-    {account && <form method="post" action="/api/auth/link/google"><button type="submit">Google 계정 연결</button><p>연결된 제공자: {account.providers.join(" · ") || "확인 중"}</p></form>}
+    {account && <GoogleAccountLink providers={account.providers}/>}
     <button onClick={()=>void logout().catch(()=>setError("로그아웃을 완료하지 못했습니다. 다시 시도하세요."))}>로그아웃</button>
     {error && <p role="alert">{error}</p>}
   </section></main>;
@@ -332,4 +332,14 @@ function TrialControls() {
     <button disabled={busy} onClick={()=>{sessionStorage.setItem("demo-entry","tutorial");window.location.assign("/")}}>튜토리얼 다시보기</button>
     {error&&<p role="alert">{error}</p>}
   </section>;
+}
+
+function GoogleAccountLink({providers}:{providers:string[]}) {
+  const [busy,setBusy]=useState(false),[error,setError]=useState("");
+  async function link(){
+    setBusy(true);setError("");
+    try{const {url}=await authApi<{url:string}>("/auth/link/google?response=json",{method:"POST"});window.location.assign(url);}
+    catch(e){setError((e as Error).message);setBusy(false)}
+  }
+  return <div className="google-account-link"><button type="button" disabled={busy} onClick={()=>void link()}>{busy?"연결 준비 중…":"Google 계정 연결"}</button><small>연결된 제공자: {providers.join(" · ") || "확인 중"}</small>{error&&<p role="alert">{error}</p>}</div>;
 }

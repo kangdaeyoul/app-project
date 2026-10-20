@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import type { Request, Response } from 'express';
@@ -18,6 +18,8 @@ export interface AuthMembership {
 const permissionNames = ['internalCosts','siteFinance','workerPayments','editSchedule','writeQuotes','manageMaterials','approveMaterials'];
 @Injectable()
 export class SupabaseAuthService {
+  private readonly logger = new Logger(SupabaseAuthService.name);
+  private providerWarning = false;
   private requests = new WeakMap<object, Promise<{client: SupabaseClient; user: User; membership: AuthMembership}>>();
   constructor(
     @Inject(CompanyContext) private company: CompanyContext,
@@ -96,7 +98,7 @@ export class SupabaseAuthService {
     return {id:m.user_id,companyId:m.company_id ?? '',email:m.email,loginId:m.email,name:m.display_name,displayName:m.display_name,
       role:m.role ?? 'staff',active:m.active,locked:m.locked,workerId:m.worker_id,siteIds:m.site_ids,permissions:m.permissions,
       approvalStatus:({pending:'승인대기',approved:'승인',rejected:'거절',inactive:'비활성'} as const)[m.approval_status],requestedCompany:m.requested_company,appliedAt:m.created_at,
-      authSource:'supabase',authProviders:providers};
+      authSource:'supabase',roleAssigned:m.role!==null,authProviders:providers};
   }
   private allowed(m:AuthMembership) {return m.approval_status==='approved' && m.active && !m.locked && !!m.company_id && !!m.role;}
   private identity(m:AuthMembership):CompanyIdentity {
@@ -137,7 +139,14 @@ export class SupabaseAuthService {
     if(link)await this.load(req,res);
     const options={redirectTo:this.siteUrl()+'/api/auth/callback'};
     const {data,error}=link?await client.auth.linkIdentity({provider:'google',options}):await client.auth.signInWithOAuth({provider:'google',options});
-    if(error||!data.url)throw new BadRequestException('Google 연결을 시작하지 못했습니다. Provider와 계정 연결 설정을 확인하세요.');
+    if(error || !data?.url){
+      this.logger.error(JSON.stringify({event:link?'google_identity_link_failed':'google_login_failed',code:error?.code,status:error?.status,message:error?.message ?? 'Missing provider URL'}));
+      const manualDisabled=error?.code==='manual_linking_disabled' || /manual.*link.*disabled|manual.*link.*not enabled/i.test(error?.message ?? '');
+      throw new BadRequestException(link && manualDisabled
+        ? '현재 서비스에서 Google 계정 연결이 비활성화되어 있습니다. 관리자에게 Supabase의 수동 계정 연결 설정(Enable manual linking)을 확인해 달라고 요청하세요. 기존 로그인은 계속 이용할 수 있습니다.'
+        : link ? 'Google 계정을 연결하지 못했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.' : 'Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.');
+    }
+    if(link && req.query.response==='json'){res.json({url:data.url});return;}
     res.redirect(303,data.url);
   }
   async callback(req:Request,res:Response){
@@ -157,18 +166,42 @@ export class SupabaseAuthService {
     const {client}=await this.load(req,req.res!);
     const {data,error}=await client.from('app_memberships').select('*').or(`company_id.eq.${this.company.companyId},company_id.is.null`).order('created_at');
     if(error)throw this.failure();
-    return (data as AuthMembership[]).map(m=>this.currentUser(m));
+    const providerResult=await client.rpc('app_membership_providers');
+    if(providerResult.error && !this.providerWarning){this.providerWarning=true;this.logger.warn('로그인 제공자 조회 함수를 확인하세요: 004-membership-providers.sql (기존 승인 기능은 유지됩니다).');}
+    const providers=new Map<string,string[]>((providerResult.error ? [] : providerResult.data ?? []).map((row:any)=>[row.user_id,Array.isArray(row.providers)?row.providers.filter((p:any)=>typeof p==='string'):[]]));
+    const joined=new Map<string,string>((providerResult.error?[]:providerResult.data??[]).filter((row:any)=>typeof row.registered_at==='string').map((row:any)=>[row.user_id,row.registered_at]));
+    return (data as AuthMembership[]).map(m=>this.currentUser({...m,created_at:joined.get(m.user_id)??m.created_at},providers.get(m.user_id) ?? []));
   }
-  async save(req:Request,id:string,body:any){
+  async pendingCount(req:Request){
+    this.company.assertMember(true);
+    const {client}=await this.load(req,req.res!);
+    const {data,error}=await client.from('app_memberships').select('user_id').eq('approval_status','pending').or(`company_id.eq.${this.company.companyId},company_id.is.null`);
+    if(error)throw this.failure();
+    return {count:data.length};
+  }
+  async review(req:Request,id:string,body:any){
+    this.company.assertMember(true);
+    if(!body || !['approve','reject'].includes(body.action) || Object.keys(body).some(k=>!['action','companyId','role','workerId','siteIds','permissions'].includes(k)))throw new BadRequestException('승인 요청을 확인하세요.');
+    if(body.action==='approve')return this.save(req,id,{...body,approvalStatus:'승인',active:true,locked:false},true);
+    const {client}=await this.load(req,req.res!);
+    // Claim the rejected request into the reviewing company so other tenants cannot see it.
+    // No Auth user deletion, password or provider mutation occurs.
+    const {data,error}=await client.from('app_memberships').update({company_id:this.company.companyId,role:null,approval_status:'rejected',active:false,locked:false,worker_id:null,site_ids:[],permissions:[]}).eq('user_id',id).eq('approval_status','pending').select('*').single();
+    if(error||!data)throw new BadRequestException('이미 처리된 요청이거나 거절 권한이 없습니다. 목록을 새로고침하세요.');
+    return this.currentUser(data as AuthMembership);
+  }
+  async save(req:Request,id:string,body:any,pendingOnly=false){
     this.company.assertMember(true);
     if(body?.companyId!==this.company.companyId)throw new ForbiddenException('현재 회사에만 배정할 수 있습니다.');
     if(!['admin','staff','worker','customer'].includes(body.role)||!['승인대기','승인','거절','비활성'].includes(body.approvalStatus)||typeof body.active!=='boolean')throw new BadRequestException('역할과 승인 상태를 확인하세요.');
     if(!Array.isArray(body.siteIds)||body.siteIds.some((id:any)=>typeof id!=='string'||!this.sites.find(id))||!Array.isArray(body.permissions)||body.permissions.some((p:any)=>!permissionNames.includes(p))||(!['admin','staff'].includes(body.role)&&body.permissions.length))throw new BadRequestException('접근 범위를 확인하세요.');
     if(body.role==='worker'&&(!body.workerId||!this.workers.find(body.workerId)||this.workers.find(body.workerId)?.deletedAt))throw new BadRequestException('유효한 작업진행자를 연결하세요.');
     const {client}=await this.load(req,req.res!);
-    const {data,error}=await client.from('app_memberships').update({company_id:body.companyId,role:body.role,approval_status:({'승인대기':'pending','승인':'approved','거절':'rejected','비활성':'inactive'} as Record<string,string>)[body.approvalStatus],active:body.active,locked:body.locked===true,
-      worker_id:body.role==='worker'?body.workerId:null,site_ids:body.siteIds,permissions:body.permissions,display_name:typeof body.displayName==='string'?body.displayName.trim().slice(0,200):''}).eq('user_id',id).select('*').single();
-    if(error||!data)throw new BadRequestException('승인 변경을 저장하지 못했습니다. 현재 회사 권한과 마지막 관리자 유지 조건을 확인하세요.');
+    let update=client.from('app_memberships').update({company_id:body.companyId,role:body.role,approval_status:({'승인대기':'pending','승인':'approved','거절':'rejected','비활성':'inactive'} as Record<string,string>)[body.approvalStatus],active:body.active,locked:body.locked===true,
+      worker_id:body.role==='worker'?body.workerId:null,site_ids:body.siteIds,permissions:body.permissions,...(pendingOnly ? {} : {display_name:typeof body.displayName==='string'?body.displayName.trim().slice(0,200):''})}).eq('user_id',id);
+    if(pendingOnly)update=update.eq('approval_status','pending');
+    const {data,error}=await update.select('*').single();
+    if(error||!data)throw new BadRequestException(pendingOnly ? '이미 처리된 요청이거나 승인 권한이 없습니다. 목록을 새로고침하세요.' : '승인 변경을 저장하지 못했습니다. 현재 회사 권한과 마지막 관리자 유지 조건을 확인하세요.');
     return this.currentUser(data as AuthMembership);
   }
 }

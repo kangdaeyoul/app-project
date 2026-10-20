@@ -716,6 +716,13 @@ export class UsersController {
   @Get() list(@Req() req:Request) {
     return this.real.hasCredentials(req) ? this.real.list(req) : this.auth.list();
   }
+  @Get("pending-count") pendingCount(@Req() req:Request) {
+    return this.real.hasCredentials(req) ? this.real.pendingCount(req) : {count:0};
+  }
+  @Post(":id/approval") review(@Req() req:Request,@Param("id") id:string,@Body() body:unknown) {
+    if(!this.real.hasCredentials(req))throw new BadRequestException("실제 Supabase 가입 승인에만 사용할 수 있습니다.");
+    return this.real.review(req,id,body);
+  }
   @Get("options") options(@Req() req:Request) {
     return {...this.auth.options(),authMode:this.real.hasCredentials(req)?"supabase":"demo"};
   }

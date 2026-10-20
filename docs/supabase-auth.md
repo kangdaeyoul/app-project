@@ -317,3 +317,7 @@ PLAYWRIGHT_MODULE=/path/to/playwright node node_modules/tsx/dist/cli.mjs --tscon
 ### 운영의 로그인 없는 체험 기능
 
 운영 체험은 개발용 demo 로그인과 별개입니다. `DEMO_LOGIN_ENABLED=false`를 유지하며 별도 체험 세션/회사를 사용합니다. 실제 사용자는 체험 회사에 배정할 수 없습니다. [체험 모드와 운영자가 직접 적용할 추가 SQL](trial-mode.md)을 참고하세요. 추가 SQL은 `002-supabase-auth.sql` 뒤에 실행하며 자동 실행하지 않습니다.
+
+### 가입 승인 요청 UX와 제공자 조회
+
+관리자 홈/사용자 관리의 전용 승인 절차와 Google 계정 연결 오류 안내는 [가입 승인 관리](signup-approval.md)를 참고하세요. 다른 사용자의 검증된 로그인 제공자와 실제 Auth 가입일 조회에는 `004-membership-providers.sql`을 SQL Editor에서 직접 설치해야 합니다. 미설치 시에도 승인·거절은 동작하며 제공자는 확인 필요로 표시합니다.

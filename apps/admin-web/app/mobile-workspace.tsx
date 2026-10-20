@@ -12,6 +12,7 @@ import {
   WorkerSchedule,
   SCHEDULE_COLORS,
 } from "@jongro/shared";
+import {PendingApprovalCard} from "./approval-requests";
 import { authApi, useAuth, SessionHeader } from "./auth-provider";
 import InstructionsPanel from "./instructions-panel";
 import AfterServicePanel from "./after-service-panel";
@@ -231,6 +232,7 @@ export default function MobileWorkspace() {
           />
         ) : menu === "홈" || (worker && menu === "오늘 일정") ? (
           <>
+            <PendingApprovalCard onOpen={()=>navigate("사용자 관리")}/>
             <p className="worker-today-label">{today()} · 오늘 할 일</p>
             <FieldHelper pose="greeting" title={`${user?.displayName}님, 오늘도 안전하게.`} />
             <div className="mobile-stats">

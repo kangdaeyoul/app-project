@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import {ApprovalRequests} from "./approval-requests";
+import {permissionLabels} from "./user-permissions";
 import { Company } from "@jongro/shared";
 import {
   authApi,
@@ -9,25 +11,16 @@ import {
   UserRole,
 } from "./auth-provider";
 type Form = Omit<CurrentUser, "id"> & { id?: string; password: string };
-interface Options {
+export interface UserOptions {
   authMode?: string;
   companies: Company[];
   sites: { id: string; name: string }[];
   workers: { id: string; name: string; displayName: string }[];
 }
-const permissionLabels = [
-  ["internalCosts", "내부 원가 조회"],
-  ["manageMaterials", "자재 편집·업로드 검토"],
-  ["approveMaterials", "자재 일괄등록 최종 승인"],
-  ["siteFinance", "현장손익·계약금액 조회"],
-  ["workerPayments", "작업진행자 지급액 조회"],
-  ["editSchedule", "일정 수정"],
-  ["writeQuotes", "견적 작성"],
-] as const;
 export default function UsersPanel() {
   const { company, refresh } = useAuth();
   const [rows, setRows] = useState<CurrentUser[]>([]),
-    [options, setOptions] = useState<Options | null>(null),
+    [options, setOptions] = useState<UserOptions | null>(null),
     [form, setForm] = useState<Form | null>(null),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -49,16 +42,19 @@ export default function UsersPanel() {
     try {
       const [users, opts] = await Promise.all([
         authApi<CurrentUser[]>("/users"),
-        authApi<Options>("/users/options"),
+        authApi<UserOptions>("/users/options"),
       ]);
       setRows(users);
       setOptions(opts);
+      setError("");
     } catch (e) {
       setError((e as Error).message);
     }
   }
   useEffect(() => {
-    load();
+    void load();
+    const timer=setInterval(load,30000);window.addEventListener("focus",load);
+    return()=>{clearInterval(timer);window.removeEventListener("focus",load)};
   }, []);
   function change<K extends keyof Form>(key: K, value: Form[K]) {
     setForm((f) => (f ? { ...f, [key]: value } : f));
@@ -103,6 +99,7 @@ export default function UsersPanel() {
           사용자 등록
         </button>
       </div>
+      {options?.authMode === "supabase" && <ApprovalRequests rows={rows} options={options} onChanged={load}/>}
       {options?.authMode === "supabase" && <p>Supabase에 가입한 사용자가 승인대기로 표시됩니다. 요청한 회사명을 확인하고, 소속 회사·역할·승인 상태를 지정하세요. 로그인 제공자가 추가되어도 동일한 Supabase 사용자 UUID의 승인을 유지합니다. 비밀번호는 이 화면에서 설정하지 않습니다.</p>}
       {error && (
         <p className="error" role="alert">
@@ -293,7 +290,7 @@ export default function UsersPanel() {
                   {u.loginId}
                   <small>{u.email}</small>
                 </td>
-                <td>{u.companyId ? ROLE_LABELS[u.role] : "미지정"}{u.requestedCompany && <small>신청 회사: {u.requestedCompany}</small>}</td>
+                <td>{u.companyId && u.roleAssigned!==false ? ROLE_LABELS[u.role] : "미지정"}{u.requestedCompany && <small>신청 회사: {u.requestedCompany}</small>}</td>
                 <td>{u.approvalStatus??(u.active?"승인":"비활성")} · {u.locked?"잠금":u.active?"활성":"비활성"}{u.passwordResetRequired&&" · 비밀번호 초기화 필요"}</td>
                 <td>
                   {options?.workers.find((w) => w.id === u.workerId)
@@ -302,7 +299,7 @@ export default function UsersPanel() {
                 <td>
                   <button
                     onClick={() => {
-                      setForm({ ...u, role: (u.companyId ? u.role : "") as UserRole, password: "" });
+                      setForm({ ...u, role: (u.companyId && u.roleAssigned!==false ? u.role : "") as UserRole, password: "" });
                       setNotice("");
                     }}
                   >
