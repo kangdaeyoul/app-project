@@ -1667,7 +1667,7 @@ export type UserPermission = 'internalCosts' | 'siteFinance' | 'workerPayments' 
 export interface CurrentUser {
   authSource?: "supabase" | "demo" | "trial"; authProviders?: string[];
   isDemo?:boolean; roleAssigned?:boolean;
-  phone?:string; approvalStatus?:"승인대기"|"승인"|"거절"|"비활성"; requestedCompany?:string; locked?:boolean; passwordResetRequired?:boolean; appliedAt?:string;
+  requestedRole?:"staff"|"worker"|"customer"; phone?:string; approvalStatus?:"승인대기"|"승인"|"거절"|"비활성"; requestedCompany?:string; locked?:boolean; passwordResetRequired?:boolean; appliedAt?:string;
   id:string; companyId:string; loginId:string; email:string; name:string;
   displayName:string; role:UserRole; active:boolean; workerId:string|null;
   siteIds:string[]; permissions:UserPermission[];

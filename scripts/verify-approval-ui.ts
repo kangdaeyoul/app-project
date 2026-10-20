@@ -7,7 +7,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const memberId='10000000-0000-4000-8000-000000000001',adminId='10000000-0000-4000-8000-000000000002',googleId='10000000-0000-4000-8000-000000000003';
 (async()=>{
  process.env.DEMO_LOGIN_ENABLED='false';
- const f=await fixture();await f.a.listen(4000,'127.0.0.1');
+ const f=await fixture();Object.assign(f.people.get('member').user_metadata,{phone:'010-5555-1234',requested_role:'worker'});await f.a.listen(4000,'127.0.0.1');
  f.people.set('googleApplicant',{id:googleId,email:'google@example.test',aud:'authenticated',role:'authenticated',created_at:'2026-10-19T00:00:00Z',user_metadata:{display_name:'Google 신청자',requested_company:'예시 신청 회사'},identities:[{id:'google',user_id:googleId,provider:'google'}]});
  const web=spawn(process.execPath,[process.cwd()+'/node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port','3000'],{cwd:process.cwd()+'/apps/admin-web',stdio:'ignore'});
  const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const errors:string[]=[];
@@ -27,6 +27,7 @@ const memberId='10000000-0000-4000-8000-000000000001',adminId='10000000-0000-400
    await ap.getByRole('heading',{name:/가입 승인 요청 2건/}).waitFor();
    const gc=ap.getByRole('article',{name:'google@example.test 가입 요청',exact:true});await gc.getByText('Google',{exact:true}).waitFor();await gc.getByText('예시 신청 회사',{exact:true}).waitFor();
    const card=ap.getByRole('article',{name:'member@example.test 가입 요청',exact:true});
+   await card.getByText('010-5555-1234',{exact:true}).waitFor();await card.getByText(/작업진행자 · 승인 참고용/).waitFor();
    await card.getByRole('button',{name:'상세보기',exact:true}).click();await ap.getByRole('dialog',{name:'가입 요청 상세',exact:true}).getByRole('button',{name:'닫기',exact:true}).click();
    await card.getByRole('button',{name:'승인하기',exact:true}).click();
    const dialog=ap.getByRole('dialog',{name:'가입 승인 설정',exact:true});await dialog.waitFor();assert.equal(f.rows.get(memberId).approval_status,'pending');

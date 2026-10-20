@@ -7,7 +7,7 @@ import {permissionLabels} from './user-permissions';
 const providerNames:Record<string,string>={email:'이메일',google:'Google',kakao:'Kakao',naver:'Naver',apple:'Apple'};
 function ApplicantInfo({user}:{user:CurrentUser}){
   const joined=user.appliedAt && !Number.isNaN(Date.parse(user.appliedAt))?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(new Date(user.appliedAt)):'—';
-  return <dl className="applicant-info"><dt>이름</dt><dd>{user.displayName || user.name || '미입력'}</dd><dt>이메일</dt><dd>{user.email}</dd><dt>가입일</dt><dd>{joined}</dd><dt>신청 회사명</dt><dd>{user.requestedCompany || '미입력'}</dd><dt>로그인 제공자</dt><dd>{user.authProviders?.length?user.authProviders.map(p=>providerNames[p]??p).join(' · '):'확인 필요 · 제공자 조회 설정을 확인하세요'}</dd><dt>현재 상태</dt><dd>승인대기</dd></dl>;
+  return <dl className="applicant-info"><dt>이름</dt><dd>{user.displayName || user.name || '미입력'}</dd><dt>이메일</dt><dd>{user.email}</dd><dt>휴대전화</dt><dd>{user.phone || "미입력"}</dd><dt>희망 역할</dt><dd>{user.requestedRole?ROLE_LABELS[user.requestedRole]:"미입력"} · 승인 참고용</dd><dt>가입일</dt><dd>{joined}</dd><dt>신청 회사명</dt><dd>{user.requestedCompany || '미입력'}</dd><dt>로그인 제공자</dt><dd>{user.authProviders?.length?user.authProviders.map(p=>providerNames[p]??p).join(' · '):'확인 필요 · 제공자 조회 설정을 확인하세요'}</dd><dt>현재 상태</dt><dd>승인대기</dd></dl>;
 }
 export function ApprovalRequests({rows,options,onChanged}:{rows:CurrentUser[];options:UserOptions;onChanged:()=>Promise<void>}){
   const pending=rows.filter(u=>u.approvalStatus==='승인대기');

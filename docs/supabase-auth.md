@@ -321,3 +321,7 @@ PLAYWRIGHT_MODULE=/path/to/playwright node node_modules/tsx/dist/cli.mjs --tscon
 ### 가입 승인 요청 UX와 제공자 조회
 
 관리자 홈/사용자 관리의 전용 승인 절차와 Google 계정 연결 오류 안내는 [가입 승인 관리](signup-approval.md)를 참고하세요. 다른 사용자의 검증된 로그인 제공자와 실제 Auth 가입일 조회에는 `004-membership-providers.sql`을 SQL Editor에서 직접 설치해야 합니다. 미설치 시에도 승인·거절은 동작하며 제공자는 확인 필요로 표시합니다.
+
+### 가입 오류 구분·휴대전화·희망 역할 보존
+
+[이메일 가입/승인 완성과 새 SQL 실행 순서](signup-completion.md)를 참고하세요. 새 `005-signup-profile.sql`은 기존 승인/관리자 정보를 보존하면서 가입 참고 정보를 추가합니다. 운영 SQL은 직접 실행해야 하며 자동 적용하지 않습니다.

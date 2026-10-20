@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import {authDiagnostic,googleLinkFailure,signupFailure,duplicateSignupMessage,signupSuccessMessage} from "./auth-errors";
+import { BadRequestException, ForbiddenException, Inject, Injectable, HttpException, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import type { Request, Response } from 'express';
@@ -10,6 +11,7 @@ import { WORKERS_REPOSITORY, WorkersRepository } from './workers.repository';
 
 export interface AuthMembership {
   user_id: string; email: string; display_name: string; requested_company: string;
+  phone?:string; requested_role?:'staff'|'worker'|'customer'|null; registered_at?:string|null;
   company_id: string | null; role: UserRole | null;
   approval_status: 'pending' | 'approved' | 'rejected' | 'inactive';
   active: boolean; locked: boolean; worker_id: string | null;
@@ -97,8 +99,8 @@ export class SupabaseAuthService {
   private currentUser(m:AuthMembership, providers:string[]=[]):CurrentUser {
     return {id:m.user_id,companyId:m.company_id ?? '',email:m.email,loginId:m.email,name:m.display_name,displayName:m.display_name,
       role:m.role ?? 'staff',active:m.active,locked:m.locked,workerId:m.worker_id,siteIds:m.site_ids,permissions:m.permissions,
-      approvalStatus:({pending:'승인대기',approved:'승인',rejected:'거절',inactive:'비활성'} as const)[m.approval_status],requestedCompany:m.requested_company,appliedAt:m.created_at,
-      authSource:'supabase',roleAssigned:m.role!==null,authProviders:providers};
+      approvalStatus:({pending:'승인대기',approved:'승인',rejected:'거절',inactive:'비활성'} as const)[m.approval_status],requestedCompany:m.requested_company,appliedAt:m.registered_at ?? m.created_at,
+      phone:m.phone ?? '',requestedRole:m.requested_role ?? undefined,authSource:'supabase',roleAssigned:m.role!==null,authProviders:providers};
   }
   private allowed(m:AuthMembership) {return m.approval_status==='approved' && m.active && !m.locked && !!m.company_id && !!m.role;}
   private identity(m:AuthMembership):CompanyIdentity {
@@ -129,10 +131,22 @@ export class SupabaseAuthService {
   }
   async signup(req:Request,res:Response,body:any){
     for(const k of ['email','name','password'])if(typeof body?.[k]!=='string'||!body[k].trim()||body[k].length>200)throw new BadRequestException('가입 정보를 확인하세요.');
-    if(body.password.length<8)throw new BadRequestException('비밀번호는 8자 이상이어야 합니다.');
-    const {error}=await this.client(req,res).auth.signUp({email:body.email.trim(),password:body.password,options:{emailRedirectTo:this.siteUrl()+'/api/auth/callback',data:{display_name:body.name.trim(),requested_company:typeof body.companyName==='string'?body.companyName.slice(0,200):''}}});
-    if(error)throw new BadRequestException('가입 요청을 처리하지 못했습니다. 이메일과 비밀번호 조건을 확인하세요.');
-    return {status:'승인대기',message:'이메일 인증 후 로그인하세요. 업무 화면은 관리자가 회사와 역할을 지정하고 승인한 뒤 사용할 수 있습니다.'};
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()))throw new BadRequestException({message:'이메일 주소 형식을 확인해 주세요.',code:'SIGNUP_INVALID_EMAIL'});
+    if(body.password.length<8)throw new BadRequestException({message:'비밀번호는 8자 이상이어야 합니다.',code:'SIGNUP_PASSWORD_POLICY'});
+    if(body.role!==undefined&&!['staff','worker','customer'].includes(body.role))throw new BadRequestException('희망 가입유형을 확인하세요. 실제 역할은 관리자가 지정합니다.');
+    if(body.phone!==undefined&&(typeof body.phone!=='string'||body.phone.length>40||!/^[-+()0-9\s]*$/.test(body.phone)))throw new BadRequestException('휴대전화 번호를 확인해 주세요.');
+    const {data,error}=await this.client(req,res).auth.signUp({email:body.email.trim(),password:body.password,options:{emailRedirectTo:this.siteUrl()+'/api/auth/callback',data:{display_name:body.name.trim(),phone:(body.phone??'').trim(),requested_role:body.role??'staff',requested_company:typeof body.companyName==='string'?body.companyName.trim().slice(0,200):''}}});
+    if(error){
+      this.logger.error(authDiagnostic('email_signup_failed',error,[body.password,body.email,body.phone??'']));
+      const failure=signupFailure(error);throw new HttpException({message:failure.message,code:failure.code},failure.status);
+    }
+    if(!data.user){this.logger.error(authDiagnostic('email_signup_failed',{status:503,message:'Missing signup user'}));throw new HttpException({message:'회원가입 서버 연결을 확인해 주세요.',code:'SIGNUP_SERVER_ERROR'},503);}
+    // Supabase may mask an existing confirmed account as success with an empty identity list.
+    if(data.user && Array.isArray(data.user.identities) && data.user.identities.length===0){
+      this.logger.warn(authDiagnostic('email_signup_duplicate',{code:'obfuscated_existing_user',status:409,message:'Existing account response without identities'}));
+      throw new HttpException({message:duplicateSignupMessage,code:'SIGNUP_EMAIL_EXISTS'},409);
+    }
+    return {status:'승인대기',message:signupSuccessMessage};
   }
   async google(req:Request,res:Response,link=false){
     const client=this.client(req,res);
@@ -140,11 +154,8 @@ export class SupabaseAuthService {
     const options={redirectTo:this.siteUrl()+'/api/auth/callback'};
     const {data,error}=link?await client.auth.linkIdentity({provider:'google',options}):await client.auth.signInWithOAuth({provider:'google',options});
     if(error || !data?.url){
-      this.logger.error(JSON.stringify({event:link?'google_identity_link_failed':'google_login_failed',code:error?.code,status:error?.status,message:error?.message ?? 'Missing provider URL'}));
-      const manualDisabled=error?.code==='manual_linking_disabled' || /manual.*link.*disabled|manual.*link.*not enabled/i.test(error?.message ?? '');
-      throw new BadRequestException(link && manualDisabled
-        ? '현재 서비스에서 Google 계정 연결이 비활성화되어 있습니다. 관리자에게 Supabase의 수동 계정 연결 설정(Enable manual linking)을 확인해 달라고 요청하세요. 기존 로그인은 계속 이용할 수 있습니다.'
-        : link ? 'Google 계정을 연결하지 못했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.' : 'Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.');
+      this.logger.error(authDiagnostic(link?'google_identity_link_failed':'google_login_failed',error ?? {message:'Missing provider URL'}));
+      throw new BadRequestException(link ? googleLinkFailure(error) : 'Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.');
     }
     if(link && req.query.response==='json'){res.json({url:data.url});return;}
     res.redirect(303,data.url);

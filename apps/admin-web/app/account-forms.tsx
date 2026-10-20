@@ -22,15 +22,17 @@ export function SignupForm({
     <form
       onSubmit={async (e) => {
         e.preventDefault();
+        if(busy)return;
         setBusy(true);
         setError("");
+        setNotice("");
         try {
-          await authApi("/auth/signup", {
+          const result=await authApi<{message?:string}>("/auth/signup", {
             method: "POST",
             body: JSON.stringify(form),
           });
           setNotice(
-            "가입 신청이 접수되었습니다. 관리자의 승인 후 로그인할 수 있습니다.",
+            result.message ?? "가입 신청이 완료되었습니다. 이메일 인증 후 로그인해 주세요. 관리자의 승인 후 업무공간을 사용할 수 있습니다.",
           );
           setForm({ ...form, password: "" });
         } catch (e) {
@@ -54,7 +56,7 @@ export function SignupForm({
               required
               autoComplete={k === "password" ? "new-password" : undefined}
               type={
-                k === "password" ? "password" : k === "email" ? "email" : "text"
+                k === "password" ? "password" : k === "email" ? "email" : k === "phone" ? "tel" : "text"
               }
               minLength={k === "password" ? 8 : undefined}
               placeholder={k === "companyName" ? "소속 회사명을 직접 입력하세요" : ["이름", "이메일", "휴대전화", "회사명", "8자 이상 비밀번호"][i]}
