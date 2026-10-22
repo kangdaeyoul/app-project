@@ -11,3 +11,6 @@ apps/admin-web/public/pdf.worker.min.mjs
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Local task scratch files and verification logs
+/work/

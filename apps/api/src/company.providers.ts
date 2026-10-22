@@ -1,3 +1,4 @@
+import { CorePersistence } from "./core-persistence";
 import { MaterialPersistence } from "./material-persistence";
 import { STANDARD_WORK_REPOSITORY, MemoryStandardWorkRepository } from './standard-work.repository';
 import {
@@ -103,9 +104,9 @@ export const COMPANY_DATA_PROVIDERS: Provider[] = [
   },
   {
     provide: CUSTOMERS_REPOSITORY,
-    inject: [CompanyContext, AuditRecorder],
-    useFactory: (context: CompanyContext, audit: AuditRecorder) =>
-      companyRepository(context, (seed) => new SampleCustomersRepository(seed)),
+    inject: [CorePersistence, CompanyContext, AuditRecorder],
+    useFactory: (store: CorePersistence, context: CompanyContext, audit: AuditRecorder) =>
+      store.repository("customers", (seed) => new SampleCustomersRepository(seed)),
   },
   {
     provide: PHOTO_REPORT_STORAGE,
@@ -178,15 +179,16 @@ export const COMPANY_DATA_PROVIDERS: Provider[] = [
   },
   {
     provide: DAILY_WORK_REPOSITORY,
-    inject: [CompanyContext, PHOTO_REPOSITORY, AuditRecorder],
+    inject: [CorePersistence, CompanyContext, PHOTO_REPOSITORY, AuditRecorder],
     useFactory: (
+      store: CorePersistence,
       context: CompanyContext,
       photos: PhotoRepository,
       audit: AuditRecorder,
     ) =>
       auditedRepository(
-        companyRepository(
-          context,
+        store.repository(
+          "daily_work",
           (seed) => new SampleDailyWorkRepository(photos, seed),
         ),
         "일일작업",
@@ -195,11 +197,11 @@ export const COMPANY_DATA_PROVIDERS: Provider[] = [
   },
   {
     provide: WORKERS_REPOSITORY,
-    inject: [CompanyContext, AuditRecorder],
-    useFactory: (context: CompanyContext, audit: AuditRecorder) =>
+    inject: [CorePersistence, CompanyContext, AuditRecorder],
+    useFactory: (store: CorePersistence, context: CompanyContext, audit: AuditRecorder) =>
       auditedRepository(
-        companyRepository(
-          context,
+        store.repository(
+          "workers",
           (seed) => new SampleWorkersRepository(undefined, seed),
         ),
         "작업진행자",
@@ -208,11 +210,11 @@ export const COMPANY_DATA_PROVIDERS: Provider[] = [
   },
   {
     provide: SITES_REPOSITORY,
-    inject: [CompanyContext, AuditRecorder],
-    useFactory: (context: CompanyContext, audit: AuditRecorder) =>
+    inject: [CorePersistence, CompanyContext, AuditRecorder],
+    useFactory: (store: CorePersistence, context: CompanyContext, audit: AuditRecorder) =>
       auditedRepository(
-        companyRepository(
-          context,
+        store.repository(
+          "sites",
           (seed) => new SampleSitesRepository(undefined, seed),
         ),
         "현장",

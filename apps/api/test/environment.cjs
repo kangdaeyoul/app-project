@@ -1,3 +1,5 @@
+process.env.CORE_STORAGE = 'memory';
+delete process.env.CORE_DATABASE_URL;
 // Never let regression tests connect to an operator's deployment database.
 // Persistence suites explicitly provision their own isolated temporary databases.
 process.env.MATERIAL_STORAGE = 'memory';

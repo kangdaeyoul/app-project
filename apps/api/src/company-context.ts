@@ -25,6 +25,12 @@ export const SAMPLE_IDENTITY: CompanyIdentity = {
 // Only trusted server authentication adapters may establish this context.
 @Injectable()
 export class CompanyContext {
+  private readonly durableCompany = new AsyncLocalStorage<Company>();
+  withCompanyState<T>(company: Company, work: () => T): T { return this.durableCompany.run(company, work); }
+  hydrate(company: Company) {
+    if (company.id.startsWith("trial_")) throw Error("Trial cannot be durable");
+    this.companies.set(company.id, structuredClone(company));
+  }
   private readonly operational = new AsyncLocalStorage<boolean>();
   get operationalWrite() {
     return this.operational.getStore() === true;
@@ -75,7 +81,9 @@ export class CompanyContext {
   }
   settings() {
     this.assertMember();
-    return structuredClone(this.companies.get(this.companyId)!);
+    const state = this.durableCompany.getStore();
+    if (state && state.id !== this.companyId) throw new ForbiddenException();
+    return structuredClone(state ?? this.companies.get(this.companyId)!);
   }
   run<T>(identity: CompanyIdentity, work: () => T): T {
     return this.local.run(structuredClone(identity), () => {
@@ -87,7 +95,9 @@ export class CompanyContext {
     this.assertMember(true);
     if (company.id !== this.companyId)
       throw new ForbiddenException("현재 회사의 설정만 변경할 수 있습니다.");
-    this.companies.set(company.id, structuredClone(company));
+    const state = this.durableCompany.getStore();
+    if (state) Object.assign(state, structuredClone(company));
+    else this.companies.set(company.id, structuredClone(company));
   }
   signupCompany(name: string) {
     const normalized = name.replace(/\s+/g, "");

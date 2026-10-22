@@ -7,6 +7,7 @@ import { CompanyContext } from "./company-context";
 export function companyRepository<T extends object>(
   context: CompanyContext,
   create: (seed: boolean, companyId?: string) => T,
+  resolve?: () => T | undefined,
 ): T {
   const sample = create(process.env.NODE_ENV !== "production" || process.env.APP_ENV === "test");
   const methods = new Set(
@@ -67,7 +68,7 @@ export function companyRepository<T extends object>(
           partition = { companyId, adapter: create(context.trialSeed(companyId), companyId) };
           partitions.set(companyId, partition);
         }
-        const adapter = partition.adapter;
+        const adapter = resolve?.() ?? partition.adapter;
         const method = Reflect.get(adapter, property);
         if (typeof method !== "function")
           throw new Error(`Unknown repository method: ${String(property)}`);

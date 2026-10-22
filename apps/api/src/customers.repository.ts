@@ -9,6 +9,9 @@ export interface CustomersRepository {
   remove(id: string): void;
 }
 export class SampleCustomersRepository implements CustomersRepository {
+  snapshot() { return structuredClone({ records: this.records }); }
+  loadSnapshot(state: ReturnType<SampleCustomersRepository["snapshot"]>) { this.records = structuredClone(state.records); }
+
   private records: Customer[] = [
     "종로 오피스",
     "혜화 상가 관리사무소",

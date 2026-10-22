@@ -23,6 +23,9 @@ export interface DailyWorkRepository {
 }
 // Two normalized collections model daily_work and daily_work_participants.
 export class SampleDailyWorkRepository implements DailyWorkRepository {
+  snapshot() { return structuredClone({ records: this.records, participants: this.participants, catalog: this.catalog, usages: this.usages }); }
+  loadSnapshot(state: ReturnType<SampleDailyWorkRepository["snapshot"]>) { this.records = structuredClone(state.records); this.participants = structuredClone(state.participants); this.catalog = structuredClone(state.catalog); this.usages = structuredClone(state.usages); }
+
   private records: DailyWorkRecord[];
   private participants: DailyWorkParticipant[];
   private catalog: Material[] = [];

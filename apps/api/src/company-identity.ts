@@ -1,5 +1,6 @@
+import { CorePersistence } from "./core-persistence";
 import { PermissionService } from "./permission.service";
-import { map, mergeMap } from "rxjs/operators";
+import { mergeMap } from "rxjs/operators";
 import { AuditRecorder } from "./audit-recorder";
 import { BadRequestException } from "@nestjs/common";
 import {
@@ -10,7 +11,7 @@ import {
   Injectable,
   NestInterceptor,
 } from "@nestjs/common";
-import { Observable, from } from "rxjs";
+import { Observable, from, lastValueFrom } from "rxjs";
 import {
   CompanyContext,
   CompanyIdentity,
@@ -29,6 +30,7 @@ export class SampleCompanyIdentityProvider implements CompanyIdentityProvider {
 @Injectable()
 export class CompanyIdentityInterceptor implements NestInterceptor {
   constructor(
+    @Inject(CorePersistence) private readonly core: CorePersistence,
     @Inject(CompanyContext) private readonly context: CompanyContext,
     @Inject(COMPANY_IDENTITY)
     private readonly identities: CompanyIdentityProvider,
@@ -117,11 +119,11 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
       this.context.run(identity, () =>
         this.audit.withOperation({ reason: reason.trim() }, () =>
           (() => {
-            this.permissions.authorize(controller, handler, request);
-            return next
-              .handle()
-              .pipe(map((data) => this.permissions.project(controller, data)))
-              .subscribe(subscriber);
+            return from(this.core.run(async () => {
+              this.permissions.authorize(controller, handler, request);
+              const data = await lastValueFrom(next.handle());
+              return this.permissions.project(controller, data);
+            })).subscribe(subscriber);
           })(),
         ),
       ),

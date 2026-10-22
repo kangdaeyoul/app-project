@@ -20,6 +20,9 @@ export interface WorkersRepository {
   work(id: string): WorkerWork[];
 }
 export class SampleWorkersRepository implements WorkersRepository {
+  snapshot() { return structuredClone({ workers: this.workers, overrides: [...this.overrides], records: this.records }); }
+  loadSnapshot(state: ReturnType<SampleWorkersRepository["snapshot"]>) { this.workers = structuredClone(state.workers); this.overrides = new Map(structuredClone(state.overrides)); this.records = structuredClone(state.records); }
+
   private workers: Worker[] = [
     {
       id: "W001",

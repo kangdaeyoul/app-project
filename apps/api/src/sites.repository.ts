@@ -11,6 +11,9 @@ export interface SitesRepository {
 }
 // Process-local adapter: restart restores samples. Replace via DI for PostgreSQL.
 export class SampleSitesRepository implements SitesRepository {
+  snapshot() { return structuredClone({ sites: this.sites }); }
+  loadSnapshot(state: ReturnType<SampleSitesRepository["snapshot"]>) { this.sites.splice(0, this.sites.length, ...structuredClone(state.sites)); }
+
   private readonly sites: Site[];
   constructor(today = seoulToday(), seed = true) {
     if (!seed) { this.sites = []; return; }

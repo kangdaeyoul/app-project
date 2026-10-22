@@ -1,3 +1,4 @@
+import { CorePersistence } from "./core-persistence";
 import {authDiagnostic,googleLinkFailure,signupFailure,duplicateSignupMessage,signupSuccessMessage} from "./auth-errors";
 import { BadRequestException, ForbiddenException, Inject, Injectable, HttpException, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
@@ -24,6 +25,7 @@ export class SupabaseAuthService {
   private providerWarning = false;
   private requests = new WeakMap<object, Promise<{client: SupabaseClient; user: User; membership: AuthMembership}>>();
   constructor(
+    @Inject(CorePersistence) private core: CorePersistence,
     @Inject(CompanyContext) private company: CompanyContext,
     @Inject(SITES_REPOSITORY) private sites: SitesRepository,
     @Inject(WORKERS_REPOSITORY) private workers: WorkersRepository,
@@ -103,14 +105,15 @@ export class SupabaseAuthService {
       phone:m.phone ?? '',requestedRole:m.requested_role ?? undefined,authSource:'supabase',roleAssigned:m.role!==null,authProviders:providers};
   }
   private allowed(m:AuthMembership) {return m.approval_status==='approved' && m.active && !m.locked && !!m.company_id && !!m.role;}
-  private identity(m:AuthMembership):CompanyIdentity {
+  private async identity(m:AuthMembership):Promise<CompanyIdentity> {
     if(m.company_id?.startsWith('trial_')) throw new ForbiddenException('체험 회사는 실제 계정에 배정할 수 없습니다.');
     if(!this.allowed(m)) throw new ForbiddenException('관리자의 회사·역할 지정 및 승인이 필요합니다.');
     if(m.role==='worker' && !m.worker_id) throw new ForbiddenException('작업진행자 연결이 필요합니다.');
     const i:CompanyIdentity={authenticated:true,appRole:m.role!,companyId:m.company_id!,userId:m.user_id,userDisplayName:m.display_name,
       permissions:m.permissions,accessibleSiteIds:m.role==='admin'?undefined:m.site_ids,workerId:m.role==='worker'?(m.worker_id ?? undefined):undefined,
       canEditSchedule:m.role==='admin'||m.permissions.includes('editSchedule'),memberships:[{companyId:m.company_id!,userId:m.user_id,role:m.role==='admin'?'admin':m.role==='staff'?'member':'viewer'}]};
-    this.company.run(i,()=>{if(i.workerId && (!this.workers.find(i.workerId)||this.workers.find(i.workerId)?.deletedAt))throw new ForbiddenException('유효한 작업진행자 연결이 필요합니다.');});
+    await this.core.prepareCompany(i.companyId,i.workerId);
+    if(this.core.mode === "memory") this.company.run(i,()=>{if(i.workerId && (!this.workers.find(i.workerId)||this.workers.find(i.workerId)?.deletedAt))throw new ForbiddenException('유효한 작업진행자 연결이 필요합니다.');});
     return i;
   }
   async resolve(req:Request) { const {membership}=await this.load(req,req.res!);return this.identity(membership); }
@@ -119,7 +122,7 @@ export class SupabaseAuthService {
     const providers=[...new Set((user.identities ?? []).map(i=>i.provider))];
     const account={id:user.id,email:user.email ?? '',providers,approvalStatus:m.approval_status};
     if(!this.allowed(m)) return {user:null,company:null,account,access:m.approval_status==='pending'?'pending':'blocked',appBrand:APP_BRAND,authMode:'supabase'};
-    const identity=this.identity(m);
+    const identity=await this.identity(m);
     return this.company.run(identity,()=>({user:this.currentUser(m,providers),company:companyBranding(this.company.settings()),account,access:m.role==='customer'?'customer':'approved',appBrand:APP_BRAND,authMode:'supabase'}));
   }
   async login(req:Request,res:Response,body:any){

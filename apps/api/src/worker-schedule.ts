@@ -58,6 +58,12 @@ export class WorkerScheduleService {
     );
   }
   private allowed(siteId: string) {
+    const workerId = this.context.identity.workerId;
+    if (workerId) return this.sites.find(siteId)?.managerId === workerId ||
+      this.daily.list().some(d => d.siteId === siteId &&
+        (d.managerId === workerId || d.participants.some(p => p.workerId === workerId))) ||
+      this.asRepo.list().some(a => !a.deletedAt && a.siteId === siteId &&
+        (a.managerId === workerId || a.participantIds.includes(workerId)));
     return (
       this.admin() ||
       this.context.identity.accessibleSiteIds === undefined ||
