@@ -101,3 +101,30 @@ SQL 적용 전 호환성을 위해 **기본 CORE_STORAGE=memory**를 유지한�
 - 실 Supabase 마이그레이션과 접속 테스트는 실행하지 않음. 모든 DB 검증은 임시 로컬 PostgreSQL 호환 PGlite.
 - 기존 서비스 health 접근은 클라우드 프록시 CONNECT 403으로 차단되어 Render 배포 성공 여부를 확인할 수 없음.
   Render 설정 변경/서비스 생성은 수행하지 않음.
+
+## Render DB 초기화 진단
+
+`onModuleInit`은 먼저 `SELECT 1`로 연결을 확인한 후 7개 테이블에 SELECT/LIMIT 0만 실행한다.
+실패 시 `CORE_DB_INIT_FAILED code=... stage=... table=... message=...`를 기록하며 초기화를 중단한다.
+`stage=connection table=none`은 로그인/네트워크/TLS 단계, `stage=schema/table probe`는
+연결 성공 후 스키마·테이블 확인 단계다. 실패한 테이블에서 즉시 멈춘다. SQL 자동 생성/실행이나
+메모리 fallback은 추가하지 않았다.
+
+원본 Error 객체, stack, cause, detail, hint는 로그에 전달하지 않는다. 알려진 PostgreSQL·pooler·
+네트워크·TLS 오류만 식별 가능한 고정 문구로 출력하며, 사용자명/호스트/주소 등은 제거한다.
+미등록 오류는 code와 `unrecognized database error (raw message withheld for security)`로 표시한다.
+이 경우 원문 전체나 접속 URL을 공유하지 말고 우선 안전한 code/stage/table로 추가 진단한다.
+
+설치된 pg 8.23.x/pg-connection-string 2.x는 기본적으로 sslmode=prefer/require/verify-ca를
+verify-full의 별칭으로 처리한다. CORE_DATABASE_URL에 이러한 모드가 있고 uselibpqcompat=true가
+명시되지 않았다면 코드 내부에서 verify-full로 정규화한다. 현재 인증서 체인/호스트 검증 수준을
+유지하면서 향후 버전 의미 변경 경고를 피한다. 나머지 명시적 옵션과 CA 설정은 유지한다.
+인증서 검증을 끄는 옵션은 추가하지 않는다. Render 환경변수 자체는 변경하지 않는다.
+
+운영자는 기존 Render 서비스가 새 커밋으로 배포됐는지 먼저 확인하고, 유지 중인 memory 모드에서
+서비스 기동을 확인한 다음 CORE_STORAGE=postgres로 변경하여 재배포한다. 실패하면 Render Logs에서
+CORE_DB_INIT_FAILED 한 줄을 확인한다. 이 진단 변경을 위해 006을 재실행하거나 새 SQL을 실행할 필요는 없다.
+필요 시 CORE_STORAGE=memory로 복귀할 수 있으며 DB 데이터는 삭제/초기화하지 않는다.
+
+진단 변경 검증: typecheck/build 통과, 전체 테스트 113개 통과(실패·건너뛰기 0).
+초기화 순서/중단 단계/비밀값 비노출/SSL 별칭/memory 무접속 테스트 5개와 기존 DB·인증·memory 회귀를 포함한다.

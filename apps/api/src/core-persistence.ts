@@ -1,3 +1,4 @@
+import { coreConnectionString, safeCoreDbError } from "./core-db-diagnostics";
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   Inject,
@@ -5,6 +6,7 @@ import {
   OnModuleDestroy,
   OnModuleInit,
   ForbiddenException,
+  Logger,
 } from "@nestjs/common";
 import { Pool } from "pg";
 import { Company, DEFAULT_COMPANY } from "@jongro/shared";
@@ -203,6 +205,7 @@ export async function postgresCoreTransaction<T>(
 
 @Injectable()
 export class CorePersistence implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(CorePersistence.name);
   readonly mode = process.env.CORE_STORAGE ?? "memory"; // Explicit staged rollout; existing deployment stays compatible until SQL is applied.
   private pool?: Pool;
   private factories = new Map<CoreKind, () => Adapter>();
@@ -217,7 +220,7 @@ export class CorePersistence implements OnModuleInit, OnModuleDestroy {
       if (!process.env.CORE_DATABASE_URL)
         throw Error("CORE_DATABASE_URL 서버 비밀 환경변수가 필요합니다.");
       this.pool = new Pool({
-        connectionString: process.env.CORE_DATABASE_URL,
+        connectionString: coreConnectionString(process.env.CORE_DATABASE_URL),
         max: 5,
         connectionTimeoutMillis: 10000,
         query_timeout: 30000,
@@ -241,20 +244,28 @@ export class CorePersistence implements OnModuleInit, OnModuleDestroy {
   }
   async onModuleInit() {
     if (this.pool) {
+      let stage = "connection";
+      let table = "none";
       try {
-        for (const table of [
+        await this.pool.query("SELECT 1");
+        stage = "schema/table probe";
+        for (const target of [
           "companies",
           ...kinds,
           "worker_availability",
           "daily_work_participants",
-        ])
+        ]) {
+          table = target;
           await this.pool.query(
             `SELECT company_id FROM app_core.${table} LIMIT 0`,
           );
-      } catch {
-        throw Error(
-          "업무 PostgreSQL 연결 또는 006 스키마 확인 실패. SQL은 자동 실행하지 않습니다.",
-        );
+        }
+      } catch (error) {
+        const diagnostic = safeCoreDbError(error);
+        const summary = `CORE_DB_INIT_FAILED code=${diagnostic.code} stage=${stage} table=${table} message=${diagnostic.message}`;
+        this.logger.error(summary);
+        // Do not attach the raw error as cause: Nest logs error stacks at startup.
+        throw Error(`${summary}. SQL은 자동 실행하지 않습니다.`);
       }
     } else if (
       process.env.NODE_ENV === "production" &&
