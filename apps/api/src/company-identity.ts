@@ -61,6 +61,7 @@ export class CompanyIdentityInterceptor implements NestInterceptor {
           );
       }
     }
+    if (controller === "TenantController" && ["company","invite","register","apply","choose"].includes(handler)) return next.handle();
     if (controller === "TrialController" && ["start", "reset", "end"].includes(handler)) return next.handle();
     if (
       (controller === "AuthController" &&

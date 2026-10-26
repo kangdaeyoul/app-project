@@ -4,8 +4,8 @@ import {NestFactory} from '@nestjs/core';
 import {AppModule} from '../src/app.module';
 import {createHash,randomUUID} from 'node:crypto';
 const id='10000000-0000-4000-8000-000000000001', adminId='10000000-0000-4000-8000-000000000002';
-export async function fixture(){
- const names=['SUPABASE_URL','SUPABASE_PUBLISHABLE_KEY','AUTH_MODE','AUTH_SITE_URL','AUTH_SECURE_COOKIE','APP_ENV'];
+export async function fixture(options?:{onSignup?:(user:any)=>Promise<void>}){
+ const names=['SUPABASE_URL','SUPABASE_PUBLISHABLE_KEY','AUTH_MODE','AUTH_SITE_URL','AUTH_SECURE_COOKIE','APP_ENV','AUTH_GOOGLE_ENABLED','AUTH_EMAIL_ENABLED'];
  const prior=Object.fromEntries(names.map(k=>[k,process.env[k]]));
  const people=new Map<string,any>([['member',{id,email:'member@example.test',aud:'authenticated',role:'authenticated',created_at:new Date().toISOString(),user_metadata:{display_name:'신규 사용자',role:'admin',companyId:'jongro'},identities:[{id:'email',user_id:id,provider:'email'}]}],['admin',{id:adminId,email:'admin@example.test',aud:'authenticated',role:'authenticated',created_at:new Date().toISOString(),user_metadata:{},identities:[{id:'email',user_id:adminId,provider:'email'}]}]]);
  const signupPasswords=new Map<string,string>();
@@ -20,6 +20,7 @@ export async function fixture(){
    const existing=[...people.values()].find(p=>p.email===body.email);
    if(existing)return send(422,{code:'user_already_exists',msg:'User already registered'});
    const p={id:randomUUID(),email:body.email,aud:'authenticated',role:'authenticated',created_at:new Date().toISOString(),user_metadata:body.data??{},identities:[{id:randomUUID(),provider:'email'}],needs_confirmation:true};
+   try{await options?.onSignup?.(p);}catch{return send(500,{code:'unexpected_failure',msg:'Signup transaction failed'});}
    people.set(p.id,p);signupPasswords.set(p.email,body.password);rows.set(p.id,profile(p));return send(200,p);
   }
   if(u.pathname==='/auth/v1/token'){

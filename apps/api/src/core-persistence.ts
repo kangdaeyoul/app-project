@@ -99,7 +99,7 @@ export async function postgresCoreTransaction<T>(
     }
     const row = (
       await client.query(
-        "SELECT payload,auxiliary FROM app_core.companies WHERE company_id=$1 FOR UPDATE",
+        "SELECT payload,auxiliary,to_jsonb(c)->>'active' AS company_active FROM app_core.companies c WHERE company_id=$1 FOR UPDATE",
         [companyId],
       )
     ).rows[0];
@@ -107,6 +107,8 @@ export async function postgresCoreTransaction<T>(
       throw Error(
         "회사 DB 등록이 필요합니다. 006 마이그레이션과 회사 등록을 확인하세요.",
       );
+    if (row.company_active === "false")
+      throw new ForbiddenException("비활성 업체입니다.");
     const states = empty();
     const load = async (table: CoreKind) =>
       (
@@ -216,6 +218,7 @@ export class CorePersistence implements OnModuleInit, OnModuleDestroy {
   private local = new AsyncLocalStorage<{
     companyId: string;
     adapters: Map<CoreKind, Adapter>;
+    client: SqlClient;
   }>();
   constructor(@Inject(CompanyContext) private context: CompanyContext) {
     if (!["memory", "postgres"].includes(this.mode))
@@ -282,6 +285,32 @@ export class CorePersistence implements OnModuleInit, OnModuleDestroy {
       );
     }
   }
+  // Reuse the existing configured pool and current request transaction. No new connection or SSL settings.
+  async databaseQuery(sql: string, params?: any[]) {
+    const client = this.local.getStore()?.client ?? this.pool;
+    if (!client) throw Error("업체 등록에는 PostgreSQL 저장소가 필요합니다.");
+    return client.query(sql, params);
+  }
+  async databaseTransaction<T>(
+    work: (client: SqlClient) => Promise<T>,
+  ): Promise<T> {
+    const scoped = this.local.getStore()?.client;
+    if (scoped) return work(scoped);
+    if (!this.pool)
+      throw Error("업체 등록에는 PostgreSQL 저장소가 필요합니다.");
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await work(client);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
   async onModuleDestroy() {
     await this.pool?.end();
   }
@@ -290,11 +319,12 @@ export class CorePersistence implements OnModuleInit, OnModuleDestroy {
     if (!id || id.startsWith("trial_")) throw new ForbiddenException();
     const row = (
       await this.pool.query(
-        "SELECT payload FROM app_core.companies WHERE company_id=$1",
+        "SELECT payload,to_jsonb(c)->>'active' AS company_active FROM app_core.companies c WHERE company_id=$1",
         [id],
       )
     ).rows[0];
-    if (!row) throw new ForbiddenException("등록된 회사가 없습니다.");
+    if (!row || row.company_active === "false")
+      throw new ForbiddenException("등록된 활성 업체가 없습니다.");
     this.context.hydrate(companyProfile(id, row.payload));
     if (workerId) {
       const w = (
@@ -328,7 +358,7 @@ export class CorePersistence implements OnModuleInit, OnModuleDestroy {
           );
           return this.context.withCompanyState(state.company, () =>
             this.local.run(
-              { companyId: this.context.companyId, adapters },
+              { companyId: this.context.companyId, adapters, client },
               async () => {
                 const result = await work();
                 for (const k of kinds)

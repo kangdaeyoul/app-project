@@ -1,3 +1,4 @@
+import { TenantOnboardingService } from "./tenant-onboarding";
 import { CorePersistence } from "./core-persistence";
 import {authDiagnostic,googleLinkFailure,signupFailure,duplicateSignupMessage,signupSuccessMessage} from "./auth-errors";
 import { BadRequestException, ForbiddenException, Inject, Injectable, HttpException, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
@@ -23,13 +24,15 @@ const permissionNames = ['internalCosts','siteFinance','workerPayments','editSch
 export class SupabaseAuthService {
   private readonly logger = new Logger(SupabaseAuthService.name);
   private providerWarning = false;
-  private requests = new WeakMap<object, Promise<{client: SupabaseClient; user: User; membership: AuthMembership}>>();
+  private requests = new WeakMap<object, Promise<{client: SupabaseClient; user: User; membership: AuthMembership; memberships?:AuthMembership[]; selectionRequired?:boolean}>>();
   constructor(
+    @Inject(TenantOnboardingService) private tenants: TenantOnboardingService,
     @Inject(CorePersistence) private core: CorePersistence,
     @Inject(CompanyContext) private company: CompanyContext,
     @Inject(SITES_REPOSITORY) private sites: SitesRepository,
     @Inject(WORKERS_REPOSITORY) private workers: WorkersRepository,
   ) {}
+  get companyOnboardingEnabled(){return this.tenants.enabled;}
   get enabled() { return !!(process.env.SUPABASE_URL && (process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY)); }
   get required() { return process.env.AUTH_MODE === 'supabase' || (process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'test') || !!process.env.SUPABASE_URL || !!process.env.SUPABASE_PUBLISHABLE_KEY || !!process.env.SUPABASE_ANON_KEY; }
   hasCredentials(req: Request) {
@@ -80,6 +83,15 @@ export class SupabaseAuthService {
         const result = bearer ? await client.auth.getUser(bearer) : await client.auth.getUser();
         if (result.error || !result.data.user) throw new UnauthorizedException('Supabase 로그인이 필요합니다.');
         const user=result.data.user;
+        if(this.tenants.enabled){
+          const memberships=await this.tenants.memberships(user.id) as AuthMembership[];
+          const selected=parseCookieHeader(req.headers.cookie??'').find(c=>c.name==='field_company')?.value;
+          const approved=memberships.filter(m=>this.allowed(m));
+          const requested=selected ? memberships.find(m=>m.company_id===selected) : undefined;
+          const membership=requested ?? (approved.length===1&&!selected ? approved[0] : memberships.find(m=>m.approval_status==='pending') ?? memberships[0]);
+          const selectionRequired=approved.length>1&&!requested || !!selected&&!requested&&approved.length>0;
+          return {client,user,membership:membership ?? {user_id:user.id,email:user.email??'',display_name:'',requested_company:'',company_id:null,role:null,approval_status:'pending',active:false,locked:false,worker_id:null,site_ids:[],permissions:[],created_at:user.created_at} as AuthMembership,memberships,selectionRequired};
+        }
         let {data,error}=await client.from('app_memberships').select('*').eq('user_id',user.id).maybeSingle();
         if(error) throw this.failure();
         if(!data){
@@ -116,29 +128,52 @@ export class SupabaseAuthService {
     if(this.core.mode === "memory") this.company.run(i,()=>{if(i.workerId && (!this.workers.find(i.workerId)||this.workers.find(i.workerId)?.deletedAt))throw new ForbiddenException('유효한 작업진행자 연결이 필요합니다.');});
     return i;
   }
-  async resolve(req:Request) { const {membership}=await this.load(req,req.res!);return this.identity(membership); }
+  async verifiedUser(req:Request,res:Response){return (await this.load(req,res)).user;}
+  async selectCompany(req:Request,res:Response,body:any){
+    this.tenants.require();const loaded=await this.load(req,res);
+    if(Object.keys(body??{}).some(k=>k!=='companyId')||typeof body?.companyId!=='string'||!loaded.memberships?.some(m=>m.company_id===body.companyId&&this.allowed(m)))throw new ForbiddenException('승인된 소속 업체만 선택할 수 있습니다.');
+    this.companyCookie(res,body.companyId);return {ok:true};
+  }
+  private companyCookie(res:Response,value:string){res.cookie('field_company',value,{httpOnly:true,secure:process.env.AUTH_SECURE_COOKIE==='true'||process.env.NODE_ENV==='production',sameSite:'lax',path:'/'});}
+  async resolve(req:Request) { const loaded=await this.load(req,req.res!);if(loaded.selectionRequired)throw new ForbiddenException('접속할 업체를 먼저 선택하세요.');return this.identity(loaded.membership); }
   async me(req:Request,res:Response){
-    const {user,membership:m}=await this.load(req,res);
+    const loaded=await this.load(req,res);const {user,membership:m}=loaded;
     const providers=[...new Set((user.identities ?? []).map(i=>i.provider))];
     const account={id:user.id,email:user.email ?? '',providers,approvalStatus:m.approval_status};
-    if(!this.allowed(m)) return {user:null,company:null,account,access:m.approval_status==='pending'?'pending':'blocked',appBrand:APP_BRAND,authMode:'supabase'};
+    const companies=this.tenants.enabled ? await this.tenants.choices(user.id) : undefined;
+    if(loaded.selectionRequired)return {user:null,company:null,account,companies,access:'choose_company',appBrand:APP_BRAND,authMode:'supabase'};
+    if(!this.allowed(m)) return {user:null,company:null,account,companies,access:m.approval_status==='pending'?'pending':'blocked',appBrand:APP_BRAND,authMode:'supabase'};
     const identity=await this.identity(m);
-    return this.company.run(identity,()=>({user:this.currentUser(m,providers),company:companyBranding(this.company.settings()),account,access:m.role==='customer'?'customer':'approved',appBrand:APP_BRAND,authMode:'supabase'}));
+    return this.company.run(identity,()=>({user:this.currentUser(m,providers),company:companyBranding(this.company.settings()),account,companies,access:m.role==='customer'?'customer':'approved',appBrand:APP_BRAND,authMode:'supabase'}));
   }
   async login(req:Request,res:Response,body:any){
     if(typeof body?.login!=='string'||typeof body?.password!=='string'||body.login.length>254||body.password.length>200)throw new BadRequestException('이메일과 비밀번호를 확인하세요.');
-    const {error}=await this.client(req,res).auth.signInWithPassword({email:body.login.trim(),password:body.password});
+    const authClient=this.client(req,res);
+    const {data,error}=await authClient.auth.signInWithPassword({email:body.login.trim(),password:body.password});
     if(error)throw new UnauthorizedException('이메일·비밀번호 또는 이메일 인증 상태를 확인하세요.');
+    if(this.tenants.enabled){
+      res.clearCookie('field_company',{path:'/'});
+      const choices=await this.tenants.choices(data.user!.id);
+      if(body.companySlug){const match=choices.find(c=>c.company.slug===body.companySlug);if(!match){await authClient.auth.signOut({scope:'local'});throw new ForbiddenException('이 업체에 소속된 계정으로 로그인하세요.');}this.companyCookie(res,match.companyId);}
+    }
     res.clearCookie('field_session',{path:'/',httpOnly:true,sameSite:'lax'});
     return {ok:true};
   }
-  async signup(req:Request,res:Response,body:any){
+  async registerTenant(req:Request,res:Response,body:any){
+    const intent=await this.tenants.registration(body,req.ip??'unknown');
+    const result=await this.signup(req,res,{email:intent.email,name:intent.name,phone:intent.phone,password:body.password,role:intent.role,onboarding:intent.raw},true);
+    return {...result,status:intent.kind==='company'?'관리자 등록':'승인대기',companySlug:intent.slug,message:intent.kind==='company'?'업체와 관리자 계정이 등록되었습니다. 이메일 인증 후 로그인해 주세요.':result.message};
+  }
+  async signup(req:Request,res:Response,body:any,trusted=false){
+    if(body?.onboarding&&!trusted)throw new BadRequestException('가입 요청을 확인하세요.');
+    if(this.tenants.enabled&&!trusted)throw new BadRequestException('새 업체 등록 또는 관리자 초대 링크를 이용하세요.');
     for(const k of ['email','name','password'])if(typeof body?.[k]!=='string'||!body[k].trim()||body[k].length>200)throw new BadRequestException('가입 정보를 확인하세요.');
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim()))throw new BadRequestException({message:'이메일 주소 형식을 확인해 주세요.',code:'SIGNUP_INVALID_EMAIL'});
     if(body.password.length<8)throw new BadRequestException({message:'비밀번호는 8자 이상이어야 합니다.',code:'SIGNUP_PASSWORD_POLICY'});
     if(body.role!==undefined&&!['staff','worker','customer'].includes(body.role))throw new BadRequestException('희망 가입유형을 확인하세요. 실제 역할은 관리자가 지정합니다.');
     if(body.phone!==undefined&&(typeof body.phone!=='string'||body.phone.length>40||!/^[-+()0-9\s]*$/.test(body.phone)))throw new BadRequestException('휴대전화 번호를 확인해 주세요.');
-    const {data,error}=await this.client(req,res).auth.signUp({email:body.email.trim(),password:body.password,options:{emailRedirectTo:this.siteUrl()+'/api/auth/callback',data:{display_name:body.name.trim(),phone:(body.phone??'').trim(),requested_role:body.role??'staff',requested_company:typeof body.companyName==='string'?body.companyName.trim().slice(0,200):''}}});
+    const onboarding=body.onboarding;
+    const {data,error}=await this.client(req,res).auth.signUp({email:body.email.trim(),password:body.password,options:{emailRedirectTo:this.siteUrl()+'/api/auth/callback',data:{display_name:body.name.trim(),phone:(body.phone??'').trim(),requested_role:body.role??'staff',requested_company:typeof body.companyName==='string'?body.companyName.trim().slice(0,200):'',...(onboarding ? {onboarding_token:onboarding} : {})}}});
     if(error){
       this.logger.error(authDiagnostic('email_signup_failed',error,[body.password,body.email,body.phone??'']));
       const failure=signupFailure(error);throw new HttpException({message:failure.message,code:failure.code},failure.status);
@@ -172,12 +207,14 @@ export class SupabaseAuthService {
   }
   async logout(req:Request,res:Response){
     const {error}=await this.client(req,res).auth.signOut({scope:'local'});
+    res.clearCookie('field_company',{path:'/'});
     if(error)throw new ServiceUnavailableException('로그아웃을 완료하지 못했습니다. 다시 시도하세요.');
     return {ok:true};
   }
   async list(req:Request){
     this.company.assertMember(true);
     const {client}=await this.load(req,req.res!);
+    if(this.tenants.enabled){const rows=await this.tenants.users();const providers=await client.rpc('app_membership_providers');return rows.map(m=>this.currentUser(m as AuthMembership,(providers.data??[]).find((p:any)=>p.user_id===m.user_id)?.providers??[]));}
     const {data,error}=await client.from('app_memberships').select('*').or(`company_id.eq.${this.company.companyId},company_id.is.null`).order('created_at');
     if(error)throw this.failure();
     const providerResult=await client.rpc('app_membership_providers');
@@ -189,6 +226,7 @@ export class SupabaseAuthService {
   async pendingCount(req:Request){
     this.company.assertMember(true);
     const {client}=await this.load(req,req.res!);
+    if(this.tenants.enabled)return {count:(await this.tenants.users()).filter(m=>m.approval_status==='pending').length};
     const {data,error}=await client.from('app_memberships').select('user_id').eq('approval_status','pending').or(`company_id.eq.${this.company.companyId},company_id.is.null`);
     if(error)throw this.failure();
     return {count:data.length};
@@ -198,6 +236,7 @@ export class SupabaseAuthService {
     if(!body || !['approve','reject'].includes(body.action) || Object.keys(body).some(k=>!['action','companyId','role','workerId','siteIds','permissions'].includes(k)))throw new BadRequestException('승인 요청을 확인하세요.');
     if(body.action==='approve')return this.save(req,id,{...body,approvalStatus:'승인',active:true,locked:false},true);
     const {client}=await this.load(req,req.res!);
+    if(this.tenants.enabled)return this.currentUser(await this.tenants.updateMember(id,{role:null,approval_status:'rejected',active:false,locked:false,worker_id:null,site_ids:[],permissions:[]},true));
     // Claim the rejected request into the reviewing company so other tenants cannot see it.
     // No Auth user deletion, password or provider mutation occurs.
     const {data,error}=await client.from('app_memberships').update({company_id:this.company.companyId,role:null,approval_status:'rejected',active:false,locked:false,worker_id:null,site_ids:[],permissions:[]}).eq('user_id',id).eq('approval_status','pending').select('*').single();
@@ -211,6 +250,10 @@ export class SupabaseAuthService {
     if(!Array.isArray(body.siteIds)||body.siteIds.some((id:any)=>typeof id!=='string'||!this.sites.find(id))||!Array.isArray(body.permissions)||body.permissions.some((p:any)=>!permissionNames.includes(p))||(!['admin','staff'].includes(body.role)&&body.permissions.length))throw new BadRequestException('접근 범위를 확인하세요.');
     if(body.role==='worker'&&(!body.workerId||!this.workers.find(body.workerId)||this.workers.find(body.workerId)?.deletedAt))throw new BadRequestException('유효한 작업진행자를 연결하세요.');
     const {client}=await this.load(req,req.res!);
+    if(this.tenants.enabled){
+      const changes={role:body.role,approval_status:({'승인대기':'pending','승인':'approved','거절':'rejected','비활성':'inactive'} as Record<string,string>)[body.approvalStatus],active:body.active,locked:body.locked===true,worker_id:body.role==='worker'?body.workerId:null,site_ids:body.siteIds,permissions:body.permissions,...(pendingOnly?{}:{display_name:typeof body.displayName==='string'?body.displayName.trim().slice(0,200):''})};
+      return this.currentUser(await this.tenants.updateMember(id,changes,pendingOnly));
+    }
     let update=client.from('app_memberships').update({company_id:body.companyId,role:body.role,approval_status:({'승인대기':'pending','승인':'approved','거절':'rejected','비활성':'inactive'} as Record<string,string>)[body.approvalStatus],active:body.active,locked:body.locked===true,
       worker_id:body.role==='worker'?body.workerId:null,site_ids:body.siteIds,permissions:body.permissions,...(pendingOnly ? {} : {display_name:typeof body.displayName==='string'?body.displayName.trim().slice(0,200):''})}).eq('user_id',id);
     if(pendingOnly)update=update.eq('approval_status','pending');

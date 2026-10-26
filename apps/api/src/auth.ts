@@ -642,7 +642,13 @@ export class AuthController {
       authMode: this.real.required ? "supabase" : "demo",
       supabaseConfigured: this.real.enabled,
       demoEnabled: this.auth.demoEnabled === true,
+      loginProviders: {
+        emailEnabled: (process.env.AUTH_EMAIL_ENABLED === undefined || process.env.AUTH_EMAIL_ENABLED === 'true') && (!this.real.required || this.real.enabled),
+        googleEnabled: process.env.AUTH_GOOGLE_ENABLED === 'true' && this.real.required && this.real.enabled,
+        kakaoEnabled: false, naverEnabled: false, phoneEnabled: false, appleEnabled: false,
+      },
       trialEnabled: true,
+      companyOnboardingEnabled: this.real.companyOnboardingEnabled,
       loginRevision: "demo-config-no-cache-v3",
       buildVersion: process.env.RENDER_GIT_COMMIT ?? process.env.APP_BUILD_VERSION ?? "local",
     };

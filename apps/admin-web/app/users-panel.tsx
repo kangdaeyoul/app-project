@@ -1,4 +1,5 @@
 "use client";
+import {TenantAdminTools} from "./tenant-admin";
 import { useEffect, useState } from "react";
 import {ApprovalRequests} from "./approval-requests";
 import {permissionLabels} from "./user-permissions";
@@ -25,6 +26,7 @@ export default function UsersPanel() {
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false);
+  const [tab,setTab]=useState('active');
   const blank = (): Form => ({
     companyId: company.id,
     loginId: "",
@@ -53,6 +55,7 @@ export default function UsersPanel() {
   }
   useEffect(() => {
     void load();
+    if(sessionStorage.getItem('focus-approval-requests')==='true')setTab('pending');
     const timer=setInterval(load,30000);window.addEventListener("focus",load);
     return()=>{clearInterval(timer);window.removeEventListener("focus",load)};
   }, []);
@@ -99,8 +102,8 @@ export default function UsersPanel() {
           사용자 등록
         </button>
       </div>
-      {options?.authMode === "supabase" && <ApprovalRequests rows={rows} options={options} onChanged={load}/>}
-      {options?.authMode === "supabase" && <p>Supabase에 가입한 사용자가 승인대기로 표시됩니다. 요청한 회사명을 확인하고, 소속 회사·역할·승인 상태를 지정하세요. 로그인 제공자가 추가되어도 동일한 Supabase 사용자 UUID의 승인을 유지합니다. 비밀번호는 이 화면에서 설정하지 않습니다.</p>}
+      {options?.authMode === "supabase" && <><nav className="tenant-tabs" aria-label="사용자 상태">{[['active','사용중'],['pending','승인대기'],['rejected','거절'],['invites','초대링크']].map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</nav>{tab==='pending'&&<ApprovalRequests rows={rows} options={options} onChanged={load}/>}<div hidden={tab!=='invites'}><TenantAdminTools/></div></>}
+      {options?.authMode === "supabase" && <p>현재 업체의 가입 신청만 표시합니다. 초대된 사용자의 역할과 승인 상태를 확인하세요. 로그인 제공자가 추가되어도 동일한 Supabase 사용자 UUID의 승인을 유지합니다. 비밀번호는 이 화면에서 설정하지 않습니다.</p>}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -282,7 +285,7 @@ export default function UsersPanel() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((u) => (
+            {rows.filter(u=>options?.authMode!=='supabase'||(tab==='active'?u.approvalStatus!=='승인대기'&&u.approvalStatus!=='거절':tab==='rejected'?u.approvalStatus==='거절':false)).map((u) => (
               <tr key={u.id}>
                 <td>{u.displayName}</td>
                 <td>{u.name}</td>

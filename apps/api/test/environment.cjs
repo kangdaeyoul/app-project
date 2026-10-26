@@ -10,3 +10,7 @@ process.env.DEMO_LOGIN_ENABLED = 'true';
 
 // Hermetic tests must never contact an operator's Supabase project.
 for (const name of ['SUPABASE_URL','SUPABASE_PUBLISHABLE_KEY','SUPABASE_ANON_KEY','AUTH_MODE','AUTH_SITE_URL']) delete process.env[name];
+
+// UI provider tests explicitly enable supported providers when needed.
+delete process.env.AUTH_EMAIL_ENABLED;
+delete process.env.AUTH_GOOGLE_ENABLED;
