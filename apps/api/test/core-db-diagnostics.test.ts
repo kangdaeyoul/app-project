@@ -156,3 +156,66 @@ test("memory initialization neither creates a database pool nor emits database f
   await store.onModuleInit();
   await store.onModuleDestroy();
 });
+
+test("Session Pooler identity is preserved by normalization and by pg startup parsing", async () => {
+  const { randomBytes } = await import("node:crypto");
+  const { Client, Pool } = await import("pg");
+  const { coreDbTarget } = await import("../src/core-db-diagnostics");
+  // Generated fake alphanumeric password: never a production credential or a stored fixture.
+  const password = randomBytes(18).toString("hex");
+  const user = "postgres.fakeprojectreference";
+  const host = "aws-0-ap-northeast-2.pooler.supabase.com";
+  const uri = `postgresql://${user}:${password}@${host}:5432/postgres?uselibpqcompat=true&sslmode=require`;
+  const processed = coreConnectionString(uri);
+  assert.equal(processed, uri); // Explicit compat branch returns the original bytes, no URL serialization.
+  const params = (value: string) =>
+    (new Client({ connectionString: value }) as any).connectionParameters;
+  for (const value of [uri, processed]) {
+    const p = params(value);
+    assert.equal(p.user, user);
+    assert.equal(p.host, host);
+    assert.equal(p.port, 5432);
+    assert.equal(p.database, "postgres");
+    assert(p.password === password, "generated password preserved");
+    const startup = (
+      new Client({ connectionString: value }) as any
+    ).getStartupConf();
+    assert.equal(startup.user, user);
+  }
+  // Also exercise the URL reserialization branch without explicit libpq compatibility.
+  const alias = uri.replace("uselibpqcompat=true&", "");
+  const changed = params(coreConnectionString(alias));
+  for (const key of ["user", "host", "port", "database"])
+    assert.equal(changed[key], params(uri)[key]);
+  assert(
+    changed.password === password,
+    "generated password preserved after URL serialization",
+  );
+  const pool = new Pool({ connectionString: processed });
+  const line = coreDbTarget(pool.options);
+  assert.equal(
+    line,
+    `CORE_DB_TARGET host=${host} port=5432 database=postgres user=postgres.fake... sslmode=require uselibpqcompat=true`,
+  );
+  assert(!line.includes(password));
+  assert(!line.includes(uri));
+  assert(!line.includes(user));
+  // pg permits query overrides: diagnose the effective user, not just the URI authority.
+  assert(
+    coreDbTarget({ connectionString: uri + "&user=postgres" }).includes(
+      "user=postgres sslmode=",
+    ),
+  );
+  assert(
+    !coreDbTarget({ connectionString: uri + "&token=" + password }).includes(
+      password,
+    ),
+  );
+  assert(
+    !coreDbTarget({
+      connectionString:
+        uri + "&sslmode=" + password + "&uselibpqcompat=" + password,
+    }).includes(password),
+  );
+  await pool.end();
+});

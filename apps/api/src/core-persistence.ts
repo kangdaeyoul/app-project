@@ -1,4 +1,8 @@
-import { coreConnectionString, safeCoreDbError } from "./core-db-diagnostics";
+import {
+  coreConnectionString,
+  safeCoreDbError,
+  coreDbTarget,
+} from "./core-db-diagnostics";
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   Inject,
@@ -247,6 +251,8 @@ export class CorePersistence implements OnModuleInit, OnModuleDestroy {
       let stage = "connection";
       let table = "none";
       try {
+        if (this.pool.options?.connectionString)
+          this.logger.log(coreDbTarget(this.pool.options));
         await this.pool.query("SELECT 1");
         stage = "schema/table probe";
         for (const target of [

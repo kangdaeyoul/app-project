@@ -128,3 +128,28 @@ CORE_DB_INIT_FAILED 한 줄을 확인한다. 이 진단 변경을 위해 006을 
 
 진단 변경 검증: typecheck/build 통과, 전체 테스트 113개 통과(실패·건너뛰기 0).
 초기화 순서/중단 단계/비밀값 비노출/SSL 별칭/memory 무접속 테스트 5개와 기존 DB·인증·memory 회귀를 포함한다.
+
+## Session Pooler 대상 진단
+
+PostgreSQL 초기화에서 SELECT 1 직전에 CORE_DB_TARGET 한 줄을 추가한다. Pool에 실제 전달된
+options로 접속하지 않는 pg.Client를 생성해 유효 host/port/database/user를 읽는다. sslmode와
+uselibpqcompat는 pg 설치 위치에서 해석되는 동일 pg-connection-string 파서로 확인한다.
+옵션 객체/connectionParameters 전체, 비밀번호, 원문 URI, 임의 쿼리 매개변수는 출력하지 않는다.
+user는 postgres인 경우 그대로, postgres.<project-ref>는 참조값 앞 4자만 남긴다. 제어문자나
+예상하지 못한 형식의 필드는 숨긴다. 호스트는 이번 진단에 한해 허용된 대상 정보로 출력한다.
+
+현재 pg 8.23.1 코드에서 URI user 쿼리 옵션은 authority의 사용자명보다 우선하며,
+pg.Client의 startup 패킷 user는 해석된 connectionParameters.user이다. 코드가 프로젝트 접미사를
+제거하는 로직은 없다. uselibpqcompat=true&sslmode=require에서는 coreConnectionString이
+입력 문자열 자체를 그대로 반환하므로 new URL/toString에 의한 재직렬화가 일어나지 않는다.
+호환 플래그가 없는 SSL 별칭 정규화 분기도 가짜 URI로 검증하여 host/port/database/user와
+생성한 가짜 비밀번호가 보존되는 것을 확인한다. 운영 접속값과 실제 비밀번호는 읽거나 검증하지 않는다.
+
+Supavisor의 user "postgres" 표기는 내부 DB 역할 표기일 수 있으며, 이것만으로 클라이언트가
+postgres로 잘못 접속했다고 단정할 수 없다. 실제 Render의 CORE_DB_TARGET에서
+user=postgres.<앞4자>...인지 user=postgres인지 확인해야 한다. 전자여도 28P01이면 인증 실패의
+구체 원인(프로젝트와 자격증명의 일치 여부 등)은 추가 확인이 필요하며 이번 코드 변경이 해결했다고 보고하지 않는다.
+006 SQL/인증/API/UI/Render 환경변수/Supabase 비밀번호는 변경하지 않는다.
+
+Session Pooler 진단 검증: typecheck/build 통과, 전체 테스트 114개 통과(실패·건너뛰기 0).
+가짜 영문·숫자 비밀번호는 테스트 시 무작위 생성하며 파일에 저장하지 않는다.

@@ -107,3 +107,60 @@ export function coreConnectionString(connectionString: string): string {
     );
   }
 }
+
+/** Use the same installed parser as pg, and pg.Client's effective parameters (including
+ * query overrides/defaults), without opening a socket or serializing either object. */
+export function coreDbTarget(options: import("pg").ClientConfig): string {
+  const { Client } = require("pg") as typeof import("pg");
+  const { createRequire } =
+    require("node:module") as typeof import("node:module");
+  const parse = createRequire(require.resolve("pg"))("pg-connection-string")
+    .parse as (uri: string) => Record<string, unknown>;
+  const parsed = parse(options.connectionString ?? "");
+  const client = new Client(options) as import("pg").Client & {
+    connectionParameters: {
+      host: string;
+      port: number;
+      database: string;
+      user: string;
+    };
+  };
+  const effective = client.connectionParameters;
+  const host = /^[a-zA-Z0-9.:-]{1,253}$/.test(effective.host)
+    ? effective.host
+    : "[redacted]";
+  const database = /^[a-zA-Z0-9_-]{1,63}$/.test(effective.database)
+    ? effective.database
+    : "[redacted]";
+  const user =
+    effective.user === "postgres"
+      ? "postgres"
+      : /^postgres\.[a-zA-Z0-9_-]+$/.test(effective.user)
+        ? `postgres.${effective.user.slice(9, 13)}...`
+        : "[redacted]";
+  const sslmode = [
+    "disable",
+    "allow",
+    "prefer",
+    "require",
+    "verify-ca",
+    "verify-full",
+    "no-verify",
+  ].includes(String(parsed.sslmode))
+    ? String(parsed.sslmode)
+    : parsed.sslmode === undefined
+      ? "unspecified"
+      : "[redacted]";
+  const compat = ["true", "false"].includes(String(parsed.uselibpqcompat))
+    ? String(parsed.uselibpqcompat)
+    : parsed.uselibpqcompat === undefined
+      ? "unspecified"
+      : "[redacted]";
+  const port =
+    Number.isInteger(effective.port) &&
+    effective.port > 0 &&
+    effective.port <= 65535
+      ? effective.port
+      : "invalid";
+  return `CORE_DB_TARGET host=${host} port=${port} database=${database} user=${user} sslmode=${sslmode} uselibpqcompat=${compat}`;
+}
